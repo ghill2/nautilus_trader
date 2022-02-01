@@ -194,7 +194,7 @@ cdef class QuoteTick(Tick):
         else:
             raise ValueError(f"Cannot extract with PriceType {PriceTypeParser.to_str(price_type)}")
 
-    cpdef Quantity extract_volume(self, PriceType price_type):
+    cpdef int extract_volume(self, PriceType price_type):
         """
         Extract the volume for the given price type.
 
@@ -209,7 +209,7 @@ cdef class QuoteTick(Tick):
 
         """
         if price_type == PriceType.MID:
-            return Quantity((self.bid_size + self.ask_size) / 2, self.bid_size.precision + 1)
+            return (self.bid_size + self.ask_size) / 2
         elif price_type == PriceType.BID:
             return self.bid_size
         elif price_type == PriceType.ASK:
