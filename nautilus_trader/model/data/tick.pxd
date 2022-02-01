@@ -41,7 +41,7 @@ cdef class QuoteTick(Tick):
 
     @staticmethod
     cdef dict to_dict_c(QuoteTick obj)
-    cpdef Price extract_price(self, PriceType price_type)
+    cpdef double extract_price(self, PriceType price_type)
     cpdef Quantity extract_volume(self, PriceType price_type)
 
 

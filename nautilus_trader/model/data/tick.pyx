@@ -171,7 +171,7 @@ cdef class QuoteTick(Tick):
         """
         return QuoteTick.to_dict_c(obj)
 
-    cpdef Price extract_price(self, PriceType price_type):
+    cpdef double extract_price(self, PriceType price_type):
         """
         Extract the price for the given price type.
 
@@ -186,7 +186,7 @@ cdef class QuoteTick(Tick):
 
         """
         if price_type == PriceType.MID:
-            return Price(((self.bid + self.ask) / 2), self.bid.precision + 1)
+            return ((self.bid + self.ask) / 2)
         elif price_type == PriceType.BID:
             return self.bid
         elif price_type == PriceType.ASK:
