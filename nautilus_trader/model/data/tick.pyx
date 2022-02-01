@@ -82,10 +82,10 @@ cdef class QuoteTick(Tick):
     def __init__(
         self,
         InstrumentId instrument_id not None,
-        Price bid not None,
-        Price ask not None,
-        Quantity bid_size not None,
-        Quantity ask_size not None,
+        double bid,
+        double ask,
+        int bid_size,
+        int ask_size,
         int64_t ts_event,
         int64_t ts_init,
     ):

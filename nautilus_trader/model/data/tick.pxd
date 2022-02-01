@@ -27,13 +27,13 @@ cdef class Tick(Data):
 
 
 cdef class QuoteTick(Tick):
-    cdef readonly Price bid
+    cdef readonly double bid
     """The top of book bid price.\n\n:returns: `Price`"""
-    cdef readonly Price ask
+    cdef readonly double ask
     """The top of book ask price.\n\n:returns: `Price`"""
-    cdef readonly Quantity bid_size
+    cdef readonly int bid_size
     """The top of book bid size.\n\n:returns: `Quantity`"""
-    cdef readonly Quantity ask_size
+    cdef readonly int ask_size
     """The top of book ask size.\n\n:returns: `Quantity`"""
 
     @staticmethod

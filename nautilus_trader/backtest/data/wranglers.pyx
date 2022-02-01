@@ -214,10 +214,10 @@ cdef class QuoteTickDataWrangler:
         # be an ndarray with 4 elements [bid, ask, bid_size, ask_size] of type double.
         return QuoteTick(
             instrument_id=self.instrument.id,
-            bid=Price(values[0], self.instrument.price_precision),
-            ask=Price(values[1], self.instrument.price_precision),
-            bid_size=Quantity(values[2], self.instrument.size_precision),
-            ask_size=Quantity(values[3], self.instrument.size_precision),
+            bid=values[0],
+            ask=values[1],
+            bid_size=values[2],
+            ask_size=values[3],
             ts_event=ts_event,
             ts_init=ts_init,
         )
