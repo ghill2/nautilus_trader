@@ -219,7 +219,7 @@ cdef class QuoteTickDataWrangler:
             bid_size=values[2],
             ask_size=values[3],
             ts_event=ts_event,
-            ts_init=ts_init,
+            ts_init=ts_init
         )
 
 

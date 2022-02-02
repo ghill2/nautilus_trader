@@ -20,7 +20,7 @@ from nautilus_trader.model.identifiers cimport InstrumentId
 from nautilus_trader.model.objects cimport Price
 from nautilus_trader.model.objects cimport Quantity
 
-
+from libc.stdint cimport int64_t, uint8_t
 cdef class Tick(Data):
     cdef readonly InstrumentId instrument_id
     """The tick instrument ID.\n\n:returns: `InstrumentId`"""
@@ -35,6 +35,10 @@ cdef class QuoteTick(Tick):
     """The top of book bid size.\n\n:returns: `Quantity`"""
     cdef readonly int ask_size
     """The top of book ask size.\n\n:returns: `Quantity`"""
+    cdef readonly uint8_t precision
+
+    cdef uint8_t precision(self)
+
 
     @staticmethod
     cdef QuoteTick from_dict_c(dict values)

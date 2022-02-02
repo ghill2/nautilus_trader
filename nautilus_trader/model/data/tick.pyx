@@ -13,7 +13,7 @@
 #  limitations under the License.
 # -------------------------------------------------------------------------------------------------
 
-from libc.stdint cimport int64_t
+from libc.stdint cimport int64_t, uint8_t
 
 from nautilus_trader.core.correctness cimport Condition
 from nautilus_trader.core.data cimport Data
@@ -87,7 +87,7 @@ cdef class QuoteTick(Tick):
         int bid_size,
         int ask_size,
         int64_t ts_event,
-        int64_t ts_init,
+        int64_t ts_init
     ):
         super().__init__(instrument_id, ts_event, ts_init)
 
@@ -95,6 +95,9 @@ cdef class QuoteTick(Tick):
         self.ask = ask
         self.bid_size = bid_size
         self.ask_size = ask_size
+        
+    cdef uint8_t precision(self):
+        return 3
 
     def __eq__(self, QuoteTick other) -> bool:
         return QuoteTick.to_dict_c(self) == QuoteTick.to_dict_c(other)
