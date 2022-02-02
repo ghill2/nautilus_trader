@@ -643,30 +643,34 @@ cdef class Position:
         cum_qty: Decimal = qty + fill.last_qty
         return (start_cost + event_cost) / cum_qty
 
-    cdef object _calculate_points(self, avg_px_open: Decimal, avg_px_close: Decimal):
+    cdef object _calculate_return(self, avg_px_open: Decimal, avg_px_close: Decimal):
+        return self._calculate_points(avg_px_open, avg_px_close) / avg_px_open
+
+    cdef double _calculate_points(self, double avg_px_open, double avg_px_close):
         if self.side == PositionSide.LONG:
             return avg_px_close - avg_px_open
         elif self.side == PositionSide.SHORT:
             return avg_px_open - avg_px_close
         else:
-            return Decimal(0)  # FLAT
+            return 0.0  # FLAT
 
-    cdef object _calculate_points_inverse(self, avg_px_open: Decimal, avg_px_close: Decimal):
+    
+    
+    cdef double _calculate_points_inverse(self, double avg_px_open, double avg_px_close):
         if self.side == PositionSide.LONG:
             return (1 / avg_px_open) - (1 / avg_px_close)
         elif self.side == PositionSide.SHORT:
             return (1 / avg_px_close) - (1 / avg_px_open)
         else:
-            return Decimal(0)  # FLAT
+            return 0.0  # FLAT
 
-    cdef object _calculate_return(self, avg_px_open: Decimal, avg_px_close: Decimal):
-        return self._calculate_points(avg_px_open, avg_px_close) / avg_px_open
+    
 
-    cdef object _calculate_pnl(
+    cdef double _calculate_pnl(
         self,
-        avg_px_open: Decimal,
-        avg_px_close: Decimal,
-        quantity: Decimal,
+        avg_px_open: double,
+        avg_px_close: double,
+        quantity: double,
     ):
         if self.is_inverse:
             # In base currency

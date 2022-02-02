@@ -130,7 +130,8 @@ cdef class Position:
     cdef object _calculate_avg_px(self, avg_px: Decimal, qty: Decimal, OrderFilled fill)
     cdef object _calculate_avg_px_open_px(self, OrderFilled fill)
     cdef object _calculate_avg_px_close_px(self, OrderFilled fill)
-    cdef object _calculate_points(self, avg_px_open: Decimal, avg_px_close: Decimal)
-    cdef object _calculate_points_inverse(self, avg_px_open: Decimal, avg_px_close: Decimal)
     cdef object _calculate_return(self, avg_px_open: Decimal, avg_px_close: Decimal)
-    cdef object _calculate_pnl(self, avg_px_open: Decimal, avg_px_close: Decimal, quantity: Decimal)
+
+    cdef double _calculate_points(self, double avg_px_open, double avg_px_close)
+    cdef double _calculate_points_inverse(self, double avg_px_open, double avg_px_close)
+    cdef double _calculate_pnl(self, double avg_px_open, double avg_px_close, double quantity)
