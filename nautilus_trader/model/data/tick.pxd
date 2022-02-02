@@ -35,7 +35,7 @@ cdef class QuoteTick(Tick):
     """The top of book bid size.\n\n:returns: `Quantity`"""
     cdef readonly int ask_size
     """The top of book ask size.\n\n:returns: `Quantity`"""
-    cdef readonly uint8_t precision
+
 
     cdef uint8_t precision(self)
 
@@ -48,6 +48,7 @@ cdef class QuoteTick(Tick):
     cpdef double extract_price(self, PriceType price_type)
     cpdef int extract_volume(self, PriceType price_type)
 
+    cpdef Price to_obj(self, PriceType price_type)
 
 cdef class TradeTick(Tick):
     cdef readonly Price price

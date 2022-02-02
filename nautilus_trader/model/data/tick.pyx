@@ -24,7 +24,7 @@ from nautilus_trader.model.c_enums.price_type cimport PriceTypeParser
 from nautilus_trader.model.identifiers cimport InstrumentId
 from nautilus_trader.model.objects cimport Price
 from nautilus_trader.model.objects cimport Quantity
-
+from pytower.common.util import function_counter
 
 cdef class Tick(Data):
     """
@@ -96,9 +96,7 @@ cdef class QuoteTick(Tick):
         self.bid_size = bid_size
         self.ask_size = ask_size
         
-    cdef uint8_t precision(self):
-        return 3
-
+    
     def __eq__(self, QuoteTick other) -> bool:
         return QuoteTick.to_dict_c(self) == QuoteTick.to_dict_c(other)
 
@@ -196,6 +194,11 @@ cdef class QuoteTick(Tick):
             return self.ask
         else:
             raise ValueError(f"Cannot extract with PriceType {PriceTypeParser.to_str(price_type)}")
+    
+    cpdef Price to_obj(self, PriceType price_type):
+        cdef double price = self.extract_price(price_type)
+        function_counter("tick.to_obj()")
+        return Price(price, self.precision())
 
     cpdef int extract_volume(self, PriceType price_type):
         """
@@ -219,6 +222,9 @@ cdef class QuoteTick(Tick):
             return self.ask_size
         else:
             raise ValueError(f"Cannot extract with PriceType {PriceTypeParser.to_str(price_type)}")
+    
+    cdef uint8_t precision(self):
+        return 3
 
 
 cdef class TradeTick(Tick):
