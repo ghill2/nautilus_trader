@@ -44,15 +44,15 @@ cdef class BarBuilder:
     """The builders current update count.\n\n:returns: `int`"""
 
     cdef bint _partial_set
-    cdef Price _last_close
-    cdef Price _open
-    cdef Price _high
-    cdef Price _low
-    cdef Price _close
+    cdef double _last_close
+    cdef double _open
+    cdef double _high
+    cdef double _low
+    cdef double _close
     cdef object volume
 
     cpdef void set_partial(self, Bar partial_bar) except *
-    cpdef void update(self, Price price, Quantity size, int64_t ts_event) except *
+    cpdef void update(self, double price, int size, int64_t ts_event) except *
     cpdef void reset(self) except *
     cpdef Bar build_now(self)
     cpdef Bar build(self, int64_t ts_event)

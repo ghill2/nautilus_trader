@@ -72,11 +72,11 @@ cdef class BarBuilder:
         self.count = 0
 
         self._partial_set = False
-        self._last_close = None
-        self._open = None
-        self._high = None
-        self._low = None
-        self._close = None
+        self._last_close = 0
+        self._open = 0
+        self._high = 0
+        self._low = 0
+        self._close = 0
         self.volume = Decimal(0)
 
     def __repr__(self) -> str:
@@ -124,7 +124,7 @@ cdef class BarBuilder:
         self._partial_set = True
         self.initialized = True
 
-    cpdef void update(self, Price price, Quantity size, int64_t ts_event) except *:
+    cpdef void update(self, double price, int size, int64_t ts_event) except *:
         """
         Update the bar builder.
 
@@ -145,7 +145,7 @@ cdef class BarBuilder:
         if ts_event < self.ts_last:
             return  # Not applicable
 
-        if self._open is None:
+        if self._open is 0:
             # Initialize builder
             self._open = price
             self._high = price
@@ -199,7 +199,7 @@ cdef class BarBuilder:
         Bar
 
         """
-        if self._open is None:  # No tick was received
+        if self._open is 0:  # No tick was received
             self._open = self._last_close
             self._high = self._last_close
             self._low = self._last_close
@@ -207,10 +207,10 @@ cdef class BarBuilder:
 
         cdef Bar bar = Bar(
             bar_type=self._bar_type,
-            open=self._open,
-            high=self._high,
-            low=self._low,
-            close=self._close,
+            open=Price(self._open, self.size_precision),
+            high=Price(self._high, self.size_precision),
+            low=Price(self._low, self.size_precision),
+            close=Price(self._close, self.size_precision),
             volume=Quantity(self.volume, self.size_precision),
             ts_event=ts_event,  # TODO: Hardcoded identical for now...
             ts_init=ts_event,
