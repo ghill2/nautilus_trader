@@ -61,4 +61,4 @@ cdef class Portfolio(PortfolioFacade):
     cdef void _update_net_position(self, InstrumentId instrument_id, list positions_open) except *
     cdef Money _calculate_unrealized_pnl(self, InstrumentId instrument_id)
     cdef object _calculate_xrate_to_base(self, Account account, Instrument instrument, OrderSide side)
-    cdef Price _get_last_price(self, Position position)
+    cdef double _get_last_price(self, Position position)
