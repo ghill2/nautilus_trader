@@ -513,7 +513,7 @@ cdef class Position:
 
         return Money(pnl, self.cost_currency)
 
-    cpdef Money unrealized_pnl(self, Price last):
+    cpdef Money unrealized_pnl(self, double last):
         """
         Return the unrealized PnL from the given last quote tick.
 

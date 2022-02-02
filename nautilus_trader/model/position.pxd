@@ -121,7 +121,7 @@ cdef class Position:
 
     cpdef Money notional_value(self, Price last)
     cpdef Money calculate_pnl(self, avg_px_open: Decimal, avg_px_close: Decimal, quantity: Decimal)
-    cpdef Money unrealized_pnl(self, Price last)
+    cpdef Money unrealized_pnl(self, double last)
     cpdef Money total_pnl(self, Price last)
     cpdef list commissions(self)
 
