@@ -1386,6 +1386,7 @@ cdef class SimulatedExchange:
             # Remove order from market
             self._delete_order(order)
 
+        
         # Check contingency orders
         cdef ClientOrderId client_order_id
         cdef PassiveOrder child_order

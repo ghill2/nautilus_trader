@@ -38,7 +38,7 @@ from nautilus_trader.model.instruments.base cimport Instrument
 from nautilus_trader.model.objects cimport Price
 from nautilus_trader.model.objects cimport Quantity
 
-
+from libc.stdint cimport int64_t
 cdef class BarBuilder:
     """
     Provides a generic bar builder for aggregation.
@@ -77,7 +77,7 @@ cdef class BarBuilder:
         self._high = 0
         self._low = 0
         self._close = 0
-        self.volume = Decimal(0)
+        self.volume = 0
 
     def __repr__(self) -> str:
         return (
@@ -124,7 +124,7 @@ cdef class BarBuilder:
         self._partial_set = True
         self.initialized = True
 
-    cpdef void update(self, double price, int size, int64_t ts_event) except *:
+    cpdef void update(self, double price, int64_t size, int64_t ts_event) except *:
         """
         Update the bar builder.
 
@@ -171,7 +171,7 @@ cdef class BarBuilder:
         self._high = self._close
         self._low = self._close
 
-        self.volume = Decimal(0)
+        self.volume = 0
         self.count = 0
 
     cpdef Bar build_now(self):
@@ -205,17 +205,19 @@ cdef class BarBuilder:
             self._low = self._last_close
             self._close = self._last_close
 
+    
         cdef Bar bar = Bar(
             bar_type=self._bar_type,
-            open=Price(self._open, self.size_precision),
-            high=Price(self._high, self.size_precision),
-            low=Price(self._low, self.size_precision),
-            close=Price(self._close, self.size_precision),
+            open=Price(self._open, self.price_precision),
+            high=Price(self._high, self.price_precision),
+            low=Price(self._low, self.price_precision),
+            close=Price(self._close, self.price_precision),
             volume=Quantity(self.volume, self.size_precision),
             ts_event=ts_event,  # TODO: Hardcoded identical for now...
             ts_init=ts_event,
         )
 
+        
         self._last_close = self._close
         self.reset()
         return bar
@@ -298,7 +300,7 @@ cdef class BarAggregator:
             ts_event=tick.ts_event,
         )
 
-    cdef void _apply_update(self, double price, int size, int64_t ts_event) except *:
+    cdef void _apply_update(self, double price, int64_t size, int64_t ts_event) except *:
         raise NotImplementedError("method must be implemented in the subclass")  # pragma: no cover
 
     cdef void _build_now_and_send(self) except *:
@@ -348,7 +350,7 @@ cdef class TickBarAggregator(BarAggregator):
             logger=logger,
         )
 
-    cdef void _apply_update(self, double price, int size, int64_t ts_event) except *:
+    cdef void _apply_update(self, double price, int64_t size, int64_t ts_event) except *:
         self._builder.update(price, size, ts_event)
 
         if self._builder.count == self.bar_type.spec.step:
@@ -393,7 +395,7 @@ cdef class VolumeBarAggregator(BarAggregator):
             logger=logger,
         )
 
-    cdef void _apply_update(self, double price, int size, int64_t ts_event) except *:
+    cdef void _apply_update(self, double price, int64_t size, int64_t ts_event) except *:
         size_update = size
 
         while size_update > 0:  # While there is size to apply
@@ -473,7 +475,7 @@ cdef class ValueBarAggregator(BarAggregator):
         """
         return self._cum_value
 
-    cdef void _apply_update(self, double price, int size, int64_t ts_event) except *:
+    cdef void _apply_update(self, double price, int64_t size, int64_t ts_event) except *:
         size_update = size
 
         while size_update > 0:  # While there is value to apply
@@ -669,7 +671,7 @@ cdef class TimeBarAggregator(BarAggregator):
 
         self._log.debug(f"Started timer {timer_name}.")
 
-    cdef void _apply_update(self, double price, int size, int64_t ts_event) except *:
+    cdef void _apply_update(self, double price, int64_t size, int64_t ts_event) except *:
         if self._clock.is_test_clock:
             if self.next_close_ns < ts_event:
                 # Build bar first, then update

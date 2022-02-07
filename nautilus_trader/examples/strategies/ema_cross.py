@@ -33,7 +33,7 @@ from nautilus_trader.model.orderbook.data import OrderBookData
 from nautilus_trader.model.orders.market import MarketOrder
 from nautilus_trader.trading.strategy import TradingStrategy
 from nautilus_trader.trading.strategy import TradingStrategyConfig
-
+from nautilus_trader.core.datetime import *
 
 # *** THIS IS A TEST STRATEGY WITH NO ALPHA ADVANTAGE WHATSOEVER. ***
 # *** IT IS NOT INTENDED TO BE USED TO TRADE LIVE WITH REAL MONEY. ***
@@ -97,6 +97,7 @@ class EMACross(TradingStrategy):
 
         self.instrument: Optional[Instrument] = None  # Initialized in on_start
 
+        self.notified = False
     def on_start(self):
         """Actions to be performed on strategy start."""
         self.instrument = self.cache.instrument(self.instrument_id)
@@ -122,81 +123,6 @@ class EMACross(TradingStrategy):
         # self.subscribe_order_book_deltas(self.instrument_id, depth=20)  # For debugging
         # self.subscribe_order_book_snapshots(self.instrument_id, depth=20)  # For debugging
 
-    def on_instrument(self, instrument: Instrument):
-        """
-        Actions to be performed when the strategy is running and receives an
-        instrument.
-
-        Parameters
-        ----------
-        instrument : Instrument
-            The instrument received.
-
-        """
-        pass
-
-    def on_order_book_delta(self, data: OrderBookData):
-        """
-        Actions to be performed when the strategy is running and receives order data.
-
-        Parameters
-        ----------
-        data : OrderBookData
-            The order book data received.
-
-        """
-        self.log.info(f"Received {repr(data)}")  # For debugging (must add a subscription)
-
-    def on_order_book(self, order_book: OrderBook):
-        """
-        Actions to be performed when the strategy is running and receives an order book.
-
-        Parameters
-        ----------
-        order_book : OrderBook
-            The order book received.
-
-        """
-        self.log.info(f"Received {repr(order_book)}")  # For debugging (must add a subscription)
-        self.log.info(f"Bid count = {len(order_book.bids.levels)}")
-        self.log.info(f"Ask count = {len(order_book.asks.levels)}")
-
-    def on_ticker(self, ticker: Ticker):
-        """
-        Actions to be performed when the strategy is running and receives a ticker.
-
-        Parameters
-        ----------
-        ticker : Ticker
-            The ticker received.
-
-        """
-        self.log.info(f"Received {repr(ticker)}")  # For debugging (must add a subscription)
-
-    def on_quote_tick(self, tick: QuoteTick):
-        """
-        Actions to be performed when the strategy is running and receives a quote tick.
-
-        Parameters
-        ----------
-        tick : QuoteTick
-            The quote tick received.
-
-        """
-        # self.log.info(f"Received {repr(tick)}")  # For debugging (must add a subscription)
-
-    def on_trade_tick(self, tick: TradeTick):
-        """
-        Actions to be performed when the strategy is running and receives a trade tick.
-
-        Parameters
-        ----------
-        tick : TradeTick
-            The tick received.
-
-        """
-        self.log.info(f"Received {repr(tick)}")  # For debugging (must add a subscription)
-
     def on_bar(self, bar: Bar):
         """
         Actions to be performed when the strategy is running and receives a bar.
@@ -207,8 +133,28 @@ class EMACross(TradingStrategy):
             The bar received.
 
         """
-        self.log.info(f"Received {repr(bar)}")
-
+        """
+        DUKA-1-005   2019-01-06 22:03:59.364999936+00:00
+        DUKA-1-006      2019-01-06 22:06:29.988000+00:00
+        """
+        dt = unix_nanos_to_dt(bar.ts_event)
+        
+        
+            
+        print("\n")
+        print(str(dt), bar.open, bar.high, bar.low, bar.close)   
+        print(f"fast_ema: {self.fast_ema.value}, slow_ema: {self.slow_ema.value}")
+        print("self.fast_ema.value >= self.slow_ema.value",
+                self.fast_ema.value >= self.slow_ema.value)
+        print("self.portfolio.is_flat(self.instrument_id)",
+                self.portfolio.is_flat(self.instrument_id))
+        print("self.portfolio.is_net_short(self.instrument_id)",
+                self.portfolio.is_net_short(self.instrument_id))
+        print("self.portfolio.is_net_long(self.instrument_id)",
+                self.portfolio.is_net_long(self.instrument_id))
+        print(self.cache.positions_open())
+        
+        # quit()
         # Check if indicators ready
         if not self.indicators_initialized():
             self.log.info(
@@ -217,26 +163,48 @@ class EMACross(TradingStrategy):
             )
             return  # Wait for indicators to warm up...
 
+        
+        if not self.notified:
+            print(f"Warming finished at bar {str(dt)}")
+            self.notified = True
+            # quit()
+        
         # BUY LOGIC
         if self.fast_ema.value >= self.slow_ema.value:
+            
             if self.portfolio.is_flat(self.instrument_id):
                 self.buy()
             elif self.portfolio.is_net_short(self.instrument_id):
+                print("buy flattening...")
                 self.flatten_all_positions(self.instrument_id)
+                
                 self.buy()
 
+       
         # SELL LOGIC
         elif self.fast_ema.value < self.slow_ema.value:
             if self.portfolio.is_flat(self.instrument_id):
                 self.sell()
             elif self.portfolio.is_net_long(self.instrument_id):
+                print("sell flattening...")
                 self.flatten_all_positions(self.instrument_id)
                 self.sell()
 
+        # at 2019-01-05 10:00:00.000000872+00:00 this version opens a sell position from a long? why
+        
+        
+        if str(dt).startswith("2019-01-05 10"):
+            # 2019-01-06 23
+            # :03:59.364999936+00:00
+           
+            pass
+            # quit()
+            
     def buy(self):
         """
         Users simple buy method (example).
         """
+        print("BUY")
         order: MarketOrder = self.order_factory.market(
             instrument_id=self.instrument_id,
             order_side=OrderSide.BUY,
@@ -250,6 +218,7 @@ class EMACross(TradingStrategy):
         """
         Users simple sell method (example).
         """
+        print("SELL")
         order: MarketOrder = self.order_factory.market(
             instrument_id=self.instrument_id,
             order_side=OrderSide.SELL,
@@ -258,18 +227,6 @@ class EMACross(TradingStrategy):
         )
 
         self.submit_order(order)
-
-    def on_data(self, data: Data):
-        """
-        Actions to be performed when the strategy is running and receives generic data.
-
-        Parameters
-        ----------
-        data : Data
-            The data received.
-
-        """
-        pass
 
     def on_event(self, event: Event):
         """
@@ -281,7 +238,14 @@ class EMACross(TradingStrategy):
             The event received.
 
         """
-        pass
+        print(event)
+        from nautilus_trader.model.events.position import PositionEvent
+        if isinstance(event, PositionEvent):
+            if str(event.position_id) == 'DUKA-1-006':
+                pass
+                
+                # quit()
+            
 
     def on_stop(self):
         """

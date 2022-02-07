@@ -60,7 +60,7 @@ from nautilus_trader.model.position cimport Position
 from nautilus_trader.msgbus.bus cimport MessageBus
 from nautilus_trader.portfolio.base cimport PortfolioFacade
 
-from pytower.common.util import function_counter
+
 
 cdef tuple _UPDATE_ORDER_EVENTS = (
     OrderAccepted,
@@ -808,7 +808,7 @@ cdef class Portfolio(PortfolioFacade):
         net_exposure = Decimal(0)
 
         cdef Position position
-        cdef Price last
+        cdef double last
         for position in positions_open:
             last = self._get_last_price(position)
             if last is None:
@@ -1036,14 +1036,13 @@ cdef class Portfolio(PortfolioFacade):
         return Decimal(1)  # No conversion needed
 
     cdef double _get_last_price(self, Position position):
-        function_counter("portfolio._get_last_price")
+
         cdef QuoteTick quote_tick = self._cache.quote_tick(position.instrument_id)
         if quote_tick is not None:
             if position.side == PositionSide.LONG:
-                return quote_tick.ask
+                return quote_tick.bid
             elif position.side == PositionSide.SHORT:
                 return quote_tick.ask
-                
             else:  # pragma: no cover (design-time error)
                 raise RuntimeError(
                     f"invalid PositionSide, was {PositionSideParser.to_str(position.side)}",

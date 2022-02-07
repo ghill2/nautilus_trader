@@ -25,8 +25,6 @@ from nautilus_trader.model.instruments.base cimport Instrument
 cdef class QuoteTickDataWrangler:
     cdef readonly Instrument instrument
 
-    cpdef QuoteTick _build_tick(self, double[:] values, int64_t ts_event, int64_t ts_init_delta)
-
 
 cdef class TradeTickDataWrangler:
     cdef readonly Instrument instrument

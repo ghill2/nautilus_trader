@@ -30,7 +30,7 @@ from nautilus_trader.model.objects cimport MarginBalance
 from nautilus_trader.model.objects cimport Price
 from nautilus_trader.model.position cimport Position
 
-
+import inspect
 cdef class MarginAccount(Account):
     """
     Provides a margin account.
@@ -55,7 +55,6 @@ cdef class MarginAccount(Account):
     ):
         Condition.not_none(event, "event")
         Condition.equal(event.account_type, AccountType.MARGIN, "event.account_type", "account_type")
-
         super().__init__(event, calculate_account_state)
 
         self.default_leverage = Decimal(1)

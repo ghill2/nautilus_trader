@@ -32,8 +32,10 @@ from nautilus_trader.model.data.tick cimport QuoteTick
 from nautilus_trader.model.instruments.base cimport Instrument
 from nautilus_trader.model.objects cimport Price
 from nautilus_trader.model.objects cimport Quantity
+from nautilus_trader.model.identifiers cimport InstrumentId
 
-
+from datetime import datetime
+from time import perf_counter
 cdef class QuoteTickDataWrangler:
     """
     Provides a means of building lists of Nautilus `QuoteTick` objects.
@@ -53,29 +55,7 @@ cdef class QuoteTickDataWrangler:
         default_volume: float=1_000_000.0,
         ts_init_delta: int=0,
     ):
-        """
-        Process the give tick dataset into Nautilus `QuoteTick` objects.
-
-        Expects columns ['bid', 'ask'] with 'timestamp' index.
-        Note: The 'bid_size' and 'ask_size' columns are optional, will then use
-        the `default_volume`.
-
-        Parameters
-        ----------
-        data : pd.DataFrame
-            The tick data to process.
-        default_volume : float
-            The default volume for each tick (if not provided).
-        ts_init_delta : int
-            The difference in nanoseconds between the data timestamps and the
-            `ts_init` value. Can be used to represent/simulate latency between
-            the data source and the Nautilus system. Cannot be negative.
-
-        Returns
-        -------
-        list[QuoteTick]
-
-        """
+        
         Condition.false(data.empty, "data.empty")
         Condition.not_none(default_volume, "default_volume")
 
@@ -86,141 +66,44 @@ cdef class QuoteTickDataWrangler:
         if "ask_size" not in data.columns:
             data["ask_size"] = float(default_volume)
 
-        cdef int64_t[:] ts_events = np.ascontiguousarray([secs_to_nanos(dt.timestamp()) for dt in data.index], dtype=np.int64)  # noqa
-        cdef int64_t[:] ts_inits = np.ascontiguousarray([ts_event + ts_init_delta for ts_event in ts_events], dtype=np.int64)  # noqa
+        # data.reset_index(inplace=True)
 
-        return list(map(
-            self._build_tick,
-            data.values,
-            ts_events,
-            ts_inits,
-        ))
+        # start = perf_counter()
+        # cdef int64_t[:] ts = \
+        #     ((((data.index.to_series() -  datetime(1989, 12, 30) ).dt.total_seconds()).astype('uint64'))  * 1000).astype(np.int64).to_numpy()
+        # stop = perf_counter()
+        # print(f"Tick creation time vectorized: {stop-start} secs")
 
-    def process_bar_data(
-        self,
-        bid_data: pd.DataFrame,
-        ask_data: pd.DataFrame,
-        default_volume: float=1_000_000.0,
-        ts_init_delta: int=0,
-        random_seed=None,
-    ):
-        """
-        Process the given bar datasets into Nautilus `QuoteTick` objects.
 
-        Expects columns ['open', 'high', 'low', 'close', 'volume'] with 'timestamp' index.
-        Note: The 'volume' column is optional, will then use the `default_volume`.
-
-        Parameters
-        ----------
-        bid_data : pd.DataFrame
-            The bid bar data.
-        ask_data : pd.DataFrame
-            The ask bar data.
-        default_volume : float
-            The volume per tick if not available from the data.
-        ts_init_delta : int
-            The difference in nanoseconds between the data timestamps and the
-            `ts_init` value. Can be used to represent/simulate latency between
-            the data source and the Nautilus system.
-        random_seed : int, optional
-            The random seed for shuffling order of high and low ticks from bar
-            data. If random_seed is ``None`` then won't shuffle.
-
-        """
-        Condition.not_none(bid_data, "bid_data")
-        Condition.not_none(ask_data, "ask_data")
-        Condition.false(bid_data.empty, "bid_data.empty")
-        Condition.false(ask_data.empty, "ask_data.empty")
-        Condition.not_none(default_volume, "default_volume")
-        if random_seed is not None:
-            Condition.type(random_seed, int, "random_seed")
-
-        # Ensure index is tz-aware UTC
-        bid_data = as_utc_index(bid_data)
-        ask_data = as_utc_index(ask_data)
-
-        if "volume" not in bid_data:
-            bid_data["volume"] = float(default_volume * 4)
-
-        if "volume" not in ask_data:
-            ask_data["volume"] = float(default_volume * 4)
-
-        cdef dict data_open = {
-            "bid": bid_data["open"],
-            "ask": ask_data["open"],
-            "bid_size": bid_data["volume"] / 4,
-            "ask_size": ask_data["volume"] / 4,
-        }
-
-        cdef dict data_high = {
-            "bid": bid_data["high"],
-            "ask": ask_data["high"],
-            "bid_size": bid_data["volume"] / 4,
-            "ask_size": ask_data["volume"] / 4,
-        }
-
-        cdef dict data_low = {
-            "bid": bid_data["low"],
-            "ask": ask_data["low"],
-            "bid_size": bid_data["volume"] / 4,
-            "ask_size": ask_data["volume"] / 4,
-        }
-
-        cdef dict data_close = {
-            "bid": bid_data["close"],
-            "ask": ask_data["close"],
-            "bid_size": bid_data["volume"] / 4,
-            "ask_size": ask_data["volume"] / 4,
-        }
-
-        df_ticks_o = pd.DataFrame(data=data_open)
-        df_ticks_h = pd.DataFrame(data=data_high)
-        df_ticks_l = pd.DataFrame(data=data_low)
-        df_ticks_c = pd.DataFrame(data=data_close)
-
-        # Latency offsets
-        df_ticks_o.index = df_ticks_o.index.shift(periods=-300, freq="ms")
-        df_ticks_h.index = df_ticks_h.index.shift(periods=-200, freq="ms")
-        df_ticks_l.index = df_ticks_l.index.shift(periods=-100, freq="ms")
-
-        # Merge tick data
-        df_ticks_final = pd.concat([df_ticks_o, df_ticks_h, df_ticks_l, df_ticks_c])
-        df_ticks_final.sort_index(axis=0, kind="mergesort", inplace=True)
-
+        start = perf_counter()
+        cdef int64_t[:] ts = np.ascontiguousarray([secs_to_nanos(dt.timestamp()) for dt in data.index], dtype=np.int64)  # noqa
+        stop = perf_counter()
+        print(f"Tick creation time secs_to_nanos: {stop-start} secs")
+        
+        cdef InstrumentId instrument_id = self.instrument.id
+        
         cdef int i
-        # Randomly shift high low prices
-        if random_seed is not None:
-            random.seed(random_seed)
-            for i in range(0, len(df_ticks_final), 4):
-                if random.getrandbits(1):
-                    high = copy(df_ticks_final.iloc[i + 1])
-                    low = copy(df_ticks_final.iloc[i + 2])
-                    df_ticks_final.iloc[i + 1] = low
-                    df_ticks_final.iloc[i + 2] = high
+        cdef list ticks = []
+        cdef double[:] bid =  data.bid.to_numpy().astype(np.float64)
+        cdef double[:] ask = data.ask.to_numpy().astype(np.float64)
+        cdef int64_t[:] bid_size = data.bid_size.to_numpy().astype(np.int64)
+        cdef int64_t[:] ask_size = data.ask_size.to_numpy().astype(np.int64)
+        cdef QuoteTick tick
+        for i in range(0, len(ts)):
+            tick = QuoteTick.__new__(QuoteTick)
+            tick.instrument_id = instrument_id
+            tick.bid = bid[i]
+            tick.ask = ask[i]
+            tick.bid_size = bid_size[i]
+            tick.ask_size = ask_size[i]
+            tick.ts_event = ts[i]
+            tick.ts_init = ts[i]
+            ticks.append(tick)
 
-        cdef int64_t[:] ts_events = np.ascontiguousarray([secs_to_nanos(dt.timestamp()) for dt in df_ticks_final.index], dtype=np.int64)  # noqa
-        cdef int64_t[:] ts_inits = np.ascontiguousarray([ts_event + ts_init_delta for ts_event in ts_events], dtype=np.int64)  # noqa
+        return ticks
 
-        return list(map(
-            self._build_tick,
-            df_ticks_final.values,
-            ts_events,
-            ts_inits,
-        ))
+   
 
-    # cpdef method for Python wrap() (called with map)
-    cpdef QuoteTick _build_tick(self, double[:] values, int64_t ts_event, int64_t ts_init):
-        # Build a quote tick from the given values. The function expects the values to
-        # be an ndarray with 4 elements [bid, ask, bid_size, ask_size] of type double.
-        return QuoteTick(
-            instrument_id=self.instrument.id,
-            bid=values[0],
-            ask=values[1],
-            bid_size=values[2],
-            ask_size=values[3],
-            ts_event=ts_event,
-            ts_init=ts_init
-        )
 
 
 cdef class TradeTickDataWrangler:

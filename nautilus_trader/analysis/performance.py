@@ -65,6 +65,7 @@ class PerformanceAnalyzer:
             The positions for the calculations.
 
         """
+  
         self._account_balances_starting = account.starting_balances()
         self._account_balances = account.balances_total()
         self._realized_pnls = {}
@@ -72,6 +73,8 @@ class PerformanceAnalyzer:
 
         self.add_positions(positions)
         self._returns.sort_index()
+
+        
 
     def add_positions(self, positions: List[Position]) -> None:
         """
@@ -116,6 +119,7 @@ class PerformanceAnalyzer:
             The return value to add.
 
         """
+      
         if timestamp not in self._returns:
             self._returns.loc[timestamp] = 0.0
         self._returns.loc[timestamp] += float(value)

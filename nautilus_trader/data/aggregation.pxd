@@ -28,7 +28,7 @@ from nautilus_trader.model.data.tick cimport TradeTick
 from nautilus_trader.model.objects cimport Price
 from nautilus_trader.model.objects cimport Quantity
 
-
+from libc.stdint cimport int64_t
 cdef class BarBuilder:
     cdef BarType _bar_type
 
@@ -52,7 +52,7 @@ cdef class BarBuilder:
     cdef object volume
 
     cpdef void set_partial(self, Bar partial_bar) except *
-    cpdef void update(self, double price, int size, int64_t ts_event) except *
+    cpdef void update(self, double price, int64_t size, int64_t ts_event) except *
     cpdef void reset(self) except *
     cpdef Bar build_now(self)
     cpdef Bar build(self, int64_t ts_event)
@@ -68,10 +68,10 @@ cdef class BarAggregator:
 
     cpdef void handle_quote_tick(self, QuoteTick tick) except *
     cpdef void handle_trade_tick(self, TradeTick tick) except *
-    cdef void _apply_update(self, double price, int size, int64_t ts_event) except *
+    cdef void _apply_update(self, double price, int64_t size, int64_t ts_event) except *
     cdef void _build_now_and_send(self) except *
     cdef void _build_and_send(self, int64_t ts_event) except *
-
+    
 
 cdef class TickBarAggregator(BarAggregator):
     pass
