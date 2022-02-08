@@ -87,8 +87,7 @@ if __name__ == "__main__":
 
     ticks = catalog.quote_ticks(start=start_date, end=end_date)
     # ticks = catalog.quote_ticks(start=start_date, end=end_date)
-    print(ticks)
-    exit()
+                    
     venue = Venue("DUKA")
     # this failed on update
     instrument = catalog.instruments(as_nautilus=True)[0] #instrument.id is None
@@ -142,12 +141,12 @@ if __name__ == "__main__":
             list(range(20, 94 + 1, 2))
         )
     ]
-    PARAM_SET = PARAM_SET[0]
+    PARAM_SET = [PARAM_SET[0]]
     
     configs = []
     save_func = pickle.dumps(on_save)
     
-    
+  
     collection = ResultsCollection.create(RESULTS_DIR, PARAM_SET)
 
     

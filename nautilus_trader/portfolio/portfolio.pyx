@@ -808,9 +808,9 @@ cdef class Portfolio(PortfolioFacade):
         net_exposure = Decimal(0)
 
         cdef Position position
-        cdef double last
+        cdef Price last
         for position in positions_open:
-            last = self._get_last_price(position)
+            last = Price(self._get_last_price(position), instrument.price_precision)
             if last is None:
                 self._log.error(
                     f"Cannot calculate net exposure: "
