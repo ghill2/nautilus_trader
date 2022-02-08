@@ -625,7 +625,7 @@ cdef class RiskEngine(Component):
         cdef Price last_px = None
 
         max_notional: Optional[Decimal] = self._max_notional_per_order.get(instrument.id)
-
+        
         cdef Order order
         for order in orders:
             if order.type == OrderType.MARKET:
@@ -634,9 +634,11 @@ cdef class RiskEngine(Component):
                     last_quote = self._cache.quote_tick(instrument.id)
                     if last_quote is not None:
                         if order.side == OrderSide.BUY:
-                            last_px = last_quote.to_obj(PriceType.ASK)
+                            last_px = Price(last_quote.extract_price(PriceType.ASK),
+                                            instrument.price_precision)
                         elif order.side == OrderSide.SELL:
-                            last_px = last_quote.to_obj(PriceType.BID)
+                            last_px = Price(last_quote.extract_price(PriceType.BID),
+                                            instrument.price_precision)
                         else:  # pragma: no cover (design-time error)
                             raise RuntimeError("invalid order side")
                     else:

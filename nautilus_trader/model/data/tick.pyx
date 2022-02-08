@@ -95,7 +95,7 @@ cdef class QuoteTick(Tick):
         self.ask = ask
         self.bid_size = bid_size
         self.ask_size = ask_size
-        self.precision = 5
+        # self.precision = 5
         
     
     def __eq__(self, QuoteTick other) -> bool:
@@ -196,10 +196,10 @@ cdef class QuoteTick(Tick):
         else:
             raise ValueError(f"Cannot extract with PriceType {PriceTypeParser.to_str(price_type)}")
     
-    cpdef Price to_obj(self, PriceType price_type):
-        cdef double price = self.extract_price(price_type)
+    # cpdef Price to_obj(self, PriceType price_type):
+    #     cdef double price = self.extract_price(price_type)
 
-        return Price(price, self.precision)
+    #    return Price(price, self.precision)
 
     cpdef int64_t extract_volume(self, PriceType price_type):
         """

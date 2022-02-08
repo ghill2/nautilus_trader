@@ -36,6 +36,8 @@ from nautilus_trader.model.identifiers cimport InstrumentId
 
 from datetime import datetime
 from time import perf_counter
+
+from pytower.common.date import dt_to_unix_nanos_vectorized
 cdef class QuoteTickDataWrangler:
     """
     Provides a means of building lists of Nautilus `QuoteTick` objects.
@@ -66,19 +68,9 @@ cdef class QuoteTickDataWrangler:
         if "ask_size" not in data.columns:
             data["ask_size"] = float(default_volume)
 
-        # data.reset_index(inplace=True)
-
-        # start = perf_counter()
-        # cdef int64_t[:] ts = \
-        #     ((((data.index.to_series() -  datetime(1989, 12, 30) ).dt.total_seconds()).astype('uint64'))  * 1000).astype(np.int64).to_numpy()
-        # stop = perf_counter()
-        # print(f"Tick creation time vectorized: {stop-start} secs")
-
-
-        start = perf_counter()
-        cdef int64_t[:] ts = np.ascontiguousarray([secs_to_nanos(dt.timestamp()) for dt in data.index], dtype=np.int64)  # noqa
-        stop = perf_counter()
-        print(f"Tick creation time secs_to_nanos: {stop-start} secs")
+        cdef int64_t[:] ts = np.ascontiguousarray(
+            dt_to_unix_nanos_vectorized(data.index.to_series())
+        )  # noqa
         
         cdef InstrumentId instrument_id = self.instrument.id
         
