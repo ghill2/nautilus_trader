@@ -25,6 +25,7 @@ from nautilus_trader.model.identifiers cimport InstrumentId
 from nautilus_trader.model.objects cimport Price
 from nautilus_trader.model.objects cimport Quantity
 
+from decimal import Decimal
 
 cdef class Tick(Data):
     """
@@ -95,7 +96,6 @@ cdef class QuoteTick(Tick):
         self.ask = ask
         self.bid_size = bid_size
         self.ask_size = ask_size
-        # self.precision = 5
         
     
     def __eq__(self, QuoteTick other) -> bool:
@@ -173,6 +173,7 @@ cdef class QuoteTick(Tick):
         """
         return QuoteTick.to_dict_c(obj)
 
+    
     cpdef double extract_price(self, PriceType price_type):
         """
         Extract the price for the given price type.
@@ -196,11 +197,19 @@ cdef class QuoteTick(Tick):
         else:
             raise ValueError(f"Cannot extract with PriceType {PriceTypeParser.to_str(price_type)}")
     
-    # cpdef Price to_obj(self, PriceType price_type):
-    #     cdef double price = self.extract_price(price_type)
+    
+    cpdef Price extract_price_obj(self, PriceType price_type):
+        cdef uint8_t precision = self.cache.instrument(self.instrument_id).price_precision
+        cdef double value = self.extract_price(price_type)
+        return Price(value, precision)
 
-    #    return Price(price, self.precision)
+    cpdef object as_decimal(self, PriceType price_type):
+        cdef uint8_t precision = self.cache.instrument(self.instrument_id).price_precision
+        cdef double value = self.extract_price(price_type)
+        return Decimal(f'{value:.{precision}f}')
 
+      
+    
     cpdef int64_t extract_volume(self, PriceType price_type):
         """
         Extract the volume for the given price type.

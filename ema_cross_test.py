@@ -26,58 +26,58 @@ import dill as pickle
 import itertools
 from pytower import CATALOG_DIR
 from pytower.data.results.collection import ResultsCollection
-def on_save(data):
-    import pandas as pd
-    from pytower.plot.objects import Plot, Line, BarPlot, LinePlot
-    from pytower.plot.window import Window
-    from nautilus_trader.model.enums import PriceType
+# def on_save(data):
+#     import pandas as pd
+#     from pytower.plot.objects import Plot, Line, BarPlot, LinePlot
+#     from pytower.plot.window import Window
+#     from nautilus_trader.model.enums import PriceType
     
-    print("\n", data.folder, data.params)
-    df = data.dataframe(
-        price_type=PriceType.BID,
-        #offset=pd.Timedelta(hours=1)
-    )
-    with pd.option_context(
-        "display.max_rows",
-        100,
-        "display.max_columns",
-        None,
-        "display.width",
-        300,
-    ):  
-        print(df)
+#     print("\n", data.folder, data.params)
+#     df = data.dataframe(
+#         price_type=PriceType.BID,
+#         #offset=pd.Timedelta(hours=1)
+#     )
+#     with pd.option_context(
+#         "display.max_rows",
+#         100,
+#         "display.max_columns",
+#         None,
+#         "display.width",
+#         300,
+#     ):  
+#         print(df)
 
-    window = Window(
-        index=df.index
-        #range_start=datetime(2010, 9, 6, 0,0,0),
-        #range_end=datetime(2012, 9, 6, 0,0,0)
-    )
+#     window = Window(
+#         index=df.index
+#         #range_start=datetime(2010, 9, 6, 0,0,0),
+#         #range_end=datetime(2012, 9, 6, 0,0,0)
+#     )
     
-    window.add(
-        BarPlot(
-            lines=[
-                Line(
-                    data=df["net_position"],
-                    color="red",
-                    width=1,
-                    name='net_position'
-                ),
-            ],
-            data=df)
-        )
-    window.add(
-        LinePlot(lines=[
-                Line(
-                    data=df.net_position,
-                    color="purple",
-                    width=1,
-                    name='net_position'
-                ),
-            ]
-        )
-    )
+#     window.add(
+#         BarPlot(
+#             lines=[
+#                 Line(
+#                     data=df["net_position"],
+#                     color="red",
+#                     width=1,
+#                     name='net_position'
+#                 ),
+#             ],
+#             data=df)
+#         )
+#     window.add(
+#         LinePlot(lines=[
+#                 Line(
+#                     data=df.net_position,
+#                     color="purple",
+#                     width=1,
+#                     name='net_position'
+#                 ),
+#             ]
+#         )
+#     )
 
-    data.write(window=window)
+#     data.write(window=window)
 if __name__ == "__main__":
     CATALOG_PATH = f"{CATALOG_DIR}/DUKA/EURUSD"
     catalog = DataCatalog(CATALOG_PATH)
@@ -110,7 +110,6 @@ if __name__ == "__main__":
         venues=[
             BacktestVenueConfig(
                 name="DUKA",
-                #venue_type="ECN",
                 oms_type="HEDGING",
                 account_type="MARGIN",
                 base_currency="USD",

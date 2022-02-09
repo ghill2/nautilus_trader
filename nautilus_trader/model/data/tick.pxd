@@ -48,7 +48,8 @@ cdef class QuoteTick(Tick):
     cpdef double extract_price(self, PriceType price_type)
     cpdef int64_t extract_volume(self, PriceType price_type)
 
-    # cpdef Price to_obj(self, PriceType price_type)
+    cpdef Price extract_price_obj(self, PriceType price_type)
+    cpdef object as_decimal(self, PriceType price_type)
 
 cdef class TradeTick(Tick):
     cdef readonly Price price
