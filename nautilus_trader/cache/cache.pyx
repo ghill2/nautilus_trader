@@ -1885,8 +1885,8 @@ cdef class Cache(CacheFacade):
                 # No quotes for instrument_id
                 continue
 
-            bid_quotes[base_quote] = ticks[0].bid.as_decimal()
-            ask_quotes[base_quote] = ticks[0].ask.as_decimal()
+            bid_quotes[base_quote] = ticks[0].as_decimal(PriceType.BID)
+            ask_quotes[base_quote] = ticks[0].as_decimal(PriceType.ASK)
 
         return bid_quotes, ask_quotes
 
