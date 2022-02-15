@@ -119,16 +119,27 @@ cdef class QuoteTick(Tick):
 
     @staticmethod
     cdef QuoteTick from_dict_c(dict values):
-        Condition.not_none(values, "values")
-        return QuoteTick(
-            instrument_id=InstrumentId.from_str_c(values["instrument_id"]),
-            bid=Price.from_str_c(values["bid"]),
-            ask=Price.from_str_c(values["ask"]),
-            bid_size=Quantity.from_str_c(values["bid_size"]),
-            ask_size=Quantity.from_str_c(values["ask_size"]),
-            ts_event=values["ts_event"],
-            ts_init=values["ts_init"],
-        )
+        # Condition.not_none(values, "values")
+        
+        cdef QuoteTick tick
+        tick = QuoteTick.__new__(QuoteTick)
+        tick.instrument_id = InstrumentId.from_str_c(values["instrument_id"])
+        tick.bid = values['bid']
+        tick.ask = values['ask']
+        tick.bid_size = values['bid_size']
+        tick.ask_size = values['ask_size']
+        tick.ts_event = values['ts_event']
+        tick.ts_init = values['ts_init']
+        return tick
+        # QuoteTick(
+        #    instrument_id=InstrumentId.from_str_c(values["instrument_id"]),
+        #    bid=Price.from_str_c(values["bid"]),
+        #    ask=Price.from_str_c(values["ask"]),
+        #    bid_size=Quantity.from_str_c(values["bid_size"]),
+        #    ask_size=Quantity.from_str_c(values["ask_size"]),
+        #    ts_event=values["ts_event"],
+        #    ts_init=values["ts_init"],
+        #)
 
     @staticmethod
     cdef dict to_dict_c(QuoteTick obj):
@@ -136,10 +147,10 @@ cdef class QuoteTick(Tick):
         return {
             "type": type(obj).__name__,
             "instrument_id": obj.instrument_id.value,
-            "bid": str(obj.bid),
-            "ask": str(obj.ask),
-            "bid_size": str(obj.bid_size),
-            "ask_size": str(obj.ask_size),
+            "bid": obj.bid, # str()
+            "ask": obj.ask, # str()
+            "bid_size": obj.bid_size, # str()
+            "ask_size": obj.ask_size, # str()
             "ts_event": obj.ts_event,
             "ts_init": obj.ts_init,
         }

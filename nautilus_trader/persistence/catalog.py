@@ -181,6 +181,8 @@ class DataCatalog(metaclass=Singleton):
             for d in dicts:
                 if d[key] in maps:
                     d[key] = maps[d[key]]
+                    
+        
         data = ParquetSerializer.deserialize(cls=cls, chunk=dicts)
         return data
 

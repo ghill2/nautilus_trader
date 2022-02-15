@@ -17,7 +17,7 @@ from collections import deque
 from decimal import Decimal
 from typing import Optional
 
-from libc.stdint cimport int64_t
+from libc.stdint cimport int64_t, uint8_t
 
 from nautilus_trader.accounting.accounts.base cimport Account
 from nautilus_trader.accounting.calculators cimport ExchangeRateCalculator
@@ -1876,6 +1876,7 @@ cdef class Cache(CacheFacade):
 
         cdef InstrumentId instrument_id
         cdef str base_quote
+        cdef uint8_t price_precision
         for instrument_id, base_quote in self._xrate_symbols.items():
             if instrument_id.venue != venue:
                 continue
@@ -1885,8 +1886,9 @@ cdef class Cache(CacheFacade):
                 # No quotes for instrument_id
                 continue
 
-            bid_quotes[base_quote] = ticks[0].as_decimal(PriceType.BID)
-            ask_quotes[base_quote] = ticks[0].as_decimal(PriceType.ASK)
+            price_precision = self.instrument(instrument_id).price_precision
+            bid_quotes[base_quote] = Price(ticks[0].bid, price_precision)
+            ask_quotes[base_quote] = Price(ticks[0].ask, price_precision)
 
         return bid_quotes, ask_quotes
 

@@ -81,6 +81,7 @@ cdef class QuoteTickDataWrangler:
         cdef int64_t[:] bid_size = data.bid_size.to_numpy().astype(np.int64)
         cdef int64_t[:] ask_size = data.ask_size.to_numpy().astype(np.int64)
         cdef QuoteTick tick
+        
         for i in range(0, len(ts)):
             tick = QuoteTick.__new__(QuoteTick)
             tick.instrument_id = instrument_id
@@ -217,7 +218,7 @@ cdef class BarDataWrangler:
             The difference in nanoseconds between the data timestamps and the
             `ts_init` value. Can be used to represent/simulate latency between
             the data source and the Nautilus system.
-
+        
         Returns
         -------
         list[Bar]

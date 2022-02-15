@@ -81,10 +81,10 @@ NAUTILUS_PARQUET_SCHEMA = {
     QuoteTick: pa.schema(
         {
             "instrument_id": pa.dictionary(pa.int8(), pa.string()),
-            "bid": pa.string(),
-            "bid_size": pa.string(),
-            "ask": pa.string(),
-            "ask_size": pa.string(),
+            "bid": pa.float64(),
+            "bid_size": pa.float64(),
+            "ask": pa.float64(),
+            "ask_size": pa.float64(),
             "ts_event": pa.int64(),
             "ts_init": pa.int64(),
         },

@@ -37,9 +37,6 @@ cdef class QuoteTick(Tick):
     
     cdef readonly uint8_t precision
 
-    
-
-
     @staticmethod
     cdef QuoteTick from_dict_c(dict values)
 

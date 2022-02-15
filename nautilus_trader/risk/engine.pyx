@@ -412,8 +412,9 @@ cdef class RiskEngine(Component):
 
         if not self._check_orders_risk(instrument, [command.order]):
             return # Denied
-
+        
         self._execution_gateway(instrument, command, order=command.order)
+        
 
     cdef void _handle_submit_order_list(self, SubmitOrderList command) except *:
         cdef Order order

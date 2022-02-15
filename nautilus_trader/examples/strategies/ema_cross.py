@@ -98,7 +98,10 @@ class EMACross(TradingStrategy):
         self.instrument: Optional[Instrument] = None  # Initialized in on_start
 
         self.notified = False
+        
+        
     def on_start(self):
+        
         """Actions to be performed on strategy start."""
         self.instrument = self.cache.instrument(self.instrument_id)
         if self.instrument is None:
@@ -106,6 +109,8 @@ class EMACross(TradingStrategy):
             self.stop()
             return
 
+        
+        
         # Register the indicators for updating
         self.register_indicator_for_bars(self.bar_type, self.fast_ema)
         self.register_indicator_for_bars(self.bar_type, self.slow_ema)
@@ -124,6 +129,7 @@ class EMACross(TradingStrategy):
         # self.subscribe_order_book_snapshots(self.instrument_id, depth=20)  # For debugging
 
     def on_bar(self, bar: Bar):
+        
         """
         Actions to be performed when the strategy is running and receives a bar.
 

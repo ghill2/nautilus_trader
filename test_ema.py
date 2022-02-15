@@ -81,12 +81,13 @@ if __name__ == "__main__":
     
     wrangler = QuoteTickDataWrangler(instrument=instrument)
     start = perf_counter()
-    ticks= wrangler.process(ticks_df)
+    ticks = wrangler.process(ticks_df)
+    
+    
     # ticks = catalog.quote_ticks(start=start_date, end=end_date, as_nautilus=True)
     stop = perf_counter()
     tick_creation_time = stop-start
     # with old wrangler: Tick creation time: 13.708742852999421 secs
-    
 
     venue = Venue("DUKA")
     # this failed on update

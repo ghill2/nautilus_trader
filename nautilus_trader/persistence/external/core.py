@@ -264,6 +264,7 @@ def write_parquet(
     mappings = check_partition_columns(df=df, partition_columns=partition_cols)
     df = clean_partition_cols(df=df, mappings=mappings)
 
+    
     # Dataframe -> pyarrow Table
     table = pa.Table.from_pandas(df, schema=schema)
 

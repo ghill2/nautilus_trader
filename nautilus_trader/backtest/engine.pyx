@@ -68,7 +68,7 @@ from nautilus_trader.trading.strategy cimport TradingStrategy
 from nautilus_trader.analysis.performance import PerformanceAnalyzer
 from nautilus_trader.backtest.config import BacktestEngineConfig
 from nautilus_trader.backtest.results import BacktestResult
-
+from time import perf_counter
 
 cdef class BacktestEngine:
     """
@@ -371,7 +371,11 @@ cdef class BacktestEngine:
         self._add_market_data_client_if_not_exists(first.instrument_id.venue)
 
         # Add data
-        self._data = sorted(self._data + data, key=lambda x: x.ts_init)
+        # start = perf_counter()
+        # self._data = sorted(self._data + data, key=lambda x: x.ts_init)
+        self._data = self._data + data
+        # stop = perf_counter()
+        # print(f"Sorted in {stop-start}"); quit()
 
         self._log.info(
             f"Added {len(data):,} {first.instrument_id} "

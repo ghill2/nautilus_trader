@@ -180,22 +180,25 @@ class BacktestDataConfig(Partialable):
         )
 
     def load(self, start_time=None, end_time=None):
-        query = self.query
-        query.update(
-            {
-                "start": start_time or query["start"],
-                "end": end_time or query["end"],
-                "filter_expr": parse_filters_expr(query.pop("filter_expr", "None")),
-            }
-        )
+        
+        # query = self.query
+        # query.update(
+        #     {
+        #         "start": start_time or query["start"],
+        #         "end": end_time or query["end"],
+        #         "filter_expr": parse_filters_expr(query.pop("filter_expr", "None")),
+        #     }
+        # )
 
-        catalog = self.catalog()
-        instruments = catalog.instruments(instrument_ids=self.instrument_id, as_nautilus=True)
-        if not instruments:
-            return {"data": [], "instrument": None}
-        data = catalog.query(**query)
+        # catalog = self.catalog()
+        # instruments = catalog.instruments(instrument_ids=self.instrument_id, as_nautilus=True)
+        # if not instruments:
+        #     return {"data": [], "instrument": None}
+        # data = catalog.query(**query)
+        
+        
         return {
-            "type": query["cls"],
+            "type": self.data_type,
             "data": data,
             "instrument": instruments[0] if self.instrument_id else None,
             "client_id": ClientId(self.client_id) if self.client_id else None,

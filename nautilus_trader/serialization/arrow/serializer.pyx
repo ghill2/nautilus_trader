@@ -21,7 +21,7 @@ from nautilus_trader.core.correctness cimport Condition
 from nautilus_trader.model.data.base cimport GenericData
 from nautilus_trader.serialization.base cimport _OBJECT_FROM_DICT_MAP
 from nautilus_trader.serialization.base cimport _OBJECT_TO_DICT_MAP
-
+from time import perf_counter
 
 cdef dict _PARQUET_TO_DICT_MAP = {}    # type: dict[type, object]
 cdef dict _PARQUET_FROM_DICT_MAP = {}  # type: dict[type, object]
@@ -189,8 +189,12 @@ cdef class ParquetSerializer:
                 f"Cannot deserialize object `{cls}`. Please register a "
                 f"deserialization method via `arrow.serializer.register_parquet()`"
             )
-
+        cdef list result
         if cls in _CHUNK:
             return delegate(chunk)
         else:
-            return [delegate(c) for c in chunk]
+            start = perf_counter()
+            result = [delegate(c) for c in chunk]
+            stop = perf_counter()
+            print(f"Delegate deserializer elapsed = {stop - start}")
+            return result
