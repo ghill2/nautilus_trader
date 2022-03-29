@@ -268,33 +268,36 @@ cdef class Portfolio(PortfolioFacade):
         """
         Condition.not_none(tick, "tick")
 
-        self._unrealized_pnls.pop(tick.instrument_id, None)
+        self.update_instrument_id(tick.instrument_id)
+    cpdef void update_instrument_id(self, InstrumentId instrument_id) except *:
+
+        self._unrealized_pnls.pop(instrument_id, None)
 
         if self.initialized:
             return
 
-        if tick.instrument_id not in self._pending_calcs:
+        if instrument_id not in self._pending_calcs:
             return
 
-        cdef Account account = self._cache.account_for_venue(tick.instrument_id.venue)
+        cdef Account account = self._cache.account_for_venue(instrument_id.venue)
         if account is None:
             self._log.error(
                 f"Cannot update tick: "
-                f"no account registered for {tick.instrument_id.venue}."
+                f"no account registered for {instrument_id.venue}."
             )
             return  # No account registered
 
-        cdef Instrument instrument = self._cache.instrument(tick.instrument_id)
+        cdef Instrument instrument = self._cache.instrument(instrument_id)
         if instrument is None:
             self._log.error(
                 f"Cannot update tick: "
-                f"no instrument found for {tick.instrument_id}"
+                f"no instrument found for {instrument_id}"
             )
             return  # No instrument found
 
         cdef list orders_working = self._cache.orders_working(
             venue=None,  # Faster query filtering
-            instrument_id=tick.instrument_id,
+            instrument_id=instrument_id,
         )
 
         cdef:
@@ -311,7 +314,7 @@ cdef class Portfolio(PortfolioFacade):
         if account.is_margin_account():
             positions_open = self._cache.positions_open(
                 venue=None,  # Faster query filtering
-                instrument_id=tick.instrument_id,
+                instrument_id=instrument_id,
             )
 
             # Initialize maintenance (position) margin
@@ -323,11 +326,11 @@ cdef class Portfolio(PortfolioFacade):
             )
 
         # Calculate unrealized PnL
-        cdef Money result_unrealized_pnl = self._calculate_unrealized_pnl(tick.instrument_id)
+        cdef Money result_unrealized_pnl = self._calculate_unrealized_pnl(instrument_id)
 
         # Check portfolio initialization
         if result_init is not None and (account.is_cash_account() or (result_maint is not None and result_unrealized_pnl)):
-            self._pending_calcs.discard(tick.instrument_id)
+            self._pending_calcs.discard(instrument_id)
             if not self._pending_calcs:
                 self.initialized = True
 
