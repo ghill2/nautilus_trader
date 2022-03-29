@@ -91,6 +91,8 @@ cdef class Cache(CacheFacade):
         self._xrate_symbols = {}               # type: dict[InstrumentId, str]
         self._tickers = {}                     # type: dict[InstrumentId, deque[Ticker]]
         self._quote_ticks = {}                 # type: dict[InstrumentId, deque[QuoteTick]]
+        self.last_bids = {}                   # type: dict[InstrumentId, double]
+        self.last_asks = {}                   # type: dict[InstrumentId, double]
         self._trade_ticks = {}                 # type: dict[InstrumentId, deque[TradeTick]]
         self._order_books = {}                 # type: dict[InstrumentId, OrderBook]
         self._bars = {}                        # type: dict[BarType, deque[Bar]]
@@ -598,6 +600,8 @@ cdef class Cache(CacheFacade):
         self._instruments.clear()
         self._tickers.clear()
         self._quote_ticks.clear()
+        self.last_bids.clear()
+        self.last_asks.clear()
         self._trade_ticks.clear()
         self._bars.clear()
         self.clear_cache()
@@ -863,6 +867,9 @@ cdef class Cache(CacheFacade):
             self._tickers[instrument_id] = tickers
 
         tickers.appendleft(ticker)
+    cpdef void add_last_prices(self, InstrumentId instrument_id, double bid, double ask) except *:
+        self.last_bids[instrument_id] = bid
+        self.last_asks[instrument_id] = ask
 
     cpdef void add_quote_tick(self, QuoteTick tick) except *:
         """
@@ -1590,6 +1597,9 @@ cdef class Cache(CacheFacade):
         except IndexError:
             return None
 
+    cpdef bint has_last(self, InstrumentId instrument_id):
+        return not self.last_bids.get(instrument_id) is None
+        
     cpdef TradeTick trade_tick(self, InstrumentId instrument_id, int index=0):
         """
         Return the trade tick for the given instrument ID at the given index

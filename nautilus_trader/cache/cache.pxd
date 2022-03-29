@@ -45,6 +45,8 @@ cdef class Cache(CacheFacade):
     cdef dict _xrate_symbols
     cdef dict _tickers
     cdef dict _quote_ticks
+    cdef dict last_bids
+    cdef dict last_asks
     cdef dict _trade_ticks
     cdef dict _order_books
     cdef dict _bars
@@ -76,6 +78,9 @@ cdef class Cache(CacheFacade):
     cdef set _index_positions_closed
     cdef set _index_strategies
 
+    cdef double last_ask 
+    cdef double last_bid
+    
     cdef readonly int tick_capacity
     """The caches tick capacity.\n\n:returns: `int`"""
     cdef readonly int bar_capacity
@@ -110,6 +115,7 @@ cdef class Cache(CacheFacade):
 
     cpdef void add_order_book(self, OrderBook order_book) except *
     cpdef void add_ticker(self, Ticker ticker) except *
+    cpdef void add_last_prices(self, InstrumentId instrument_id, double bid, double ask) except *
     cpdef void add_quote_tick(self, QuoteTick tick) except *
     cpdef void add_trade_tick(self, TradeTick tick) except *
     cpdef void add_bar(self, Bar bar) except *
@@ -128,3 +134,4 @@ cdef class Cache(CacheFacade):
     cpdef void update_position(self, Position position) except *
     cpdef void update_strategy(self, TradingStrategy strategy) except *
     cpdef void delete_strategy(self, TradingStrategy strategy) except *
+    cpdef bint has_last(self, InstrumentId instrument_id)
