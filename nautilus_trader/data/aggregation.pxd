@@ -52,7 +52,7 @@ cdef class BarBuilder:
     cdef object volume
 
     cpdef void set_partial(self, Bar partial_bar) except *
-    cpdef void update(self, double price, int64_t size, int64_t ts_event) except *
+    cpdef void update(self, double price, double size, int64_t ts_event) except *
     cpdef void reset(self) except *
     cpdef Bar build_now(self)
     cpdef Bar build(self, int64_t ts_event)
