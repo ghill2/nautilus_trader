@@ -130,6 +130,13 @@ cdef class SimulatedExchange:
     cdef tuple generate_inflight_command(self, TradingCommand command)
     cpdef void send(self, TradingCommand command) except *
     cpdef void process_order_book(self, OrderBookData data) except *
+    cpdef void process_price(self,
+                            InstrumentId instrument_id, 
+                            int64_t ts,
+                            double bid,
+                            double ask,
+                            double bid_size,
+                            double ask_size) except *
     cpdef void process_tick(self, Tick tick) except *
     cpdef void process_bar(self, Bar bar) except *
     cpdef void process(self, int64_t now_ns) except *
