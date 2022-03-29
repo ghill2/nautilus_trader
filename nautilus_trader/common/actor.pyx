@@ -28,7 +28,7 @@ import warnings
 from typing import Optional
 
 import cython
-
+from libc.stdint cimport int64_t
 from cpython.datetime cimport datetime
 
 from nautilus_trader.cache.base cimport CacheFacade
@@ -299,6 +299,14 @@ cdef class Actor(Component):
         System method (not intended to be called by user code).
 
         """
+        pass  # Optionally override in subclass
+
+    cpdef void on_prices(self,
+                        int64_t ts,
+                        double bid,
+                        double ask,
+                        double bid_size,
+                        double ask_size) except *:
         pass  # Optionally override in subclass
 
     cpdef void on_trade_tick(self, TradeTick tick) except *:
