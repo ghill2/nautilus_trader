@@ -37,7 +37,8 @@ from nautilus_trader.model.data.tick cimport TradeTick
 from nautilus_trader.model.instruments.base cimport Instrument
 from nautilus_trader.model.objects cimport Price
 from nautilus_trader.model.objects cimport Quantity
-
+from nautilus_trader.model.c_enums.price_type cimport PriceType
+from nautilus_trader.model.c_enums.price_type cimport PriceTypeParser
 from libc.stdint cimport int64_t
 cdef class BarBuilder:
     """
