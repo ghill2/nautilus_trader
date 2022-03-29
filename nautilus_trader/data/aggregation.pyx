@@ -282,6 +282,33 @@ cdef class BarAggregator:
             ts_event=tick.ts_event,
         )
 
+    cpdef void handle_prices(self,
+                            int64_t ts,
+                            double bid,
+                            double ask,
+                            double bid_size,
+                            double ask_size) except *:
+        cdef double price
+        cdef double size
+        if self.bar_type.spec.price_type == PriceType.MID:
+            price = ((bid + ask) / 2)
+            size = (bid_size + ask_size) / 2
+        elif self.bar_type.spec.price_type == PriceType.BID:
+            price = bid
+            size = bid_size
+        elif self.bar_type.spec.price_type == PriceType.ASK:
+            price = ask
+            size = ask_size
+        else:
+            raise ValueError(f"Cannot extract with PriceType {PriceTypeParser.to_str(self.bar_type.spec.price_type)}")
+
+
+        self._apply_update(
+            price=price,
+            size=size,
+            ts_event=ts,
+        )
+
     cpdef void handle_trade_tick(self, TradeTick tick) except *:
         """
         Update the aggregator with the given tick.

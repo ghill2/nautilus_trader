@@ -67,8 +67,14 @@ cdef class BarAggregator:
     """The aggregators bar type.\n\n:returns: `BarType`"""
 
     cpdef void handle_quote_tick(self, QuoteTick tick) except *
+    cpdef void handle_prices(self,
+                            int64_t ts,
+                            double bid,
+                            double ask,
+                            double bid_size,
+                            double ask_size) except *
     cpdef void handle_trade_tick(self, TradeTick tick) except *
-    cdef void _apply_update(self, double price, int64_t size, int64_t ts_event) except *
+    cdef void _apply_update(self, double price, double size, int64_t ts_event) except *
     cdef void _build_now_and_send(self) except *
     cdef void _build_and_send(self, int64_t ts_event) except *
     
