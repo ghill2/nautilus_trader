@@ -871,6 +871,8 @@ cdef class Cache(CacheFacade):
         self.last_bids[instrument_id] = bid
         self.last_asks[instrument_id] = ask
 
+
+                    
     cpdef void add_quote_tick(self, QuoteTick tick) except *:
         """
         Add the given quote tick to the cache.
@@ -1597,6 +1599,8 @@ cdef class Cache(CacheFacade):
         except IndexError:
             return None
 
+
+
     cpdef bint has_last(self, InstrumentId instrument_id):
         return not self.last_bids.get(instrument_id) is None
         
@@ -1891,14 +1895,14 @@ cdef class Cache(CacheFacade):
             if instrument_id.venue != venue:
                 continue
 
-            ticks = self._quote_ticks.get(instrument_id)
+            ticks = self._last_prices.get(instrument_id)
             if not ticks:
                 # No quotes for instrument_id
                 continue
-
+            
             price_precision = self.instrument(instrument_id).price_precision
-            bid_quotes[base_quote] = Price(ticks[0].bid, price_precision)
-            ask_quotes[base_quote] = Price(ticks[0].ask, price_precision)
+            bid_quotes[base_quote] = Price(self.last_bid, price_precision).as_decimal()
+            ask_quotes[base_quote] = Price(self.last_ask, price_precision).as_decimal()
 
         return bid_quotes, ask_quotes
 
