@@ -73,9 +73,12 @@ from time import perf_counter
 
 import numpy as np
 from pytower.common.date import dt_to_unix_nanos_vectorized
+from pytower.data.common import format_tick_dataframe
 from nautilus_trader.model.identifiers cimport InstrumentId
 from nautilus_trader.backtest.data.providers import TestInstrumentProvider
 from pytower.instruments.provider import InstrumentProvider
+import os
+import psutil
 cdef class BacktestEngine:
     """
     Provides a backtest engine to run a portfolio of strategies over historical
@@ -238,23 +241,50 @@ cdef class BacktestEngine:
             f"{int(self._clock.delta(created_time).total_seconds() * 1000)}ms.",
         )
 
-        self.df = None
-        self.instrument_id
+        
+        self.instrument_id = None
     
     def add_dataframe(self, instrument_id, df):
+        df = format_tick_dataframe(df)
+   
+        assert df.index.is_monotonic_increasing
         # TO DO, make the engine handle multiple data sets
         self._add_market_data_client_if_not_exists(instrument_id.venue)
-        self.df = df
+        
         self.instrument_id = instrument_id
 
         
+        # del statements reduces peak memory by 500MB
+        self.bids =  df.bid.values.astype(np.float64)
+        del df['bid']
+        self.asks = df.ask.values.astype(np.float64)
+        del df['ask']
+        self.bid_sizes = df.bid_size.values.astype(np.float64)
+        del df['bid_size']
+        self.ask_sizes = df.ask_size.values.astype(np.float64)
+        del df['ask_size']
+
+        if isinstance(df.index, pd.core.indexes.numeric.Int64Index):
+            # the index has already been replaced with int timestamps 
+            self.timestamps = df.index.to_series().values.astype(np.int64)
+        else:
+            self.timestamps = dt_to_unix_nanos_vectorized(df.index.to_series()).to_numpy().astype(np.int64)
+
+        
+
         class PlaceHolder:
             def __init__(self, ts_init):
                 self.ts_init = ts_init
         self._data.append(PlaceHolder(dt_to_unix_nanos(df.index[0]))) 
         self._data.append(PlaceHolder(dt_to_unix_nanos(df.index[-1])))
 
+        del df
 
+
+        
+        print(f"Child Peak Memory: {str(psutil.Process().memory_info().peak_wset / 1e+9)}GB")
+        
+    
         # TO DO
         # create an instrument map so the backtest loop can reference the instrument from integer values
     def list_venues(self):
@@ -728,6 +758,11 @@ cdef class BacktestEngine:
         self._data_len = 0
         self._index = 0
 
+        self.bids = None
+        self.asks = None
+        self.bid_sizes = None
+        self.ask_sizes = None
+
     def dispose(self) -> None:
         """
         Dispose of the backtest engine by disposing the trader and releasing system resources.
@@ -930,100 +965,79 @@ cdef class BacktestEngine:
                 self._index = i
                 break
 
-        
-        
-        cdef Data data
-
         cdef:
-            int64_t[:] timestamps
-            double[:] bids
-            double[:] asks
-            double[:] bid_sizes
-            double[:] ask_sizes
-            InstrumentId instrument_id
             int64_t ts
             int exit_
             double bid
             double ask
             double bid_size
-            double ask_size
-            list aggregators
-        if self.df is not None:
-            # -- MAIN BACKTEST LOOP (primitive values) -------------------------------------#
-            print("Running alternative backtest loop")
-            timestamps = np.ascontiguousarray(
-                dt_to_unix_nanos_vectorized(self.df.index.to_series())
-            )  # noqa
-            bids =  self.df.bid.to_numpy().astype(np.float64)
-            asks = self.df.ask.to_numpy().astype(np.float64)
-            bid_sizes = self.df.bid_size.to_numpy().astype(np.float64)
-            ask_sizes = self.df.ask_size.to_numpy().astype(np.float64)
-            
-            # placeholder
-            instrument_id = InstrumentProvider.get("EUR/USD.DUKA").id
-            
-            exit_ = len(bids) - 1
-          
-            while True:
-                
-                ts = timestamps[self.iteration]
-                bid = bids[self.iteration]
-                ask = asks[self.iteration]
-                bid_size = bid_sizes[self.iteration]
-                ask_size = ask_sizes[self.iteration]
+            double ask_size 
 
-                self._advance_time(ts)
-                self._data_engine.data_count += 1
-                self._cache.add_last_prices(instrument_id, bid, ask)
+        # -- MAIN BACKTEST LOOP (primitive values) -------------------------------------#
 
-                # (msgbus) -> portfolio.update_from_instrument_id (priority 10)
-                self.portfolio.update_instrument_id(instrument_id)
+        exit_ = len(self.bids) - 1
 
-                # (msgbus) -> aggregators.handle_prices (priority 5)
-                for aggregator in self._data_engine._bar_aggregators.values():
-                    aggregator.handle_prices(ts, bid, ask, bid_size, ask_size)
+        while True:
+            ts = self.timestamps[self.iteration]
+            bid = self.bids[self.iteration]
+            ask = self.asks[self.iteration]
+            bid_size = self.bid_sizes[self.iteration]
+            ask_size = self.ask_sizes[self.iteration]
 
-                # (msgbus) -> actor.handle_prices (priority 0)
-                for strategy in self.trader.strategies_c():
-                    strategy.on_prices(ts, bid, ask, bid_size, ask_size)
+            self._advance_time(ts)
+            self._data_engine.data_count += 1
+            self._cache.add_last_prices(self.instrument_id, bid, ask)
+
+            # (msgbus) -> portfolio.update_from_instrument_id (priority 10)
+            self.portfolio.update_instrument_id(self.instrument_id)
+
+            # (msgbus) -> aggregators.handle_prices (priority 5)
+            for aggregator in self._data_engine._bar_aggregators.values():
+                aggregator.handle_prices(ts, bid, ask, bid_size, ask_size)
+
+            # (msgbus) -> actor.handle_prices (priority 0)
+            for strategy in self.trader.strategies_c():
+                strategy.on_prices(ts, bid, ask, bid_size, ask_size)
 
 
-                self._exchanges[instrument_id.venue].process_price(
-                                                        instrument_id, 
-                                                        ts,
-                                                        bid,
-                                                        ask,
-                                                        bid_size,
-                                                        ask_size)
-                for exchange in self._exchanges.values():
-                    exchange.process(ts)
+            self._exchanges[self.instrument_id.venue].process_price(
+                                                    self.instrument_id, 
+                                                    ts,
+                                                    bid,
+                                                    ask,
+                                                    bid_size,
+                                                    ask_size)
+            for exchange in self._exchanges.values():
+                exchange.process(ts)
 
-                if self.iteration == exit_:
-                    break
-
-                self.iteration += 1
-        else:
-            # -- MAIN BACKTEST LOOP (objects) -----------------------------------------------#
-            data = self._next()
-            while data is not None:
-                if data.ts_init > end_ns:
-                    break
-                self._advance_time(data.ts_init)
-                self._data_engine.process(data)
-                if isinstance(data, OrderBookData):
-                    self._exchanges[data.instrument_id.venue].process_order_book(data)
-                elif isinstance(data, Tick):
-                    self._exchanges[data.instrument_id.venue].process_tick(data)
-                for exchange in self._exchanges.values():
-                    exchange.process(data.ts_init)
-                self.iteration += 1
-                data = self._next()
+            self.iteration += 1
+            if self.iteration == exit_:
+                break
 
         # ---------------------------------------------------------------------#
         # Process remaining messages
         for exchange in self._exchanges.values():
             exchange.process(self._test_clock.timestamp_ns())
         # ---------------------------------------------------------------------#
+                
+        # else:
+        # # -- MAIN BACKTEST LOOP (objects) -----------------------------------------------#
+        # data = self._next()
+        # while data is not None:
+        #     if data.ts_init > end_ns:
+        #         break
+        #     self._advance_time(data.ts_init)
+        #     self._data_engine.process(data)
+        #     if isinstance(data, OrderBookData):
+        #         self._exchanges[data.instrument_id.venue].process_order_book(data)
+        #     elif isinstance(data, Tick):
+        #         self._exchanges[data.instrument_id.venue].process_tick(data)
+        #     for exchange in self._exchanges.values():
+        #         exchange.process(data.ts_init)
+        #     self.iteration += 1
+        #     data = self._next()
+
+        
 
     def _end(self):
         self.trader.stop()
@@ -1192,3 +1206,22 @@ cdef class BacktestEngine:
                 logger=self._test_logger,
             )
             self._data_engine.register_client(client)
+
+
+
+
+#cdef np.ndarray[np.int64_t, ndim=1] timestamps
+#cdef np.ndarray[np.float64_t, ndim=1] bids
+#cdef np.ndarray[np.float64_t, ndim=1] asks
+#cdef np.ndarray[np.float64_t, ndim=1] bid_sizes
+#cdef np.ndarray[np.float64_t, ndim=1] ask_sizes
+
+#cdef int64_t [:] timestamps
+#cdef np.float64_t[:] bids
+#cdef np.float64_t[:] asks
+#cdef np.float64_t[:] bid_sizes
+#cdef np.float64_t[:] ask_sizes
+# assert pd.Series(list(timestamps)).is_monotonic_increasing
+# is_monotonic = timestamps.all(np.diff(timestamps) > 0)
+# assert is_monotonic
+# assert pd.Series(timestamps).is_monotonic_increasing

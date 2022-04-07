@@ -32,7 +32,7 @@ from nautilus_trader.portfolio.base cimport PortfolioFacade
 from nautilus_trader.portfolio.portfolio cimport Portfolio
 from nautilus_trader.risk.engine cimport RiskEngine
 from nautilus_trader.trading.trader cimport Trader
-
+from nautilus_trader.model.identifiers cimport InstrumentId
 
 cdef class BacktestEngine:
     cdef object _config
@@ -86,4 +86,10 @@ cdef class BacktestEngine:
     cdef Data _next(self)
     cdef void _advance_time(self, int64_t now_ns) except *
 
-    cdef object df
+
+    cdef InstrumentId instrument_id
+    cdef int64_t [:] timestamps
+    cdef double[:] bids
+    cdef double[:] asks
+    cdef double[:] bid_sizes
+    cdef double[:] ask_sizes
