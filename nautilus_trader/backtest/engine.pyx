@@ -245,8 +245,8 @@ cdef class BacktestEngine:
         self.instrument_id = None
     
     def add_dataframe(self, instrument_id, df):
-        df = format_tick_dataframe(df)
-   
+        # df = format_tick_dataframe(df)
+        
         assert df.index.is_monotonic_increasing
         # TO DO, make the engine handle multiple data sets
         self._add_market_data_client_if_not_exists(instrument_id.venue)
@@ -255,22 +255,20 @@ cdef class BacktestEngine:
 
         
         # del statements reduces peak memory by 500MB
-        self.bids =  df.bid.values.astype(np.float64)
-        del df['bid']
-        self.asks = df.ask.values.astype(np.float64)
-        del df['ask']
-        self.bid_sizes = df.bid_size.values.astype(np.float64)
-        del df['bid_size']
-        self.ask_sizes = df.ask_size.values.astype(np.float64)
-        del df['ask_size']
+        self.bids =  df.bid.price.values.astype(np.float64)
+        del df['bid']['price']
+        self.asks = df.ask.price.values.astype(np.float64)
+        del df['ask']['price']
+        self.bid_volumes = df.bid.volume.values.astype(np.float64)
+        del df['bid']['volume']
+        self.ask_volumes = df.ask.volume.values.astype(np.float64)
+        del df['ask']['volume']
 
         if isinstance(df.index, pd.core.indexes.numeric.Int64Index):
             # the index has already been replaced with int timestamps 
             self.timestamps = df.index.to_series().values.astype(np.int64)
         else:
             self.timestamps = dt_to_unix_nanos_vectorized(df.index.to_series()).to_numpy().astype(np.int64)
-
-        
 
         class PlaceHolder:
             def __init__(self, ts_init):
@@ -760,8 +758,8 @@ cdef class BacktestEngine:
 
         self.bids = None
         self.asks = None
-        self.bid_sizes = None
-        self.ask_sizes = None
+        self.bid_volumes = None
+        self.ask_volumes = None
 
     def dispose(self) -> None:
         """
@@ -970,19 +968,20 @@ cdef class BacktestEngine:
             int exit_
             double bid
             double ask
-            double bid_size
-            double ask_size 
+            double bid_volume
+            double ask_volume
+            
 
         # -- MAIN BACKTEST LOOP (primitive values) -------------------------------------#
 
         exit_ = len(self.bids) - 1
-
+        i = 0 # can't use self.iteration in batch mode
         while True:
-            ts = self.timestamps[self.iteration]
-            bid = self.bids[self.iteration]
-            ask = self.asks[self.iteration]
-            bid_size = self.bid_sizes[self.iteration]
-            ask_size = self.ask_sizes[self.iteration]
+            ts = self.timestamps[i]
+            bid = self.bids[i]
+            ask = self.asks[i]
+            bid_volume = self.bid_volumes[i]
+            ask_volume = self.ask_volumes[i]
 
             self._advance_time(ts)
             self._data_engine.data_count += 1
@@ -993,11 +992,11 @@ cdef class BacktestEngine:
 
             # (msgbus) -> aggregators.handle_prices (priority 5)
             for aggregator in self._data_engine._bar_aggregators.values():
-                aggregator.handle_prices(ts, bid, ask, bid_size, ask_size)
+                aggregator.handle_prices(ts, bid, ask, bid_volume, ask_volume)
 
             # (msgbus) -> actor.handle_prices (priority 0)
             for strategy in self.trader.strategies_c():
-                strategy.on_prices(ts, bid, ask, bid_size, ask_size)
+                strategy.on_prices(ts, bid, ask, bid_volume, ask_volume)
 
 
             self._exchanges[self.instrument_id.venue].process_price(
@@ -1005,13 +1004,14 @@ cdef class BacktestEngine:
                                                     ts,
                                                     bid,
                                                     ask,
-                                                    bid_size,
-                                                    ask_size)
+                                                    bid_volume,
+                                                    ask_volume)
             for exchange in self._exchanges.values():
                 exchange.process(ts)
 
             self.iteration += 1
-            if self.iteration == exit_:
+            i += 1
+            if i == exit_:
                 break
 
         # ---------------------------------------------------------------------#

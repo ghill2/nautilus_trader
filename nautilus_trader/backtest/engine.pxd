@@ -91,5 +91,5 @@ cdef class BacktestEngine:
     cdef int64_t [:] timestamps
     cdef double[:] bids
     cdef double[:] asks
-    cdef double[:] bid_sizes
-    cdef double[:] ask_sizes
+    cdef double[:] bid_volumes
+    cdef double[:] ask_volumes
