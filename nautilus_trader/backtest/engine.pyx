@@ -977,6 +977,7 @@ cdef class BacktestEngine:
         exit_ = len(self.bids) - 1
         i = 0 # can't use self.iteration in batch mode
         while True:
+            # higher priority handlers will receive messages prior to lower priority handlers.
             
             # actor on_bar = priority 0
             # 
