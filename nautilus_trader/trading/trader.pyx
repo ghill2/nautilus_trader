@@ -175,13 +175,17 @@ cdef class Trader(Component):
             self._log.error(f"No strategies loaded.")
             return
 
-        cdef Actor actor
-        for actor in self._actors:
-            actor.start()
+        
 
         cdef TradingStrategy strategy
         for strategy in self._strategies:
             strategy.start()
+
+        # Initializing actors after strategy changes order of on_bar method. strategy > actor vs actor > strategy
+        cdef Actor actor
+        for actor in self._actors:
+            actor.start()
+
 
     cpdef void _stop(self) except *:
         cdef Actor actor
