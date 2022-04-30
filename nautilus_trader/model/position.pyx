@@ -504,8 +504,8 @@ cdef class Position:
         Condition.type(avg_px_open, (Decimal, Price), "avg_px_open")
         Condition.type(avg_px_close, (Decimal, Price), "avg_px_close")
         Condition.type(quantity, (Decimal, Quantity), "quantity")
-
-        pnl: Decimal = self._calculate_pnl(
+        
+        pnl: Decimal = self._calculate_pnl_decimal(
             avg_px_open=avg_px_open,
             avg_px_close=avg_px_close,
             quantity=quantity,
@@ -513,7 +513,7 @@ cdef class Position:
 
         return Money(pnl, self.cost_currency)
 
-    cpdef Money unrealized_pnl(self, Price last):
+    cpdef Money unrealized_pnl(self, double last):
         """
         Return the unrealized PnL from the given last quote tick.
 
@@ -592,7 +592,7 @@ cdef class Position:
             self.avg_px_close = self._calculate_avg_px_close_px(fill)
             self.realized_points = self._calculate_points(self.avg_px_open, self.avg_px_close)
             self.realized_return = self._calculate_return(self.avg_px_open, self.avg_px_close)
-            realized_pnl += self._calculate_pnl(self.avg_px_open, fill.last_px, fill.last_qty)
+            realized_pnl += self._calculate_pnl_decimal(self.avg_px_open, fill.last_px, fill.last_qty)
 
         self.realized_pnl = Money(self.realized_pnl + realized_pnl, self.cost_currency)
 
@@ -613,15 +613,46 @@ cdef class Position:
         # LONG POSITION
         elif self.net_qty > 0:
             self.avg_px_close = self._calculate_avg_px_close_px(fill)
-            self.realized_points = self._calculate_points(self.avg_px_open, self.avg_px_close)
+            self.realized_points = self._calculate_points_decimal(self.avg_px_open, self.avg_px_close)
             self.realized_return = self._calculate_return(self.avg_px_open, self.avg_px_close)
-            realized_pnl += self._calculate_pnl(self.avg_px_open, fill.last_px, fill.last_qty)
+            realized_pnl += self._calculate_pnl_decimal(self.avg_px_open, fill.last_px, fill.last_qty)
 
         self.realized_pnl = Money(self.realized_pnl + realized_pnl, self.cost_currency)
 
         # Update quantities
         self._sell_qty = self._sell_qty + fill.last_qty
         self.net_qty = self.net_qty - fill.last_qty
+
+    cdef object _calculate_return(self, avg_px_open: Decimal, avg_px_close: Decimal):
+        return self._calculate_points_decimal(avg_px_open, avg_px_close) / avg_px_open
+    
+    cdef object _calculate_points_decimal(self, avg_px_open: Decimal, avg_px_close: Decimal):
+        if self.side == PositionSide.LONG:
+            return avg_px_close - avg_px_open
+        elif self.side == PositionSide.SHORT:
+            return avg_px_open - avg_px_close
+        else:
+            return 0.0  # FLAT
+    cdef object _calculate_points_inverse_decimal(self, avg_px_open: Decimal, avg_px_close: Decimal):
+        if self.side == PositionSide.LONG:
+            return (1 / avg_px_open) - (1 / avg_px_close)
+        elif self.side == PositionSide.SHORT:
+            return (1 / avg_px_close) - (1 / avg_px_open)
+        else:
+            return Decimal(0)  # FLAT
+    cdef object _calculate_pnl_decimal(
+        self,
+        avg_px_open: Decimal,
+        avg_px_close: Decimal,
+        quantity: Decimal,
+    ):
+        if self.is_inverse:
+            # In base currency
+            return quantity * self.multiplier * self._calculate_points_inverse_decimal(avg_px_open, avg_px_close)
+        else:
+            # In quote currency
+            return quantity * self.multiplier * self._calculate_points_decimal(avg_px_open, avg_px_close)
+
 
     cdef object _calculate_avg_px_open_px(self, OrderFilled fill):
         return self._calculate_avg_px(abs(self.net_qty), self.avg_px_open, fill)
@@ -643,34 +674,41 @@ cdef class Position:
         cum_qty: Decimal = qty + fill.last_qty
         return (start_cost + event_cost) / cum_qty
 
-    cdef object _calculate_points(self, avg_px_open: Decimal, avg_px_close: Decimal):
-        if self.side == PositionSide.LONG:
-            return avg_px_close - avg_px_open
-        elif self.side == PositionSide.SHORT:
-            return avg_px_open - avg_px_close
-        else:
-            return Decimal(0)  # FLAT
+    
 
-    cdef object _calculate_points_inverse(self, avg_px_open: Decimal, avg_px_close: Decimal):
+    cdef double _calculate_points(self, double avg_px_open, double avg_px_close):
+        cdef result
+        if self.side == PositionSide.LONG:
+            
+            result = avg_px_close - avg_px_open
+            return result
+        elif self.side == PositionSide.SHORT:
+            result = avg_px_open - avg_px_close
+            return result
+        else:
+            return 0.0  # FLAT
+
+    cdef double _calculate_points_inverse(self, double avg_px_open, double avg_px_close):
         if self.side == PositionSide.LONG:
             return (1 / avg_px_open) - (1 / avg_px_close)
         elif self.side == PositionSide.SHORT:
             return (1 / avg_px_close) - (1 / avg_px_open)
         else:
-            return Decimal(0)  # FLAT
+            return 0.0  # FLAT
 
-    cdef object _calculate_return(self, avg_px_open: Decimal, avg_px_close: Decimal):
-        return self._calculate_points(avg_px_open, avg_px_close) / avg_px_open
-
-    cdef object _calculate_pnl(
+    cdef double _calculate_pnl(
         self,
-        avg_px_open: Decimal,
-        avg_px_close: Decimal,
-        quantity: Decimal,
-    ):
+        avg_px_open: double,
+        avg_px_close: double,
+        quantity: double,
+    ):  
+
+        cdef double points
         if self.is_inverse:
             # In base currency
-            return quantity * self.multiplier * self._calculate_points_inverse(avg_px_open, avg_px_close)
+            points = self._calculate_points_inverse(avg_px_open, avg_px_close)
         else:
             # In quote currency
-            return quantity * self.multiplier * self._calculate_points(avg_px_open, avg_px_close)
+            points = self._calculate_points(avg_px_open, avg_px_close)
+        return int(quantity) * int(self.multiplier) * points
+        
