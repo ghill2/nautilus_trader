@@ -31,4 +31,4 @@ except FileNotFoundError:  # pragma: no cover
     __version__ = "latest"
     
     
-has_changes = True
+is_modified = True
