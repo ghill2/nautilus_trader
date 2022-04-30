@@ -39,6 +39,7 @@ from nautilus_trader.model.c_enums.order_status cimport OrderStatus
 from nautilus_trader.model.c_enums.order_type cimport OrderType
 from nautilus_trader.model.c_enums.trading_state cimport TradingState
 from nautilus_trader.model.c_enums.trading_state cimport TradingStateParser
+from nautilus_trader.model.c_enums.price_type cimport PriceType
 from nautilus_trader.model.commands.trading cimport CancelAllOrders
 from nautilus_trader.model.commands.trading cimport CancelOrder
 from nautilus_trader.model.commands.trading cimport ModifyOrder
@@ -633,9 +634,11 @@ cdef class RiskEngine(Component):
                     last_quote = self._cache.quote_tick(instrument.id)
                     if last_quote is not None:
                         if order.side == OrderSide.BUY:
-                            last_px = last_quote.ask
+                            last_px = Price(last_quote.extract_price(PriceType.ASK),
+                                            instrument.price_precision)
                         elif order.side == OrderSide.SELL:
-                            last_px = last_quote.bid
+                            last_px = Price(last_quote.extract_price(PriceType.BID),
+                                            instrument.price_precision)
                         else:  # pragma: no cover (design-time error)
                             raise RuntimeError("invalid order side")
                     else:
