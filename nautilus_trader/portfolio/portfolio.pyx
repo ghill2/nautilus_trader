@@ -1038,17 +1038,19 @@ cdef class Portfolio(PortfolioFacade):
 
         return Decimal(1)  # No conversion needed
 
-    cdef Price _get_last_price(self, Position position):
-        cdef QuoteTick quote_tick = self._cache.quote_tick(position.instrument_id)
-        if quote_tick is not None:
+    cdef double _get_last_price(self, Position position):
+
+        # cdef double[:] prices = self._cache.prices(position.instrument_id)
+        cdef bint has_last = self._cache.has_last(position.instrument_id)
+        if has_last:
             if position.side == PositionSide.LONG:
-                return quote_tick.bid
+                return self._cache.last_bids[position.instrument_id] # bid
             elif position.side == PositionSide.SHORT:
-                return quote_tick.ask
+                return self._cache.last_asks[position.instrument_id] # ask
             else:  # pragma: no cover (design-time error)
                 raise RuntimeError(
                     f"invalid PositionSide, was {PositionSideParser.to_str(position.side)}",
                 )
-
-        cdef TradeTick trade_tick = self._cache.trade_tick(position.instrument_id)
-        return trade_tick.price if trade_tick is not None else None
+        return 0
+        # cdef TradeTick trade_tick = self._cache.trade_tick(position.instrument_id)
+        # return trade_tick.price if trade_tick is not None else None
