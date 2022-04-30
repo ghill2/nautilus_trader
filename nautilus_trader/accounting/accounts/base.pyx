@@ -34,6 +34,8 @@ cdef class Account:
         self.id = event.account_id
         self.type = event.account_type
         self.base_currency = event.base_currency
+        self.is_cash_account = self.type == AccountType.CASH or self.type == AccountType.BETTING
+        self.is_margin_account = self.type == AccountType.MARGIN
         self.calculate_account_state = calculate_account_state
 
         self._events = [event]      # type: list[AccountState]  # `last_event_c()` guaranteed
@@ -58,13 +60,7 @@ cdef class Account:
             f"base={base_str})"
         )
 
-# -- QUERIES ---------------------------------------------------------------------------------------
-
-    cdef bint is_cash_account(self) except *:
-        return self.type == AccountType.CASH
-
-    cdef bint is_margin_account(self) except *:
-        return self.type == AccountType.MARGIN
+# -- QUERIES --------------------------------------------------------------------------------------
 
     cdef AccountState last_event_c(self):
         return self._events[-1]  # Guaranteed at least one event from initialization
@@ -345,7 +341,7 @@ cdef class Account:
 
         return self._commissions.get(currency)
 
-# -- COMMANDS --------------------------------------------------------------------------------------
+# -- COMMANDS -------------------------------------------------------------------------------------
 
     cpdef void apply(self, AccountState event) except *:
         """
@@ -448,7 +444,7 @@ cdef class Account:
         total_commissions: Decimal = self._commissions.get(currency, Decimal(0))
         self._commissions[currency] = Money(total_commissions + commission, currency)
 
-# -- CALCULATIONS ----------------------------------------------------------------------------------
+# -- CALCULATIONS ---------------------------------------------------------------------------------
 
     cdef void _recalculate_balance(self, Currency currency) except *:
         raise NotImplementedError("method must be implemented in the subclass")  # pragma: no cover

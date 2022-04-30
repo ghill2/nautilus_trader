@@ -27,6 +27,7 @@ from nautilus_trader.model.data.base import GenericData
 from nautilus_trader.model.data.tick import QuoteTick
 from nautilus_trader.model.data.tick import TradeTick
 from nautilus_trader.model.enums import AggressorSide
+from nautilus_trader.model.identifiers import TradeId
 from nautilus_trader.model.identifiers import Venue
 from nautilus_trader.model.instruments.betting import BettingInstrument
 from nautilus_trader.model.objects import Price
@@ -40,9 +41,11 @@ from nautilus_trader.persistence.external.core import write_tables
 from nautilus_trader.persistence.external.readers import CSVReader
 from tests.integration_tests.adapters.betfair.test_kit import BetfairTestStubs
 from tests.test_kit import PACKAGE_ROOT
-from tests.test_kit.mocks import NewsEventData
-from tests.test_kit.mocks import data_catalog_setup
-from tests.test_kit.stubs import TestStubs
+from tests.test_kit.mocks.data import NewsEventData
+from tests.test_kit.mocks.data import data_catalog_setup
+from tests.test_kit.stubs.data import TestDataStubs
+from tests.test_kit.stubs.identifiers import TestIdStubs
+from tests.test_kit.stubs.persistence import TestPersistenceStubs
 
 
 TEST_DATA_DIR = PACKAGE_ROOT + "/data"
@@ -120,7 +123,7 @@ class TestPersistenceCatalog:
             price=Price.from_str("2.0"),
             size=Quantity.from_int(10),
             aggressor_side=AggressorSide.UNKNOWN,
-            trade_id="1",
+            trade_id=TradeId("1"),
             ts_event=0,
             ts_init=0,
         )
@@ -159,7 +162,9 @@ class TestPersistenceCatalog:
 
         # Assert
         assert len(df) == 1
-        assert self.fs.isdir("/root/data/quote_tick.parquet/instrument_id=AUD-USD.SIM/")
+        assert self.fs.isdir(
+            "/.nautilus/catalog/data/quote_tick.parquet/instrument_id=AUD-USD.SIM/"
+        )
         # Ensure we "unmap" the keys that we write the partition filenames as;
         # this instrument_id should be AUD/USD not AUD-USD
         assert df.iloc[0]["instrument_id"] == instrument.id.value
@@ -193,10 +198,10 @@ class TestPersistenceCatalog:
         assert len(filtered_deltas) == 351
 
     def test_data_catalog_generic_data(self):
-        TestStubs.setup_news_event_persistence()
+        TestPersistenceStubs.setup_news_event_persistence()
         process_files(
             glob_path=f"{TEST_DATA_DIR}/news_events.csv",
-            reader=CSVReader(block_parser=TestStubs.news_event_parser),
+            reader=CSVReader(block_parser=TestPersistenceStubs.news_event_parser),
             catalog=self.catalog,
         )
         df = self.catalog.generic_data(cls=NewsEventData, filter_expr=ds.field("currency") == "USD")
@@ -208,7 +213,7 @@ class TestPersistenceCatalog:
 
     def test_data_catalog_bars(self):
         # Arrange
-        bar_type = TestStubs.bartype_adabtc_binance_1min_last()
+        bar_type = TestDataStubs.bartype_adabtc_binance_1min_last()
         instrument = TestInstrumentProvider.adabtc_binance()
         wrangler = BarDataWrangler(bar_type, instrument)
 
@@ -243,6 +248,20 @@ class TestPersistenceCatalog:
         # Assert
         bars = self.catalog.bars()
         assert len(bars) == 21
+
+    def test_catalog_bar_query_instrument_id(self):
+        # Arrange
+        bar = TestDataStubs.bar_5decimal()
+        write_objects(catalog=self.catalog, chunk=[bar])
+
+        # Act
+        objs = self.catalog.bars(instrument_ids=[TestIdStubs.audusd_id().value], as_nautilus=True)
+        data = self.catalog.bars(instrument_ids=[TestIdStubs.audusd_id().value])
+
+        # Assert
+        assert len(objs) == 1
+        assert data.shape[0] == 1
+        assert "instrument_id" in data.columns
 
     def test_catalog_projections(self):
         projections = {"tid": ds.field("trade_id")}

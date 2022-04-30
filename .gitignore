@@ -7,7 +7,6 @@
 *.exp
 *.obj
 *.lib
-*.html
 *.log
 *.prof
 *.rdb
@@ -48,5 +47,8 @@ examples/backtest/notebooks/catalog
 nautilus_trader/**/.gitignore
 docs/**/*.ipynb
 !nautilus_trader/core/pytime.h
+<<<<<<< HEAD
 tests/test_kit/data/betfair/1.166811431.bz2
 tests/test_kit/data/betfair/1.180305278.bz2
+=======
+>>>>>>> master

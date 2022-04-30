@@ -93,7 +93,8 @@ cdef class BarSpecification:
     @staticmethod
     cdef bint check_time_aggregated_c(BarAggregation aggregation):
         if (
-            aggregation == BarAggregation.SECOND
+            aggregation == BarAggregation.MILLISECOND
+            or aggregation == BarAggregation.SECOND
             or aggregation == BarAggregation.MINUTE
             or aggregation == BarAggregation.HOUR
             or aggregation == BarAggregation.DAY
@@ -287,7 +288,7 @@ cdef class BarType:
         The bar types instrument ID.
     bar_spec : BarSpecification
         The bar types specification.
-    aggregation_source : AggregationSource, default=EXTERNAL
+    aggregation_source : AggregationSource, default EXTERNAL
         The bar type aggregation source. If ``INTERNAL`` the `DataEngine`
         will subscribe to the necessary ticks and aggregate bars accordingly.
         Else if ``EXTERNAL`` then bars will be subscribed to directly from

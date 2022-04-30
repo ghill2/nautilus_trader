@@ -14,12 +14,12 @@
 # -------------------------------------------------------------------------------------------------
 
 """
-The `TradingStrategy` class allows traders to implement their own customized trading strategies.
+The `Strategy` class allows traders to implement their own customized trading strategies.
 
-A user can inherit from `TradingStrategy` and optionally override any of the
+A user can inherit from `Strategy` and optionally override any of the
 "on" named event methods. The class is not entirely initialized in a stand-alone
 way, the intended usage is to pass strategies to a `Trader` so that they can be
-fully "wired" into the platform. Exceptions will be raised if a `TradingStrategy`
+fully "wired" into the platform. Exceptions will be raised if a `Strategy`
 attempts to operate without a managing `Trader` instance.
 
 """
@@ -28,6 +28,8 @@ import warnings
 from typing import Optional
 
 import cython
+
+from nautilus_trader.config import ActorConfig
 
 from libc.stdint cimport int64_t
 from cpython.datetime cimport datetime
@@ -64,9 +66,8 @@ from nautilus_trader.model.identifiers cimport TraderId
 from nautilus_trader.model.identifiers cimport Venue
 from nautilus_trader.model.instruments.base cimport Instrument
 from nautilus_trader.model.orderbook.data cimport OrderBookData
+from nautilus_trader.model.orderbook.data cimport OrderBookSnapshot
 from nautilus_trader.msgbus.bus cimport MessageBus
-
-from nautilus_trader.common.config import ActorConfig
 
 
 cdef class Actor(Component):
@@ -113,7 +114,7 @@ cdef class Actor(Component):
         self.cache = None      # Initialized when registered
         self.clock = None      # Initialized when registered
 
-# -- ABSTRACT METHODS ------------------------------------------------------------------------------
+# -- ABSTRACT METHODS -----------------------------------------------------------------------------
 
     cpdef void on_start(self) except *:
         """
@@ -424,7 +425,7 @@ cdef class Actor(Component):
         """
         pass  # Optionally override in subclass
 
-# -- REGISTRATION ----------------------------------------------------------------------------------
+# -- REGISTRATION ---------------------------------------------------------------------------------
 
     cpdef void register_base(
         self,
@@ -503,7 +504,7 @@ cdef class Actor(Component):
 
         self._log.debug(f"Deregistered `{event.__name__}` from warning log levels.")
 
-# -- ACTION IMPLEMENTATIONS ------------------------------------------------------------------------
+# -- ACTION IMPLEMENTATIONS -----------------------------------------------------------------------
 
     cpdef void _start(self) except *:
         self.on_start()
@@ -534,7 +535,7 @@ cdef class Actor(Component):
     cpdef void _fault(self) except *:
         self.on_fault()
 
-# -- SUBSCRIPTIONS ---------------------------------------------------------------------------------
+# -- SUBSCRIPTIONS --------------------------------------------------------------------------------
 
     cpdef void subscribe_data(self, DataType data_type, ClientId client_id=None) except *:
         """
@@ -546,7 +547,7 @@ cdef class Actor(Component):
             The data type to subscribe to.
         client_id : ClientId, optional
             The data client ID. If supplied then a `Subscribe` command will be
-            sent to the data client.
+            sent to the corresponding data client.
 
         """
         Condition.not_none(data_type, "data_type")
@@ -562,6 +563,7 @@ cdef class Actor(Component):
 
         cdef Subscribe command = Subscribe(
             client_id=client_id,
+            venue=None,
             data_type=data_type,
             command_id=self._uuid_factory.generate(),
             ts_init=self._clock.timestamp_ns(),
@@ -569,7 +571,7 @@ cdef class Actor(Component):
 
         self._send_data_cmd(command)
 
-    cpdef void subscribe_instrument(self, InstrumentId instrument_id) except *:
+    cpdef void subscribe_instrument(self, InstrumentId instrument_id, ClientId client_id=None) except *:
         """
         Subscribe to update `Instrument` data for the given instrument ID.
 
@@ -577,6 +579,9 @@ cdef class Actor(Component):
         ----------
         instrument_id : InstrumentId
             The instrument ID for the subscription.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue in the instrument ID.
 
         """
         Condition.not_none(instrument_id, "instrument_id")
@@ -590,7 +595,8 @@ cdef class Actor(Component):
         )
 
         cdef Subscribe command = Subscribe(
-            client_id=ClientId(instrument_id.venue.value),
+            client_id=client_id,
+            venue=instrument_id.venue,
             data_type=DataType(Instrument, metadata={"instrument_id": instrument_id}),
             command_id=self._uuid_factory.generate(),
             ts_init=self._clock.timestamp_ns(),
@@ -598,7 +604,7 @@ cdef class Actor(Component):
 
         self._send_data_cmd(command)
 
-    cpdef void subscribe_instruments(self, Venue venue) except *:
+    cpdef void subscribe_instruments(self, Venue venue, ClientId client_id=None) except *:
         """
         Subscribe to update `Instrument` data for the given venue.
 
@@ -606,6 +612,9 @@ cdef class Actor(Component):
         ----------
         venue : Venue
             The venue for the subscription.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue.
 
         """
         Condition.not_none(venue, "venue")
@@ -617,7 +626,8 @@ cdef class Actor(Component):
         )
 
         cdef Subscribe command = Subscribe(
-            client_id=ClientId(venue.value),
+            client_id=client_id,
+            venue=venue,
             data_type=DataType(Instrument),
             command_id=self._uuid_factory.generate(),
             ts_init=self._clock.timestamp_ns(),
@@ -631,6 +641,7 @@ cdef class Actor(Component):
         BookType book_type=BookType.L2_MBP,
         int depth=0,
         dict kwargs=None,
+        ClientId client_id=None,
     ) except *:
         """
         Subscribe to the order book deltas stream, being a snapshot then deltas
@@ -646,6 +657,9 @@ cdef class Actor(Component):
             The maximum depth for the order book. A depth of 0 is maximum depth.
         kwargs : dict, optional
             The keyword arguments for exchange specific parameters.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue in the instrument ID.
 
         """
         Condition.not_none(instrument_id, "instrument_id")
@@ -659,7 +673,8 @@ cdef class Actor(Component):
         )
 
         cdef Subscribe command = Subscribe(
-            client_id=ClientId(instrument_id.venue.value),
+            client_id=client_id,
+            venue=instrument_id.venue,
             data_type=DataType(OrderBookData, metadata={
                 "instrument_id": instrument_id,
                 "book_type": book_type,
@@ -679,6 +694,7 @@ cdef class Actor(Component):
         int depth=0,
         int interval_ms=1000,
         dict kwargs=None,
+        ClientId client_id=None,
     ) except *:
         """
         Subscribe to `OrderBook` snapshots for the given instrument ID.
@@ -699,6 +715,9 @@ cdef class Actor(Component):
             The order book snapshot interval in milliseconds.
         kwargs : dict, optional
             The keyword arguments for exchange specific parameters.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue in the instrument ID.
 
         Raises
         ------
@@ -729,8 +748,9 @@ cdef class Actor(Component):
         )
 
         cdef Subscribe command = Subscribe(
-            client_id=ClientId(instrument_id.venue.value),
-            data_type=DataType(OrderBook, metadata={
+            client_id=client_id,
+            venue=instrument_id.venue,
+            data_type=DataType(OrderBookSnapshot, metadata={
                 "instrument_id": instrument_id,
                 "book_type": book_type,
                 "depth": depth,
@@ -743,7 +763,7 @@ cdef class Actor(Component):
 
         self._send_data_cmd(command)
 
-    cpdef void subscribe_ticker(self, InstrumentId instrument_id) except *:
+    cpdef void subscribe_ticker(self, InstrumentId instrument_id, ClientId client_id=None) except *:
         """
         Subscribe to streaming `Ticker` data for the given instrument ID.
 
@@ -751,6 +771,9 @@ cdef class Actor(Component):
         ----------
         instrument_id : InstrumentId
             The tick instrument to subscribe to.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue in the instrument ID.
 
         """
         Condition.not_none(instrument_id, "instrument_id")
@@ -764,7 +787,8 @@ cdef class Actor(Component):
         )
 
         cdef Subscribe command = Subscribe(
-            client_id=ClientId(instrument_id.venue.value),
+            client_id=client_id,
+            venue=instrument_id.venue,
             data_type=DataType(Ticker, metadata={"instrument_id": instrument_id}),
             command_id=self._uuid_factory.generate(),
             ts_init=self._clock.timestamp_ns(),
@@ -772,7 +796,7 @@ cdef class Actor(Component):
 
         self._send_data_cmd(command)
 
-    cpdef void subscribe_quote_ticks(self, InstrumentId instrument_id) except *:
+    cpdef void subscribe_quote_ticks(self, InstrumentId instrument_id, ClientId client_id=None) except *:
         """
         Subscribe to streaming `QuoteTick` data for the given instrument ID.
 
@@ -780,6 +804,9 @@ cdef class Actor(Component):
         ----------
         instrument_id : InstrumentId
             The tick instrument to subscribe to.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue in the instrument ID.
 
         """
         Condition.not_none(instrument_id, "instrument_id")
@@ -793,7 +820,8 @@ cdef class Actor(Component):
         )
 
         cdef Subscribe command = Subscribe(
-            client_id=ClientId(instrument_id.venue.value),
+            client_id=client_id,
+            venue=instrument_id.venue,
             data_type=DataType(QuoteTick, metadata={"instrument_id": instrument_id}),
             command_id=self._uuid_factory.generate(),
             ts_init=self._clock.timestamp_ns(),
@@ -801,7 +829,7 @@ cdef class Actor(Component):
 
         self._send_data_cmd(command)
 
-    cpdef void subscribe_trade_ticks(self, InstrumentId instrument_id) except *:
+    cpdef void subscribe_trade_ticks(self, InstrumentId instrument_id, ClientId client_id=None) except *:
         """
         Subscribe to streaming `TradeTick` data for the given instrument ID.
 
@@ -809,6 +837,9 @@ cdef class Actor(Component):
         ----------
         instrument_id : InstrumentId
             The tick instrument to subscribe to.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue in the instrument ID.
 
         """
         Condition.not_none(instrument_id, "instrument_id")
@@ -822,7 +853,8 @@ cdef class Actor(Component):
         )
 
         cdef Subscribe command = Subscribe(
-            client_id=ClientId(instrument_id.venue.value),
+            client_id=client_id,
+            venue=instrument_id.venue,
             data_type=DataType(TradeTick, metadata={"instrument_id": instrument_id}),
             command_id=self._uuid_factory.generate(),
             ts_init=self._clock.timestamp_ns(),
@@ -830,7 +862,7 @@ cdef class Actor(Component):
 
         self._send_data_cmd(command)
 
-    cpdef void subscribe_bars(self, BarType bar_type) except *:
+    cpdef void subscribe_bars(self, BarType bar_type, ClientId client_id=None) except *:
         """
         Subscribe to streaming `Bar` data for the given bar type.
 
@@ -838,6 +870,9 @@ cdef class Actor(Component):
         ----------
         bar_type : BarType
             The bar type to subscribe to.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue in the instrument ID.
 
         """
         Condition.not_none(bar_type, "bar_type")
@@ -849,7 +884,8 @@ cdef class Actor(Component):
         )
 
         cdef Subscribe command = Subscribe(
-            client_id=ClientId(bar_type.instrument_id.venue.value),
+            client_id=client_id,
+            venue=bar_type.instrument_id.venue,
             data_type=DataType(Bar, metadata={"bar_type": bar_type}),
             command_id=self._uuid_factory.generate(),
             ts_init=self._clock.timestamp_ns(),
@@ -857,7 +893,7 @@ cdef class Actor(Component):
 
         self._send_data_cmd(command)
 
-    cpdef void subscribe_venue_status_updates(self, Venue venue) except *:
+    cpdef void subscribe_venue_status_updates(self, Venue venue, ClientId client_id=None) except *:
         """
         Subscribe to status updates of the given venue.
 
@@ -865,6 +901,9 @@ cdef class Actor(Component):
         ----------
         venue : Venue
             The venue to subscribe to.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue.
 
         """
         Condition.not_none(venue, "venue")
@@ -875,16 +914,7 @@ cdef class Actor(Component):
             handler=self.handle_venue_status_update,
         )
 
-        cdef Subscribe command = Subscribe(
-            client_id=ClientId(venue.value),
-            data_type=DataType(VenueStatusUpdate, metadata={"name": venue.value}),
-            command_id=self._uuid_factory.generate(),
-            ts_init=self._clock.timestamp_ns(),
-        )
-
-        self._send_data_cmd(command)
-
-    cpdef void subscribe_instrument_status_updates(self, InstrumentId instrument_id) except *:
+    cpdef void subscribe_instrument_status_updates(self, InstrumentId instrument_id, ClientId client_id=None) except *:
         """
         Subscribe to status updates of the given instrument id.
 
@@ -892,6 +922,9 @@ cdef class Actor(Component):
         ----------
         instrument_id : InstrumentId
             The instrument to subscribe to status updates for.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue in the instrument ID.
 
         """
         Condition.not_none(instrument_id, "instrument_id")
@@ -903,7 +936,8 @@ cdef class Actor(Component):
         )
 
         cdef Subscribe command = Subscribe(
-            client_id=ClientId(instrument_id.venue.value),
+            client_id=client_id,
+            venue=instrument_id.venue,
             data_type=DataType(InstrumentStatusUpdate, metadata={"instrument_id": instrument_id}),
             command_id=self._uuid_factory.generate(),
             ts_init=self._clock.timestamp_ns(),
@@ -911,7 +945,7 @@ cdef class Actor(Component):
 
         self._send_data_cmd(command)
 
-    cpdef void subscribe_instrument_close_prices(self, InstrumentId instrument_id) except *:
+    cpdef void subscribe_instrument_close_prices(self, InstrumentId instrument_id, ClientId client_id=None) except *:
         """
         Subscribe to closing prices for the given instrument id.
 
@@ -919,6 +953,9 @@ cdef class Actor(Component):
         ----------
         instrument_id : InstrumentId
             The instrument to subscribe to status updates for.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue in the instrument ID.
 
         """
         Condition.not_none(instrument_id, "instrument_id")
@@ -930,7 +967,8 @@ cdef class Actor(Component):
         )
 
         cdef Subscribe command = Subscribe(
-            client_id=ClientId(instrument_id.venue.value),
+            client_id=client_id,
+            venue=instrument_id.venue,
             data_type=DataType(InstrumentClosePrice, metadata={"instrument_id": instrument_id}),
             command_id=self._uuid_factory.generate(),
             ts_init=self._clock.timestamp_ns(),
@@ -964,6 +1002,7 @@ cdef class Actor(Component):
 
         cdef Unsubscribe command = Unsubscribe(
             client_id=client_id,
+            venue=None,
             data_type=data_type,
             command_id=self._uuid_factory.generate(),
             ts_init=self._clock.timestamp_ns(),
@@ -971,7 +1010,7 @@ cdef class Actor(Component):
 
         self._send_data_cmd(command)
 
-    cpdef void unsubscribe_instruments(self, Venue venue) except *:
+    cpdef void unsubscribe_instruments(self, Venue venue, ClientId client_id=None) except *:
         """
         Unsubscribe from update `Instrument` data for the given venue.
 
@@ -979,6 +1018,9 @@ cdef class Actor(Component):
         ----------
         venue : Venue
             The venue for the subscription.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue.
 
         """
         Condition.not_none(venue, "venue")
@@ -990,7 +1032,8 @@ cdef class Actor(Component):
         )
 
         cdef Unsubscribe command = Unsubscribe(
-            client_id=ClientId(venue.value),
+            client_id=client_id,
+            venue=venue,
             data_type=DataType(Instrument),
             command_id=self._uuid_factory.generate(),
             ts_init=self._clock.timestamp_ns(),
@@ -998,7 +1041,7 @@ cdef class Actor(Component):
 
         self._send_data_cmd(command)
 
-    cpdef void unsubscribe_instrument(self, InstrumentId instrument_id) except *:
+    cpdef void unsubscribe_instrument(self, InstrumentId instrument_id, ClientId client_id=None) except *:
         """
         Unsubscribe from update `Instrument` data for the given instrument ID.
 
@@ -1006,6 +1049,9 @@ cdef class Actor(Component):
         ----------
         instrument_id : InstrumentId
             The instrument to unsubscribe from.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue in the instrument ID.
 
         """
         Condition.not_none(instrument_id, "instrument_id")
@@ -1019,7 +1065,8 @@ cdef class Actor(Component):
         )
 
         cdef Unsubscribe command = Unsubscribe(
-            client_id=ClientId(instrument_id.venue.value),
+            client_id=client_id,
+            venue=instrument_id.venue,
             data_type=DataType(Instrument, metadata={"instrument_id": instrument_id}),
             command_id=self._uuid_factory.generate(),
             ts_init=self._clock.timestamp_ns(),
@@ -1027,7 +1074,7 @@ cdef class Actor(Component):
 
         self._send_data_cmd(command)
 
-    cpdef void unsubscribe_order_book_deltas(self, InstrumentId instrument_id) except *:
+    cpdef void unsubscribe_order_book_deltas(self, InstrumentId instrument_id, ClientId client_id=None) except *:
         """
         Unsubscribe the order book deltas stream for the given instrument ID.
 
@@ -1035,6 +1082,9 @@ cdef class Actor(Component):
         ----------
         instrument_id : InstrumentId
             The order book instrument to subscribe to.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue in the instrument ID.
 
         """
         Condition.not_none(instrument_id, "instrument_id")
@@ -1048,7 +1098,8 @@ cdef class Actor(Component):
         )
 
         cdef Unsubscribe command = Unsubscribe(
-            client_id=ClientId(instrument_id.venue.value),
+            client_id=client_id,
+            venue=instrument_id.venue,
             data_type=DataType(OrderBookData, metadata={"instrument_id": instrument_id}),
             command_id=self._uuid_factory.generate(),
             ts_init=self._clock.timestamp_ns(),
@@ -1060,6 +1111,7 @@ cdef class Actor(Component):
         self,
         InstrumentId instrument_id,
         int interval_ms=1000,
+        ClientId client_id=None,
     ) except *:
         """
         Unsubscribe from order book snapshots for the given instrument ID.
@@ -1072,6 +1124,9 @@ cdef class Actor(Component):
             The order book instrument to subscribe to.
         interval_ms : int
             The order book snapshot interval in milliseconds.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue in the instrument ID.
 
         """
         Condition.not_none(instrument_id, "instrument_id")
@@ -1086,8 +1141,9 @@ cdef class Actor(Component):
         )
 
         cdef Unsubscribe command = Unsubscribe(
-            client_id=ClientId(instrument_id.venue.value),
-            data_type=DataType(OrderBook, metadata={
+            client_id=client_id,
+            venue=instrument_id.venue,
+            data_type=DataType(OrderBookSnapshot, metadata={
                 "instrument_id": instrument_id,
                 "interval_ms": interval_ms,
             }),
@@ -1097,7 +1153,7 @@ cdef class Actor(Component):
 
         self._send_data_cmd(command)
 
-    cpdef void unsubscribe_ticker(self, InstrumentId instrument_id) except *:
+    cpdef void unsubscribe_ticker(self, InstrumentId instrument_id, ClientId client_id=None) except *:
         """
         Unsubscribe from streaming `Ticker` data for the given instrument ID.
 
@@ -1105,6 +1161,9 @@ cdef class Actor(Component):
         ----------
         instrument_id : InstrumentId
             The tick instrument to unsubscribe from.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue in the instrument ID.
 
         """
         Condition.not_none(instrument_id, "instrument_id")
@@ -1118,7 +1177,8 @@ cdef class Actor(Component):
         )
 
         cdef Unsubscribe command = Unsubscribe(
-            client_id=ClientId(instrument_id.venue.value),
+            client_id=client_id,
+            venue=instrument_id.venue,
             data_type=DataType(Ticker, metadata={"instrument_id": instrument_id}),
             command_id=self._uuid_factory.generate(),
             ts_init=self._clock.timestamp_ns(),
@@ -1126,7 +1186,7 @@ cdef class Actor(Component):
 
         self._send_data_cmd(command)
 
-    cpdef void unsubscribe_quote_ticks(self, InstrumentId instrument_id) except *:
+    cpdef void unsubscribe_quote_ticks(self, InstrumentId instrument_id, ClientId client_id=None) except *:
         """
         Unsubscribe from streaming `QuoteTick` data for the given instrument ID.
 
@@ -1134,6 +1194,9 @@ cdef class Actor(Component):
         ----------
         instrument_id : InstrumentId
             The tick instrument to unsubscribe from.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue in the instrument ID.
 
         """
         Condition.not_none(instrument_id, "instrument_id")
@@ -1147,7 +1210,8 @@ cdef class Actor(Component):
         )
 
         cdef Unsubscribe command = Unsubscribe(
-            client_id=ClientId(instrument_id.venue.value),
+            client_id=client_id,
+            venue=instrument_id.venue,
             data_type=DataType(QuoteTick, metadata={"instrument_id": instrument_id}),
             command_id=self._uuid_factory.generate(),
             ts_init=self._clock.timestamp_ns(),
@@ -1155,7 +1219,7 @@ cdef class Actor(Component):
 
         self._send_data_cmd(command)
 
-    cpdef void unsubscribe_trade_ticks(self, InstrumentId instrument_id) except *:
+    cpdef void unsubscribe_trade_ticks(self, InstrumentId instrument_id, ClientId client_id=None) except *:
         """
         Unsubscribe from streaming `TradeTick` data for the given instrument ID.
 
@@ -1163,6 +1227,9 @@ cdef class Actor(Component):
         ----------
         instrument_id : InstrumentId
             The tick instrument ID to unsubscribe from.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue in the instrument ID.
 
         """
         Condition.not_none(instrument_id, "instrument_id")
@@ -1176,7 +1243,8 @@ cdef class Actor(Component):
         )
 
         cdef Unsubscribe command = Unsubscribe(
-            client_id=ClientId(instrument_id.venue.value),
+            client_id=client_id,
+            venue=instrument_id.venue,
             data_type=DataType(TradeTick, metadata={"instrument_id": instrument_id}),
             command_id=self._uuid_factory.generate(),
             ts_init=self._clock.timestamp_ns(),
@@ -1184,7 +1252,7 @@ cdef class Actor(Component):
 
         self._send_data_cmd(command)
 
-    cpdef void unsubscribe_bars(self, BarType bar_type) except *:
+    cpdef void unsubscribe_bars(self, BarType bar_type, ClientId client_id=None) except *:
         """
         Unsubscribe from streaming `Bar` data for the given bar type.
 
@@ -1192,6 +1260,9 @@ cdef class Actor(Component):
         ----------
         bar_type : BarType
             The bar type to unsubscribe from.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue in the instrument ID.
 
         """
         Condition.not_none(bar_type, "bar_type")
@@ -1203,7 +1274,8 @@ cdef class Actor(Component):
         )
 
         cdef Unsubscribe command = Unsubscribe(
-            client_id=ClientId(bar_type.instrument_id.venue.value),
+            client_id=client_id,
+            venue=bar_type.instrument_id.venue,
             data_type=DataType(Bar, metadata={"bar_type": bar_type}),
             command_id=self._uuid_factory.generate(),
             ts_init=self._clock.timestamp_ns(),
@@ -1211,6 +1283,27 @@ cdef class Actor(Component):
 
         self._send_data_cmd(command)
         self._log.info(f"Unsubscribed from {bar_type} bar data.")
+
+    cpdef void unsubscribe_venue_status_updates(self, Venue venue, ClientId client_id=None) except *:
+        """
+        Unsubscribe to status updates of the given venue.
+
+        Parameters
+        ----------
+        venue : Venue
+            The venue to subscribe to.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue.
+
+        """
+        Condition.not_none(venue, "venue")
+        Condition.true(self.trader_id is not None, "The actor has not been registered")
+
+        self._msgbus.unsubscribe(
+            topic=f"data.venue.status",
+            handler=self.handle_venue_status_update,
+        )
 
     cpdef void publish_data(self, DataType data_type, Data data) except *:
         """
@@ -1231,7 +1324,7 @@ cdef class Actor(Component):
 
         self._msgbus.publish_c(topic=f"data.{data_type.topic}", msg=data)
 
-# -- REQUESTS --------------------------------------------------------------------------------------
+# -- REQUESTS -------------------------------------------------------------------------------------
 
     cpdef void request_data(self, ClientId client_id, DataType data_type) except *:
         """
@@ -1251,8 +1344,37 @@ cdef class Actor(Component):
 
         cdef DataRequest request = DataRequest(
             client_id=client_id,
+            venue=None,
             data_type=data_type,
             callback=self._handle_data_response,
+            request_id=self._uuid_factory.generate(),
+            ts_init=self._clock.timestamp_ns(),
+        )
+
+        self._send_data_req(request)
+
+    cpdef void request_instrument(self, InstrumentId instrument_id, ClientId client_id=None) except *:
+        """
+        Request an instrument for the given parameters.
+
+        Parameters
+        ----------
+        instrument_id : InstrumentId
+            The instrument ID for the request.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue in the instrument ID.
+
+        """
+        Condition.not_none(instrument_id, "instrument_id")
+
+        cdef DataRequest request = DataRequest(
+            client_id=client_id,
+            venue=instrument_id.venue,
+            data_type=DataType(Instrument, metadata={
+                "instrument_id": instrument_id,
+            }),
+            callback=self._handle_instrument_response,
             request_id=self._uuid_factory.generate(),
             ts_init=self._clock.timestamp_ns(),
         )
@@ -1264,11 +1386,12 @@ cdef class Actor(Component):
         InstrumentId instrument_id,
         datetime from_datetime=None,
         datetime to_datetime=None,
+        ClientId client_id=None,
     ) except *:
         """
         Request historical quote ticks for the given parameters.
 
-        If datetimes are ``None`` then will request the most recent data.
+        If `to_datetime` is ``None`` then will request up to the most recent data.
 
         Parameters
         ----------
@@ -1279,6 +1402,9 @@ cdef class Actor(Component):
         to_datetime : datetime, optional
             The specified to datetime for the data. If ``None`` then will default
             to the current datetime.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue in the instrument ID.
 
         Notes
         -----
@@ -1291,7 +1417,8 @@ cdef class Actor(Component):
         Condition.true(self.trader_id is not None, "The actor has not been registered")
 
         cdef DataRequest request = DataRequest(
-            client_id=ClientId(instrument_id.venue.value),
+            client_id=client_id,
+            venue=instrument_id.venue,
             data_type=DataType(QuoteTick, metadata={
                 "instrument_id": instrument_id,
                 "from_datetime": from_datetime,
@@ -1309,11 +1436,12 @@ cdef class Actor(Component):
         InstrumentId instrument_id,
         datetime from_datetime=None,
         datetime to_datetime=None,
+        ClientId client_id=None,
     ) except *:
         """
         Request historical trade ticks for the given parameters.
 
-        If datetimes are ``None`` then will request the most recent data.
+        If `to_datetime` is ``None`` then will request up to the most recent data.
 
         Parameters
         ----------
@@ -1324,6 +1452,9 @@ cdef class Actor(Component):
         to_datetime : datetime, optional
             The specified to datetime for the data. If ``None`` then will default
             to the current datetime.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue in the instrument ID.
 
         Notes
         -----
@@ -1336,7 +1467,8 @@ cdef class Actor(Component):
         Condition.true(self.trader_id is not None, "The actor has not been registered")
 
         cdef DataRequest request = DataRequest(
-            client_id=ClientId(instrument_id.venue.value),
+            client_id=client_id,
+            venue=instrument_id.venue,
             data_type=DataType(TradeTick, metadata={
                 "instrument_id": instrument_id,
                 "from_datetime": from_datetime,
@@ -1354,11 +1486,12 @@ cdef class Actor(Component):
         BarType bar_type,
         datetime from_datetime=None,
         datetime to_datetime=None,
+        ClientId client_id=None,
     ) except *:
         """
         Request historical bars for the given parameters.
 
-        If datetimes are ``None`` then will request the most recent data.
+        If `to_datetime` is ``None`` then will request up to the most recent data.
 
         Parameters
         ----------
@@ -1369,6 +1502,9 @@ cdef class Actor(Component):
         to_datetime : datetime, optional
             The specified to datetime for the data. If ``None`` then will default
             to the current datetime.
+        client_id : ClientId, optional
+            The specific client ID for the command.
+            If ``None`` then will be inferred from the venue in the instrument ID.
 
         Raises
         ------
@@ -1386,7 +1522,8 @@ cdef class Actor(Component):
         Condition.true(self.trader_id is not None, "The actor has not been registered")
 
         cdef DataRequest request = DataRequest(
-            client_id=ClientId(bar_type.instrument_id.venue.value),
+            client_id=client_id,
+            venue=bar_type.instrument_id.venue,
             data_type=DataType(Bar, metadata={
                 "bar_type": bar_type,
                 "from_datetime": from_datetime,
@@ -1400,7 +1537,7 @@ cdef class Actor(Component):
 
         self._send_data_req(request)
 
-# -- HANDLERS --------------------------------------------------------------------------------------
+# -- HANDLERS -------------------------------------------------------------------------------------
 
     cpdef void handle_instrument(self, Instrument instrument) except *:
         """
@@ -1424,7 +1561,7 @@ cdef class Actor(Component):
             try:
                 self.on_instrument(instrument)
             except Exception as ex:
-                self._log.exception(ex)
+                self._log.exception(f"Error on handling {repr(instrument)}", ex)
                 raise
 
     cpdef void handle_order_book_delta(self, OrderBookData delta) except *:
@@ -1449,7 +1586,7 @@ cdef class Actor(Component):
             try:
                 self.on_order_book_delta(delta)
             except Exception as ex:
-                self._log.exception(ex)
+                self._log.exception(f"Error on handling {repr(delta)}", ex)
                 raise
 
     cpdef void handle_order_book(self, OrderBook order_book) except *:
@@ -1474,7 +1611,7 @@ cdef class Actor(Component):
             try:
                 self.on_order_book(order_book)
             except Exception as ex:
-                self._log.exception(ex)
+                self._log.exception(f"Error on handling {repr(order_book)}", ex)
                 raise
 
     cpdef void handle_ticker(self, Ticker ticker, bint is_historical=False) except *:
@@ -1504,7 +1641,7 @@ cdef class Actor(Component):
             try:
                 self.on_ticker(ticker)
             except Exception as ex:
-                self._log.exception(ex)
+                self._log.exception(f"Error on handling {repr(ticker)}", ex)
                 raise
 
     cpdef void handle_quote_tick(self, QuoteTick tick, bint is_historical=False) except *:
@@ -1534,7 +1671,7 @@ cdef class Actor(Component):
             try:
                 self.on_quote_tick(tick)
             except Exception as ex:
-                self._log.exception(ex)
+                self._log.exception(f"Error on handling {repr(tick)}", ex)
                 raise
 
     @cython.boundscheck(False)
@@ -1594,7 +1731,7 @@ cdef class Actor(Component):
             try:
                 self.on_trade_tick(tick)
             except Exception as ex:
-                self._log.exception(ex)
+                self._log.exception(f"Error on handling {repr(tick)}", ex)
                 raise
 
     @cython.boundscheck(False)
@@ -1654,7 +1791,7 @@ cdef class Actor(Component):
             try:
                 self.on_bar(bar)
             except Exception as ex:
-                self._log.exception(ex)
+                self._log.exception(f"Error on handling {repr(bar)}", ex)
                 raise
 
     @cython.boundscheck(False)
@@ -1713,7 +1850,7 @@ cdef class Actor(Component):
             try:
                 self.on_venue_status_update(update)
             except Exception as ex:
-                self._log.exception(ex)
+                self._log.exception(f"Error on handling {repr(update)}", ex)
                 raise
 
     cpdef void handle_instrument_status_update(self, InstrumentStatusUpdate update) except *:
@@ -1738,7 +1875,7 @@ cdef class Actor(Component):
             try:
                 self.on_instrument_status_update(update)
             except Exception as ex:
-                self._log.exception(ex)
+                self._log.exception(f"Error on handling {repr(update)}", ex)
                 raise
 
     cpdef void handle_instrument_close_price(self, InstrumentClosePrice update) except *:
@@ -1763,7 +1900,7 @@ cdef class Actor(Component):
             try:
                 self.on_instrument_close_price(update)
             except Exception as ex:
-                self._log.exception(ex)
+                self._log.exception(f"Error on handling {repr(update)}", ex)
                 raise
 
     cpdef void handle_data(self, Data data) except *:
@@ -1788,7 +1925,7 @@ cdef class Actor(Component):
             try:
                 self.on_data(data)
             except Exception as ex:
-                self._log.exception(ex)
+                self._log.exception(f"Error on handling {repr(data)}", ex)
                 raise
 
     cpdef void handle_event(self, Event event) except *:
@@ -1813,11 +1950,14 @@ cdef class Actor(Component):
             try:
                 self.on_event(event)
             except Exception as ex:
-                self._log.exception(ex)
+                self._log.exception(f"Error on handling {repr(event)}", ex)
                 raise
 
     cpdef void _handle_data_response(self, DataResponse response) except *:
         self.handle_data(response.data)
+
+    cpdef void _handle_instrument_response(self, DataResponse response) except *:
+        self.handle_instrument(response.data)
 
     cpdef void _handle_quote_ticks_response(self, DataResponse response) except *:
         self.handle_quote_ticks(response.data)
@@ -1828,7 +1968,7 @@ cdef class Actor(Component):
     cpdef void _handle_bars_response(self, DataResponse response) except *:
         self.handle_bars(response.data)
 
-# -- EGRESS ----------------------------------------------------------------------------------------
+# -- EGRESS ---------------------------------------------------------------------------------------
 
     cdef void _send_data_cmd(self, DataCommand command) except *:
         if not self._log.is_bypassed:

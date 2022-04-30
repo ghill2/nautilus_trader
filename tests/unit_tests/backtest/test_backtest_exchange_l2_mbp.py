@@ -37,6 +37,7 @@ from nautilus_trader.model.enums import BookType
 from nautilus_trader.model.enums import OMSType
 from nautilus_trader.model.enums import OrderSide
 from nautilus_trader.model.enums import OrderStatus
+from nautilus_trader.model.identifiers import TradeId
 from nautilus_trader.model.identifiers import Venue
 from nautilus_trader.model.objects import Money
 from nautilus_trader.model.objects import Price
@@ -45,8 +46,10 @@ from nautilus_trader.model.orderbook.book import OrderBook
 from nautilus_trader.msgbus.bus import MessageBus
 from nautilus_trader.portfolio.portfolio import Portfolio
 from nautilus_trader.risk.engine import RiskEngine
-from tests.test_kit.mocks import MockStrategy
-from tests.test_kit.stubs import TestStubs
+from tests.test_kit.mocks.strategies import MockStrategy
+from tests.test_kit.stubs.component import TestComponentStubs
+from tests.test_kit.stubs.data import TestDataStubs
+from tests.test_kit.stubs.identifiers import TestIdStubs
 
 
 SIM = Venue("SIM")
@@ -63,7 +66,7 @@ class TestL2OrderBookExchange:
             level_stdout=LogLevel.DEBUG,
         )
 
-        self.trader_id = TestStubs.trader_id()
+        self.trader_id = TestIdStubs.trader_id()
 
         self.msgbus = MessageBus(
             trader_id=self.trader_id,
@@ -71,7 +74,7 @@ class TestL2OrderBookExchange:
             logger=self.logger,
         )
 
-        self.cache = TestStubs.cache()
+        self.cache = TestComponentStubs.cache()
 
         self.portfolio = Portfolio(
             msgbus=self.msgbus,
@@ -141,7 +144,7 @@ class TestL2OrderBookExchange:
         self.exec_engine.register_client(self.exec_client)
         self.exchange.register_client(self.exec_client)
 
-        self.strategy = MockStrategy(bar_type=TestStubs.bartype_usdjpy_1min_bid())
+        self.strategy = MockStrategy(bar_type=TestDataStubs.bartype_usdjpy_1min_bid())
         self.strategy.register(
             trader_id=self.trader_id,
             portfolio=self.portfolio,
@@ -170,7 +173,7 @@ class TestL2OrderBookExchange:
             ts_init=0,
         )
         self.data_engine.process(quote)
-        snapshot = TestStubs.order_book_snapshot(
+        snapshot = TestDataStubs.order_book_snapshot(
             instrument_id=USDJPY_SIM.id,
             bid_volume=1000,
             ask_volume=1000,
@@ -211,7 +214,7 @@ class TestL2OrderBookExchange:
             ts_init=0,
         )
         self.data_engine.process(quote)
-        snapshot = TestStubs.order_book_snapshot(
+        snapshot = TestDataStubs.order_book_snapshot(
             instrument_id=USDJPY_SIM.id,
             bid_volume=1000,
             ask_volume=1000,
@@ -236,11 +239,11 @@ class TestL2OrderBookExchange:
         assert order.avg_px == Decimal("15.93333333333333333333333333")
         assert self.exchange.get_account().balance_total(USD) == Money(999999.88, USD)
 
-    def test_passive_post_only_insert(self):
+    def test_post_only_insert(self):
         # Arrange: Prepare market
         self.cache.add_instrument(USDJPY_SIM)
         # Market is 10 @ 15
-        snapshot = TestStubs.order_book_snapshot(
+        snapshot = TestDataStubs.order_book_snapshot(
             instrument_id=USDJPY_SIM.id, bid_volume=1000, ask_volume=1000
         )
         self.data_engine.process(snapshot)
@@ -266,7 +269,7 @@ class TestL2OrderBookExchange:
         # Arrange: Prepare market
         self.cache.add_instrument(USDJPY_SIM)
         # Market is 10 @ 15
-        snapshot = TestStubs.order_book_snapshot(
+        snapshot = TestDataStubs.order_book_snapshot(
             instrument_id=USDJPY_SIM.id, bid_volume=1000, ask_volume=1000
         )
         self.data_engine.process(snapshot)
@@ -282,7 +285,7 @@ class TestL2OrderBookExchange:
         self.strategy.submit_order(order)
 
         # Act
-        tick = TestStubs.quote_tick_3decimal(
+        tick = TestDataStubs.quote_tick_3decimal(
             instrument_id=USDJPY_SIM.id,
             bid=Price.from_str("15"),
             bid_volume=Quantity.from_int(1000),
@@ -302,7 +305,7 @@ class TestL2OrderBookExchange:
     def test_passive_fill_on_trade_tick(self):
         # Arrange: Prepare market
         # Market is 10 @ 15
-        snapshot = TestStubs.order_book_snapshot(
+        snapshot = TestDataStubs.order_book_snapshot(
             instrument_id=USDJPY_SIM.id, bid_volume=1000, ask_volume=1000
         )
         self.data_engine.process(snapshot)
@@ -323,7 +326,7 @@ class TestL2OrderBookExchange:
             price=Price.from_str("14.0"),
             size=Quantity.from_int(1000),
             aggressor_side=AggressorSide.SELL,
-            trade_id="123456789",
+            trade_id=TradeId("123456789"),
             ts_event=0,
             ts_init=0,
         )

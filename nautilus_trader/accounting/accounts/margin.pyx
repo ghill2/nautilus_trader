@@ -62,7 +62,7 @@ cdef class MarginAccount(Account):
         self._leverages: Dict[InstrumentId, Decimal] = {}
         self._margins: Dict[InstrumentId, MarginBalance] = {m.instrument_id: m for m in event.margins}
 
-# -- QUERIES ---------------------------------------------------------------------------------------
+# -- QUERIES --------------------------------------------------------------------------------------
 
     cpdef dict margins(self):
         """
@@ -199,7 +199,7 @@ cdef class MarginAccount(Account):
 
         return self._margins.get(instrument_id)
 
-# -- COMMANDS --------------------------------------------------------------------------------------
+# -- COMMANDS -------------------------------------------------------------------------------------
 
     cpdef void set_default_leverage(self, leverage: Decimal) except *:
         """
@@ -408,7 +408,7 @@ cdef class MarginAccount(Account):
         if margin is not None:
             self._recalculate_balance(margin.currency)
 
-# -- CALCULATIONS ----------------------------------------------------------------------------------
+# -- CALCULATIONS ---------------------------------------------------------------------------------
 
     cdef void _recalculate_balance(self, Currency currency) except *:
         cdef AccountBalance current_balance = self._balances.get(currency)
@@ -455,7 +455,7 @@ cdef class MarginAccount(Account):
             The transaction quantity.
         last_px : Decimal or Price
             The transaction price.
-        liquidity_side : LiquiditySide
+        liquidity_side : LiquiditySide {``MAKER``, ``TAKER``}
             The liquidity side for the transaction.
         inverse_as_quote : bool
             If inverse instrument calculations use quote currency (instead of base).
@@ -567,7 +567,7 @@ cdef class MarginAccount(Account):
         ----------
         instrument : Instrument
             The instrument for the calculation.
-        side : PositionSide
+        side : PositionSide {``LONG``, ``SHORT``}
             The currency position side.
         quantity : Quantity
             The currency position quantity.

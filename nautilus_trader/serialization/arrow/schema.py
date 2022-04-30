@@ -16,6 +16,8 @@
 import orjson
 import pyarrow as pa
 
+from nautilus_trader.adapters.binance.common.types import BinanceBar
+from nautilus_trader.adapters.ftx.core.types import FTXTicker
 from nautilus_trader.common.events.risk import TradingStateChanged
 from nautilus_trader.common.events.system import ComponentStateChanged
 from nautilus_trader.model.data.bar import Bar
@@ -44,7 +46,9 @@ from nautilus_trader.model.events.position import PositionChanged
 from nautilus_trader.model.events.position import PositionClosed
 from nautilus_trader.model.events.position import PositionOpened
 from nautilus_trader.model.instruments.betting import BettingInstrument
-from nautilus_trader.model.instruments.currency import CurrencySpot
+from nautilus_trader.model.instruments.crypto_future import CryptoFuture
+from nautilus_trader.model.instruments.crypto_perpetual import CryptoPerpetual
+from nautilus_trader.model.instruments.currency_pair import CurrencyPair
 from nautilus_trader.model.instruments.equity import Equity
 from nautilus_trader.model.instruments.future import Future
 from nautilus_trader.model.instruments.option import Option
@@ -55,7 +59,7 @@ from nautilus_trader.serialization.arrow.serializer import register_parquet
 NAUTILUS_PARQUET_SCHEMA = {
     OrderBookData: pa.schema(
         {
-            "instrument_id": pa.string(),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "ts_event": pa.int64(),
             "ts_init": pa.int64(),
             "action": pa.string(),
@@ -72,7 +76,7 @@ NAUTILUS_PARQUET_SCHEMA = {
     ),
     Ticker: pa.schema(
         {
-            "instrument_id": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "ts_event": pa.int64(),
             "ts_init": pa.int64(),
         },
@@ -80,7 +84,7 @@ NAUTILUS_PARQUET_SCHEMA = {
     ),
     QuoteTick: pa.schema(
         {
-            "instrument_id": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "bid": pa.string(),
             "bid_size": pa.string(),
             "ask": pa.string(),
@@ -92,7 +96,7 @@ NAUTILUS_PARQUET_SCHEMA = {
     ),
     TradeTick: pa.schema(
         {
-            "instrument_id": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "price": pa.string(),
             "size": pa.string(),
             "aggressor_side": pa.dictionary(pa.int8(), pa.string()),
@@ -105,6 +109,7 @@ NAUTILUS_PARQUET_SCHEMA = {
     Bar: pa.schema(
         {
             "bar_type": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "open": pa.string(),
             "high": pa.string(),
             "low": pa.string(),
@@ -125,14 +130,14 @@ NAUTILUS_PARQUET_SCHEMA = {
     ),
     InstrumentClosePrice: pa.schema(
         {
-            "instrument_id": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "close_type": pa.dictionary(pa.int8(), pa.string()),
             "close_price": pa.float64(),
         }
     ),
     InstrumentStatusUpdate: pa.schema(
         {
-            "instrument_id": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "status": pa.dictionary(pa.int8(), pa.string()),
             "ts_event": pa.int64(),
             "ts_init": pa.int64(),
@@ -188,35 +193,53 @@ NAUTILUS_PARQUET_SCHEMA = {
         {
             "trader_id": pa.dictionary(pa.int8(), pa.string()),
             "strategy_id": pa.dictionary(pa.int8(), pa.string()),
-            "instrument_id": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "client_order_id": pa.string(),
             "order_side": pa.dictionary(pa.int8(), pa.string()),
             "order_type": pa.dictionary(pa.int8(), pa.string()),
             "quantity": pa.float64(),
             "time_in_force": pa.dictionary(pa.int8(), pa.string()),
+            "post_only": pa.bool_(),
             "reduce_only": pa.bool_(),
             # -- Options fields -- #
-            "post_only": pa.bool_(),
-            "display_qty": pa.string(),
             "price": pa.float64(),
-            "trigger": pa.bool_(),
+            "trigger_price": pa.string(),
+            "trigger_type": pa.dictionary(pa.int8(), pa.string()),
+            "limit_offset": pa.string(),
+            "trailing_offset": pa.string(),
+            "offset_type": pa.dictionary(pa.int8(), pa.string()),
+            "expire_time_ns": pa.int64(),
+            "display_qty": pa.string(),
             # --------------------- #
             "order_list_id": pa.string(),
+            "contingency_type": pa.string(),
+            "linked_order_ids": pa.string(),
             "parent_order_id": pa.string(),
-            "child_order_ids": pa.string(),
-            "contingency": pa.string(),
-            "contingency_ids": pa.string(),
             "tags": pa.string(),
             "event_id": pa.string(),
             "ts_init": pa.int64(),
+            "reconciliation": pa.bool_(),
         },
-        metadata={"options_fields": orjson.dumps(["post_only", "display_qty", "price", "trigger"])},
+        metadata={
+            "options_fields": orjson.dumps(
+                [
+                    "price",
+                    "trigger_price",
+                    "trigger_type",
+                    "limit_offset",
+                    "trailing_offset",
+                    "offset_type",
+                    "display_qty",
+                    "expire_time_ns",
+                ],
+            )
+        },
     ),
     OrderDenied: pa.schema(
         {
             "trader_id": pa.dictionary(pa.int8(), pa.string()),
             "strategy_id": pa.dictionary(pa.int8(), pa.string()),
-            "instrument_id": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "client_order_id": pa.string(),
             "reason": pa.dictionary(pa.int8(), pa.string()),
             "event_id": pa.string(),
@@ -228,7 +251,7 @@ NAUTILUS_PARQUET_SCHEMA = {
             "trader_id": pa.dictionary(pa.int8(), pa.string()),
             "strategy_id": pa.dictionary(pa.int8(), pa.string()),
             "account_id": pa.dictionary(pa.int8(), pa.string()),
-            "instrument_id": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "client_order_id": pa.string(),
             "event_id": pa.string(),
             "ts_event": pa.int64(),
@@ -240,12 +263,13 @@ NAUTILUS_PARQUET_SCHEMA = {
             "trader_id": pa.dictionary(pa.int8(), pa.string()),
             "strategy_id": pa.dictionary(pa.int8(), pa.string()),
             "account_id": pa.dictionary(pa.int8(), pa.string()),
-            "instrument_id": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "client_order_id": pa.string(),
             "venue_order_id": pa.string(),
             "event_id": pa.string(),
             "ts_event": pa.int64(),
             "ts_init": pa.int64(),
+            "reconciliation": pa.bool_(),
         }
     ),
     OrderRejected: pa.schema(
@@ -253,12 +277,13 @@ NAUTILUS_PARQUET_SCHEMA = {
             "trader_id": pa.dictionary(pa.int8(), pa.string()),
             "strategy_id": pa.dictionary(pa.int8(), pa.string()),
             "account_id": pa.dictionary(pa.int8(), pa.string()),
-            "instrument_id": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "client_order_id": pa.string(),
             "reason": pa.dictionary(pa.int8(), pa.string()),
             "event_id": pa.string(),
             "ts_event": pa.int64(),
             "ts_init": pa.int64(),
+            "reconciliation": pa.bool_(),
         }
     ),
     OrderPendingCancel: pa.schema(
@@ -266,12 +291,13 @@ NAUTILUS_PARQUET_SCHEMA = {
             "trader_id": pa.dictionary(pa.int8(), pa.string()),
             "strategy_id": pa.dictionary(pa.int8(), pa.string()),
             "account_id": pa.dictionary(pa.int8(), pa.string()),
-            "instrument_id": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "client_order_id": pa.string(),
             "venue_order_id": pa.string(),
             "event_id": pa.string(),
             "ts_event": pa.int64(),
             "ts_init": pa.int64(),
+            "reconciliation": pa.bool_(),
         }
     ),
     OrderCanceled: pa.schema(
@@ -279,12 +305,13 @@ NAUTILUS_PARQUET_SCHEMA = {
             "trader_id": pa.dictionary(pa.int8(), pa.string()),
             "strategy_id": pa.dictionary(pa.int8(), pa.string()),
             "account_id": pa.dictionary(pa.int8(), pa.string()),
-            "instrument_id": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "client_order_id": pa.string(),
             "venue_order_id": pa.string(),
             "event_id": pa.string(),
             "ts_event": pa.int64(),
             "ts_init": pa.int64(),
+            "reconciliation": pa.bool_(),
         }
     ),
     OrderCancelRejected: pa.schema(
@@ -292,13 +319,14 @@ NAUTILUS_PARQUET_SCHEMA = {
             "trader_id": pa.dictionary(pa.int8(), pa.string()),
             "strategy_id": pa.dictionary(pa.int8(), pa.string()),
             "account_id": pa.dictionary(pa.int8(), pa.string()),
-            "instrument_id": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "client_order_id": pa.string(),
             "venue_order_id": pa.string(),
             "reason": pa.string(),
             "event_id": pa.string(),
             "ts_event": pa.int64(),
             "ts_init": pa.int64(),
+            "reconciliation": pa.bool_(),
         }
     ),
     OrderExpired: pa.schema(
@@ -306,12 +334,13 @@ NAUTILUS_PARQUET_SCHEMA = {
             "trader_id": pa.dictionary(pa.int8(), pa.string()),
             "strategy_id": pa.dictionary(pa.int8(), pa.string()),
             "account_id": pa.dictionary(pa.int8(), pa.string()),
-            "instrument_id": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "client_order_id": pa.string(),
             "venue_order_id": pa.string(),
             "event_id": pa.string(),
             "ts_event": pa.int64(),
             "ts_init": pa.int64(),
+            "reconciliation": pa.bool_(),
         }
     ),
     OrderTriggered: pa.schema(
@@ -319,12 +348,13 @@ NAUTILUS_PARQUET_SCHEMA = {
             "trader_id": pa.dictionary(pa.int8(), pa.string()),
             "strategy_id": pa.dictionary(pa.int8(), pa.string()),
             "account_id": pa.dictionary(pa.int8(), pa.string()),
-            "instrument_id": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "client_order_id": pa.string(),
             "venue_order_id": pa.string(),
             "event_id": pa.string(),
             "ts_event": pa.int64(),
             "ts_init": pa.int64(),
+            "reconciliation": pa.bool_(),
         }
     ),
     OrderPendingUpdate: pa.schema(
@@ -332,12 +362,13 @@ NAUTILUS_PARQUET_SCHEMA = {
             "trader_id": pa.dictionary(pa.int8(), pa.string()),
             "strategy_id": pa.dictionary(pa.int8(), pa.string()),
             "account_id": pa.dictionary(pa.int8(), pa.string()),
-            "instrument_id": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "client_order_id": pa.string(),
             "venue_order_id": pa.string(),
             "event_id": pa.string(),
             "ts_event": pa.int64(),
             "ts_init": pa.int64(),
+            "reconciliation": pa.bool_(),
         }
     ),
     OrderModifyRejected: pa.schema(
@@ -345,13 +376,14 @@ NAUTILUS_PARQUET_SCHEMA = {
             "trader_id": pa.dictionary(pa.int8(), pa.string()),
             "strategy_id": pa.dictionary(pa.int8(), pa.string()),
             "account_id": pa.dictionary(pa.int8(), pa.string()),
-            "instrument_id": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "client_order_id": pa.string(),
             "venue_order_id": pa.string(),
             "reason": pa.dictionary(pa.int8(), pa.string()),
             "event_id": pa.string(),
             "ts_event": pa.int64(),
             "ts_init": pa.int64(),
+            "reconciliation": pa.bool_(),
         }
     ),
     OrderUpdated: pa.schema(
@@ -359,14 +391,15 @@ NAUTILUS_PARQUET_SCHEMA = {
             "trader_id": pa.dictionary(pa.int8(), pa.string()),
             "strategy_id": pa.dictionary(pa.int8(), pa.string()),
             "account_id": pa.dictionary(pa.int8(), pa.string()),
-            "instrument_id": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "client_order_id": pa.string(),
             "venue_order_id": pa.string(),
             "price": pa.float64(),
-            "trigger": pa.float64(),
+            "trigger_price": pa.float64(),
             "event_id": pa.string(),
             "ts_event": pa.int64(),
             "ts_init": pa.int64(),
+            "reconciliation": pa.bool_(),
         }
     ),
     OrderFilled: pa.schema(
@@ -374,10 +407,10 @@ NAUTILUS_PARQUET_SCHEMA = {
             "trader_id": pa.dictionary(pa.int8(), pa.string()),
             "strategy_id": pa.dictionary(pa.int8(), pa.string()),
             "account_id": pa.dictionary(pa.int8(), pa.string()),
-            "instrument_id": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "client_order_id": pa.string(),
             "venue_order_id": pa.string(),
-            "execution_id": pa.string(),
+            "trade_id": pa.string(),
             "position_id": pa.string(),
             "order_side": pa.dictionary(pa.int8(), pa.string()),
             "order_type": pa.dictionary(pa.int8(), pa.string()),
@@ -390,13 +423,14 @@ NAUTILUS_PARQUET_SCHEMA = {
             "ts_event": pa.int64(),
             "ts_init": pa.int64(),
             "info": pa.string(),
+            "reconciliation": pa.bool_(),
         }
     ),
     PositionOpened: pa.schema(
         {
             "trader_id": pa.dictionary(pa.int8(), pa.string()),
             "strategy_id": pa.dictionary(pa.int8(), pa.string()),
-            "instrument_id": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "position_id": pa.string(),
             "account_id": pa.dictionary(pa.int8(), pa.string()),
             "from_order": pa.string(),
@@ -420,7 +454,7 @@ NAUTILUS_PARQUET_SCHEMA = {
         {
             "trader_id": pa.dictionary(pa.int8(), pa.string()),
             "strategy_id": pa.dictionary(pa.int8(), pa.string()),
-            "instrument_id": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "account_id": pa.dictionary(pa.int8(), pa.string()),
             "position_id": pa.string(),
             "from_order": pa.string(),
@@ -434,7 +468,6 @@ NAUTILUS_PARQUET_SCHEMA = {
             "currency": pa.string(),
             "avg_px_open": pa.float64(),
             "avg_px_close": pa.float64(),
-            "realized_points": pa.float64(),
             "realized_return": pa.float64(),
             "realized_pnl": pa.float64(),
             "unrealized_pnl": pa.float64(),
@@ -449,7 +482,7 @@ NAUTILUS_PARQUET_SCHEMA = {
             "trader_id": pa.dictionary(pa.int8(), pa.string()),
             "account_id": pa.dictionary(pa.int8(), pa.string()),
             "strategy_id": pa.dictionary(pa.int8(), pa.string()),
-            "instrument_id": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
             "from_order": pa.string(),
             "position_id": pa.string(),
             "entry": pa.string(),
@@ -462,7 +495,6 @@ NAUTILUS_PARQUET_SCHEMA = {
             "currency": pa.string(),
             "avg_px_open": pa.float64(),
             "avg_px_close": pa.float64(),
-            "realized_points": pa.float64(),
             "realized_return": pa.float64(),
             "realized_pnl": pa.float64(),
             "event_id": pa.string(),
@@ -498,7 +530,7 @@ NAUTILUS_PARQUET_SCHEMA = {
         },
         metadata={"type": "BettingInstrument"},
     ),
-    CurrencySpot: pa.schema(
+    CurrencyPair: pa.schema(
         {
             "id": pa.dictionary(pa.int64(), pa.string()),
             "native_symbol": pa.string(),
@@ -509,6 +541,60 @@ NAUTILUS_PARQUET_SCHEMA = {
             "price_increment": pa.dictionary(pa.int8(), pa.string()),
             "size_increment": pa.dictionary(pa.int8(), pa.string()),
             "lot_size": pa.dictionary(pa.int8(), pa.string()),
+            "max_quantity": pa.dictionary(pa.int8(), pa.string()),
+            "min_quantity": pa.dictionary(pa.int8(), pa.string()),
+            "max_notional": pa.dictionary(pa.int8(), pa.string()),
+            "min_notional": pa.dictionary(pa.int8(), pa.string()),
+            "max_price": pa.dictionary(pa.int8(), pa.string()),
+            "min_price": pa.dictionary(pa.int8(), pa.string()),
+            "margin_init": pa.string(),
+            "margin_maint": pa.string(),
+            "maker_fee": pa.string(),
+            "taker_fee": pa.string(),
+            "info": pa.string(),
+            "ts_init": pa.int64(),
+            "ts_event": pa.int64(),
+        }
+    ),
+    CryptoPerpetual: pa.schema(
+        {
+            "id": pa.dictionary(pa.int64(), pa.string()),
+            "native_symbol": pa.string(),
+            "base_currency": pa.dictionary(pa.int8(), pa.string()),
+            "quote_currency": pa.dictionary(pa.int8(), pa.string()),
+            "settlement_currency": pa.dictionary(pa.int8(), pa.string()),
+            "is_inverse": pa.bool_(),
+            "price_precision": pa.int64(),
+            "size_precision": pa.int64(),
+            "price_increment": pa.dictionary(pa.int8(), pa.string()),
+            "size_increment": pa.dictionary(pa.int8(), pa.string()),
+            "max_quantity": pa.dictionary(pa.int8(), pa.string()),
+            "min_quantity": pa.dictionary(pa.int8(), pa.string()),
+            "max_notional": pa.dictionary(pa.int8(), pa.string()),
+            "min_notional": pa.dictionary(pa.int8(), pa.string()),
+            "max_price": pa.dictionary(pa.int8(), pa.string()),
+            "min_price": pa.dictionary(pa.int8(), pa.string()),
+            "margin_init": pa.string(),
+            "margin_maint": pa.string(),
+            "maker_fee": pa.string(),
+            "taker_fee": pa.string(),
+            "info": pa.string(),
+            "ts_init": pa.int64(),
+            "ts_event": pa.int64(),
+        }
+    ),
+    CryptoFuture: pa.schema(
+        {
+            "id": pa.dictionary(pa.int64(), pa.string()),
+            "native_symbol": pa.string(),
+            "underlying": pa.dictionary(pa.int8(), pa.string()),
+            "quote_currency": pa.dictionary(pa.int8(), pa.string()),
+            "settlement_currency": pa.dictionary(pa.int8(), pa.string()),
+            "expiry_date": pa.dictionary(pa.int8(), pa.string()),
+            "price_precision": pa.int64(),
+            "size_precision": pa.int64(),
+            "price_increment": pa.dictionary(pa.int8(), pa.string()),
+            "size_increment": pa.dictionary(pa.int8(), pa.string()),
             "max_quantity": pa.dictionary(pa.int8(), pa.string()),
             "min_quantity": pa.dictionary(pa.int8(), pa.string()),
             "max_notional": pa.dictionary(pa.int8(), pa.string()),
@@ -578,6 +664,35 @@ NAUTILUS_PARQUET_SCHEMA = {
             "kind": pa.dictionary(pa.int8(), pa.string()),
             "ts_init": pa.int64(),
             "ts_event": pa.int64(),
+        }
+    ),
+    FTXTicker: pa.schema(
+        {
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
+            "bid": pa.string(),
+            "ask": pa.string(),
+            "bid_size": pa.string(),
+            "ask_size": pa.string(),
+            "last": pa.string(),
+            "ts_event": pa.int64(),
+            "ts_init": pa.int64(),
+        }
+    ),
+    BinanceBar: pa.schema(
+        {
+            "bar_type": pa.dictionary(pa.int8(), pa.string()),
+            "instrument_id": pa.dictionary(pa.int64(), pa.string()),
+            "open": pa.string(),
+            "high": pa.string(),
+            "low": pa.string(),
+            "close": pa.string(),
+            "volume": pa.string(),
+            "quote_volume": pa.string(),
+            "count": pa.int32(),
+            "taker_buy_base_volume": pa.string(),
+            "taker_buy_quote_volume": pa.string(),
+            "ts_event": pa.int64(),
+            "ts_init": pa.int64(),
         }
     ),
 }

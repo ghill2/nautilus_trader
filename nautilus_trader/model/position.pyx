@@ -21,7 +21,7 @@ from nautilus_trader.model.c_enums.order_side cimport OrderSideParser
 from nautilus_trader.model.c_enums.position_side cimport PositionSide
 from nautilus_trader.model.c_enums.position_side cimport PositionSideParser
 from nautilus_trader.model.events.order cimport OrderFilled
-from nautilus_trader.model.identifiers cimport ExecutionId
+from nautilus_trader.model.identifiers cimport TradeId
 from nautilus_trader.model.instruments.base cimport Instrument
 from nautilus_trader.model.objects cimport Price
 from nautilus_trader.model.objects cimport Quantity
@@ -58,7 +58,7 @@ cdef class Position:
         Condition.not_none(fill.position_id, "fill.position_id")
 
         self._events = []         # type: list[OrderFilled]
-        self._execution_ids = []  # type: list[ExecutionId]
+        self._trade_ids = []  # type: list[TradeId]
         self._buy_qty = Decimal(0)
         self._sell_qty = Decimal(0)
         self._commissions = {}
@@ -92,7 +92,6 @@ cdef class Position:
         self.base_currency = instrument.get_base_currency()  # Can be None
         self.cost_currency = instrument.get_cost_currency()
 
-        self.realized_points = Decimal(0)
         self.realized_return = Decimal(0)
         self.realized_pnl = Money(0, self.cost_currency)
 
@@ -147,7 +146,6 @@ cdef class Position:
             "quote_currency": self.quote_currency.code,
             "base_currency": self.base_currency.code,
             "cost_currency": self.cost_currency.code,
-            "realized_points": str(self.realized_points),
             "realized_return": str(round(self.realized_return, 5)),
             "realized_pnl": str(self.realized_pnl.to_str()),
             "commissions": str([c.to_str() for c in self.commissions()]),
@@ -161,9 +159,9 @@ cdef class Position:
         # Note the inner set {}
         return sorted(list({fill.venue_order_id for fill in self._events}))
 
-    cdef list execution_ids_c(self):
+    cdef list trade_ids_c(self):
         # Checked for duplicate before appending to events
-        return [fill.execution_id for fill in self._events]
+        return [fill.trade_id for fill in self._events]
 
     cdef list events_c(self):
         return self._events.copy()
@@ -171,8 +169,8 @@ cdef class Position:
     cdef OrderFilled last_event_c(self):
         return self._events[-1]
 
-    cdef ExecutionId last_execution_id_c(self):
-        return self._events[-1].execution_id
+    cdef TradeId last_trade_id_c(self):
+        return self._events[-1].trade_id
 
     cdef int event_count_c(self) except *:
         return len(self._events)
@@ -246,16 +244,16 @@ cdef class Position:
         return self.venue_order_ids_c()
 
     @property
-    def execution_ids(self):
+    def trade_ids(self):
         """
-        The execution IDs associated with the position.
+        The trade match IDs associated with the position.
 
         Returns
         -------
-        list[ExecutionId]
+        list[TradeId]
 
         """
-        return self.execution_ids_c()
+        return self.trade_ids_c()
 
     @property
     def events(self):
@@ -282,16 +280,16 @@ cdef class Position:
         return self.last_event_c()
 
     @property
-    def last_execution_id(self):
+    def last_trade_id(self):
         """
-        The last execution ID for the position.
+        The last trade match ID for the position.
 
         Returns
         -------
-        ExecutionId
+        TradeId
 
         """
-        return self.last_execution_id_c()
+        return self.last_trade_id_c()
 
     @property
     def event_count(self):
@@ -369,7 +367,7 @@ cdef class Position:
 
         Parameters
         ----------
-        side : OrderSide
+        side : OrderSide {``BUY``, ``SELL``}
             The order side
 
         Returns
@@ -386,7 +384,7 @@ cdef class Position:
 
         Parameters
         ----------
-        side : OrderSide
+        side : OrderSide {``BUY``, ``SELL``}
 
         Returns
         -------
@@ -408,14 +406,14 @@ cdef class Position:
         Raises
         ------
         KeyError
-            If `fill.execution_id` already applied to the position.
+            If `fill.trade_id` already applied to the position.
 
         """
         Condition.not_none(fill, "fill")
-        Condition.not_in(fill.execution_id, self._execution_ids, "fill.execution_id", "self._execution_ids")
+        Condition.not_in(fill.trade_id, self._trade_ids, "fill.trade_id", "_trade_ids")
 
         self._events.append(fill)
-        self._execution_ids.append(fill.execution_id)
+        self._trade_ids.append(fill.trade_id)
 
         # Calculate cumulative commission
         cdef Currency currency = fill.commission.currency
@@ -590,7 +588,6 @@ cdef class Position:
         # SHORT POSITION
         elif self.net_qty < 0:
             self.avg_px_close = self._calculate_avg_px_close_px(fill)
-            self.realized_points = self._calculate_points(self.avg_px_open, self.avg_px_close)
             self.realized_return = self._calculate_return(self.avg_px_open, self.avg_px_close)
             realized_pnl += self._calculate_pnl_decimal(self.avg_px_open, fill.last_px, fill.last_qty)
 

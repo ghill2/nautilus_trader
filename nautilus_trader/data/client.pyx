@@ -40,6 +40,8 @@ cdef class DataClient(Component):
     ----------
     client_id : ClientId
         The data client ID.
+    venue : Venue, optional
+        The client venue. If multi-venue then can be ``None``.
     msgbus : MessageBus
         The message bus for the client.
     clock : Clock
@@ -57,6 +59,7 @@ cdef class DataClient(Component):
     def __init__(
         self,
         ClientId client_id not None,
+        Venue venue,  # Can be None
         MessageBus msgbus not None,
         Cache cache not None,
         Clock clock not None,
@@ -75,6 +78,8 @@ cdef class DataClient(Component):
         )
 
         self._cache = cache
+
+        self.venue = venue
 
         # Subscriptions
         self._subscriptions_generic = set()  # type: set[DataType]
@@ -96,7 +101,7 @@ cdef class DataClient(Component):
         """
         self.is_connected = value
 
-# -- SUBSCRIPTIONS ---------------------------------------------------------------------------------
+# -- SUBSCRIPTIONS --------------------------------------------------------------------------------
 
     cpdef list subscribed_generic_data(self):
         """
@@ -145,13 +150,13 @@ cdef class DataClient(Component):
 
         self._subscriptions_generic.discard(data_type)
 
-# -- REQUESTS --------------------------------------------------------------------------------------
+# -- REQUESTS -------------------------------------------------------------------------------------
 
     cpdef void request(self, DataType data_type, UUID4 correlation_id) except *:
         """Abstract method (implement in subclass)."""
         raise NotImplementedError("method must be implemented in the subclass")  # pragma: no cover
 
-# -- PYTHON WRAPPERS -------------------------------------------------------------------------------
+# -- PYTHON WRAPPERS ------------------------------------------------------------------------------
 
     def _handle_data_py(self, Data data):
         self._handle_data(data)
@@ -159,7 +164,7 @@ cdef class DataClient(Component):
     def _handle_data_response_py(self, DataType data_type, object data, UUID4 correlation_id):
         self._handle_data_response(data_type, data, correlation_id)
 
-# -- DATA HANDLERS ---------------------------------------------------------------------------------
+# -- DATA HANDLERS --------------------------------------------------------------------------------
 
     cpdef void _handle_data(self, Data data) except *:
         self._msgbus.send(endpoint="DataEngine.process", msg=data)
@@ -167,6 +172,7 @@ cdef class DataClient(Component):
     cpdef void _handle_data_response(self, DataType data_type, object data, UUID4 correlation_id) except *:
         cdef DataResponse response = DataResponse(
             client_id=self.id,
+            venue=self.venue,
             data_type=data_type,
             data=data,
             correlation_id=correlation_id,
@@ -184,7 +190,9 @@ cdef class MarketDataClient(DataClient):
     Parameters
     ----------
     client_id : ClientId
-        The data client ID (normally the venue).
+        The data client ID.
+    venue : Venue, optional
+        The client venue. If multi-venue then can be ``None``.
     msgbus : MessageBus
         The message bus for the client.
     cache : Cache
@@ -204,6 +212,7 @@ cdef class MarketDataClient(DataClient):
     def __init__(
         self,
         ClientId client_id not None,
+        Venue venue,  # Can be None
         MessageBus msgbus not None,
         Cache cache not None,
         Clock clock not None,
@@ -212,6 +221,7 @@ cdef class MarketDataClient(DataClient):
     ):
         super().__init__(
             client_id=client_id,
+            venue=venue,
             msgbus=msgbus,
             cache=cache,
             clock=clock,
@@ -233,7 +243,7 @@ cdef class MarketDataClient(DataClient):
         # Tasks
         self._update_instruments_task = None
 
-# -- SUBSCRIPTIONS ---------------------------------------------------------------------------------
+# -- SUBSCRIPTIONS --------------------------------------------------------------------------------
 
     cpdef list subscribed_instruments(self):
         """
@@ -674,9 +684,13 @@ cdef class MarketDataClient(DataClient):
 
         self._subscriptions_instrument_close_price.discard(instrument_id)
 
-# -- REQUESTS --------------------------------------------------------------------------------------
+# -- REQUESTS -------------------------------------------------------------------------------------
 
     cpdef void request(self, DataType datatype, UUID4 correlation_id) except *:
+        """Abstract method (implement in subclass)."""
+        raise NotImplementedError("method must be implemented in the subclass")  # pragma: no cover
+
+    cpdef void request_instrument(self, InstrumentId instrument_id, UUID4 correlation_id) except *:
         """Abstract method (implement in subclass)."""
         raise NotImplementedError("method must be implemented in the subclass")  # pragma: no cover
 
@@ -713,7 +727,7 @@ cdef class MarketDataClient(DataClient):
         """Abstract method (implement in subclass)."""
         raise NotImplementedError("method must be implemented in the subclass")  # pragma: no cover
 
-# -- PYTHON WRAPPERS -------------------------------------------------------------------------------
+# -- PYTHON WRAPPERS ------------------------------------------------------------------------------
 
     # Convenient pure Python wrappers for the data handlers. Often Python methods
     # involving threads or the event loop don't work with cpdef methods.
@@ -727,11 +741,12 @@ cdef class MarketDataClient(DataClient):
     def _handle_bars_py(self, BarType bar_type, list bars, Bar partial, UUID4 correlation_id):
         self._handle_bars(bar_type, bars, partial, correlation_id)
 
-# -- DATA HANDLERS ---------------------------------------------------------------------------------
+# -- DATA HANDLERS --------------------------------------------------------------------------------
 
     cpdef void _handle_quote_ticks(self, InstrumentId instrument_id, list ticks, UUID4 correlation_id) except *:
         cdef DataResponse response = DataResponse(
             client_id=self.id,
+            venue=self.venue,
             data_type=DataType(QuoteTick, metadata={"instrument_id": instrument_id}),
             data=ticks,
             correlation_id=correlation_id,
@@ -744,6 +759,7 @@ cdef class MarketDataClient(DataClient):
     cpdef void _handle_trade_ticks(self, InstrumentId instrument_id, list ticks, UUID4 correlation_id) except *:
         cdef DataResponse response = DataResponse(
             client_id=self.id,
+            venue=self.venue,
             data_type=DataType(TradeTick, metadata={"instrument_id": instrument_id}),
             data=ticks,
             correlation_id=correlation_id,
@@ -756,6 +772,7 @@ cdef class MarketDataClient(DataClient):
     cpdef void _handle_bars(self, BarType bar_type, list bars, Bar partial, UUID4 correlation_id) except *:
         cdef DataResponse response = DataResponse(
             client_id=self.id,
+            venue=self.venue,
             data_type=DataType(Bar, metadata={"bar_type": bar_type, "Partial": partial}),
             data=bars,
             correlation_id=correlation_id,

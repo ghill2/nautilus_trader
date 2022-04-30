@@ -67,7 +67,7 @@ cdef class Identifier:
 
 cdef class Symbol(Identifier):
     """
-    Represents a valid ticker symbol ID for a tradeable financial market
+    Represents a valid ticker symbol ID for a tradable financial market
     instrument.
 
     The ID value must be unique for a trading venue.
@@ -148,7 +148,7 @@ cdef class InstrumentId(Identifier):
         Must be correctly formatted including characters either side of a single
         period.
 
-        Examples: "AUD/USD.IDEALPRO", "BTC/USDT.BINANCE"
+        Examples: "AUD/USD.IDEALPRO", "BTCUSDT.BINANCE"
 
         Parameters
         ----------
@@ -241,7 +241,11 @@ cdef class TraderId(ComponentId):
         str
 
         """
-        return self.value.partition("-")[2]
+        return self.value.rsplit("-", maxsplit=1)[-1]
+
+
+# External strategy ID constant
+cdef StrategyId EXTERNAL_STRATEGY = StrategyId("EXTERNAL")
 
 
 cdef class StrategyId(ComponentId):
@@ -267,8 +271,13 @@ cdef class StrategyId(ComponentId):
         If `value` is not a valid string containing a hyphen.
     """
 
+
     def __init__(self, str value):
-        Condition.true("-" in value, "ID incorrectly formatted (did not contain '-' hyphen)")
+        if value != "EXTERNAL":
+            Condition.true(
+                value.__contains__("-"),
+                "ID incorrectly formatted (did not contain '-' hyphen)",
+            )
         super().__init__(value)
 
     cpdef str get_tag(self):
@@ -280,7 +289,24 @@ cdef class StrategyId(ComponentId):
         str
 
         """
-        return self.value.partition("-")[2]
+        return self.value.rsplit("-", maxsplit=1)[-1]
+
+    cpdef bint is_external(self):
+        """
+        If the strategy ID is the global 'external' strategy. This represents
+        the strategy for all orders interacting with this instance of the system
+        which did not originate from any strategy being managed by the system.
+
+        Returns
+        -------
+        bool
+
+        """
+        return self.value == EXTERNAL_STRATEGY.value
+
+    @staticmethod
+    cdef StrategyId external_c():
+        return EXTERNAL_STRATEGY
 
 
 cdef class AccountId(Identifier):
@@ -453,20 +479,32 @@ cdef class PositionId(Identifier):
     def __init__(self, str value):
         super().__init__(value)
 
+    cdef bint is_virtual_c(self) except *:
+        return self.value.startswith("P-")
 
-cdef class ExecutionId(Identifier):
+
+cdef class TradeId(Identifier):
     """
-    Represents a valid execution ID.
+    Represents a valid trade match ID (assigned by a trading venue).
+
+    Can correspond to the `TradeID <1003> field` of the FIX protocol.
+
+    The unique ID assigned to the trade entity once it is received or matched by
+    the exchange or central counterparty.
 
     Parameters
     ----------
     value : str
-        The execution ID value.
+        The trade match ID value.
 
     Raises
     ------
     ValueError
         If `value` is not a valid string.
+
+    References
+    ----------
+    https://www.onixs.biz/fix-dictionary/5.0/tagnum_1003.html
     """
 
     def __init__(self, str value):

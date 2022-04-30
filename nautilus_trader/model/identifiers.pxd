@@ -51,6 +51,9 @@ cdef class TraderId(ComponentId):
 
 cdef class StrategyId(ComponentId):
     cpdef str get_tag(self)
+    cpdef bint is_external(self)
+    @staticmethod
+    cdef StrategyId external_c()
 
 
 cdef class AccountId(Identifier):
@@ -80,8 +83,8 @@ cdef class OrderListId(Identifier):
 
 
 cdef class PositionId(Identifier):
-    pass
+    cdef bint is_virtual_c(self) except *
 
 
-cdef class ExecutionId(Identifier):
+cdef class TradeId(Identifier):
     pass

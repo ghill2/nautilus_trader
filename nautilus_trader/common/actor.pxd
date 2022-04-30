@@ -55,7 +55,7 @@ cdef class Actor(Component):
     cdef readonly CacheFacade cache
     """The read-only cache for the actor.\n\n:returns: `CacheFacade`"""
 
-# -- ABSTRACT METHODS ------------------------------------------------------------------------------
+# -- ABSTRACT METHODS -----------------------------------------------------------------------------
 
     cpdef void on_start(self) except *
     cpdef void on_stop(self) except *
@@ -83,7 +83,7 @@ cdef class Actor(Component):
     cpdef void on_instrument_close_price(self, InstrumentClosePrice update) except *
     cpdef void on_event(self, Event event) except *
 
-# -- REGISTRATION ----------------------------------------------------------------------------------
+# -- REGISTRATION ---------------------------------------------------------------------------------
 
     cpdef void register_base(
         self,
@@ -97,17 +97,18 @@ cdef class Actor(Component):
     cpdef void register_warning_event(self, type event) except *
     cpdef void deregister_warning_event(self, type event) except *
 
-# -- SUBSCRIPTIONS ---------------------------------------------------------------------------------
+# -- SUBSCRIPTIONS --------------------------------------------------------------------------------
 
     cpdef void subscribe_data(self, DataType data_type, ClientId client_id=*) except *
-    cpdef void subscribe_instruments(self, Venue venue) except *
-    cpdef void subscribe_instrument(self, InstrumentId instrument_id) except *
+    cpdef void subscribe_instruments(self, Venue venue, ClientId client_id=*) except *
+    cpdef void subscribe_instrument(self, InstrumentId instrument_id, ClientId client_id=*) except *
     cpdef void subscribe_order_book_deltas(
         self,
         InstrumentId instrument_id,
         BookType book_type=*,
         int depth=*,
         dict kwargs=*,
+        ClientId client_id= *
     ) except *
     cpdef void subscribe_order_book_snapshots(
         self,
@@ -116,48 +117,54 @@ cdef class Actor(Component):
         int depth=*,
         int interval_ms=*,
         dict kwargs=*,
+        ClientId client_id= *
     ) except *
-    cpdef void subscribe_ticker(self, InstrumentId instrument_id) except *
-    cpdef void subscribe_quote_ticks(self, InstrumentId instrument_id) except *
-    cpdef void subscribe_trade_ticks(self, InstrumentId instrument_id) except *
-    cpdef void subscribe_bars(self, BarType bar_type) except *
-    cpdef void subscribe_venue_status_updates(self, Venue venue) except *
-    cpdef void subscribe_instrument_status_updates(self, InstrumentId instrument_id) except *
-    cpdef void subscribe_instrument_close_prices(self, InstrumentId instrument_id) except *
+    cpdef void subscribe_ticker(self, InstrumentId instrument_id, ClientId client_id=*) except *
+    cpdef void subscribe_quote_ticks(self, InstrumentId instrument_id, ClientId client_id=*) except *
+    cpdef void subscribe_trade_ticks(self, InstrumentId instrument_id, ClientId client_id=*) except *
+    cpdef void subscribe_bars(self, BarType bar_type, ClientId client_id=*) except *
+    cpdef void subscribe_venue_status_updates(self, Venue venue, ClientId client_id=*) except *
+    cpdef void subscribe_instrument_status_updates(self, InstrumentId instrument_id, ClientId client_id=*) except *
+    cpdef void subscribe_instrument_close_prices(self, InstrumentId instrument_id, ClientId client_id=*) except *
     cpdef void unsubscribe_data(self, DataType data_type, ClientId client_id=*) except *
-    cpdef void unsubscribe_instruments(self, Venue venue) except *
-    cpdef void unsubscribe_instrument(self, InstrumentId instrument_id) except *
-    cpdef void unsubscribe_order_book_deltas(self, InstrumentId instrument_id) except *
-    cpdef void unsubscribe_order_book_snapshots(self, InstrumentId instrument_id, int interval_ms=*) except *
-    cpdef void unsubscribe_ticker(self, InstrumentId instrument_id) except *
-    cpdef void unsubscribe_quote_ticks(self, InstrumentId instrument_id) except *
-    cpdef void unsubscribe_trade_ticks(self, InstrumentId instrument_id) except *
-    cpdef void unsubscribe_bars(self, BarType bar_type) except *
+    cpdef void unsubscribe_instruments(self, Venue venue, ClientId client_id=*) except *
+    cpdef void unsubscribe_instrument(self, InstrumentId instrument_id, ClientId client_id=*) except *
+    cpdef void unsubscribe_order_book_deltas(self, InstrumentId instrument_id, ClientId client_id=*) except *
+    cpdef void unsubscribe_order_book_snapshots(self, InstrumentId instrument_id, int interval_ms=*, ClientId client_id=*) except *
+    cpdef void unsubscribe_ticker(self, InstrumentId instrument_id, ClientId client_id=*) except *
+    cpdef void unsubscribe_quote_ticks(self, InstrumentId instrument_id, ClientId client_id=*) except *
+    cpdef void unsubscribe_trade_ticks(self, InstrumentId instrument_id, ClientId client_id=*) except *
+    cpdef void unsubscribe_bars(self, BarType bar_type, ClientId client_id=*) except *
+    cpdef void unsubscribe_venue_status_updates(self, Venue venue, ClientId client_id=*) except *
     cpdef void publish_data(self, DataType data_type, Data data) except *
 
-# -- REQUESTS --------------------------------------------------------------------------------------
+# -- REQUESTS -------------------------------------------------------------------------------------
 
     cpdef void request_data(self, ClientId client_id, DataType data_type) except *
+    cpdef void request_instrument(self, InstrumentId instrument_id, ClientId client_id=*) except *
     cpdef void request_quote_ticks(
         self,
         InstrumentId instrument_id,
         datetime from_datetime=*,
         datetime to_datetime=*,
+        ClientId client_id=*,
     ) except *
     cpdef void request_trade_ticks(
         self,
         InstrumentId instrument_id,
         datetime from_datetime=*,
         datetime to_datetime=*,
+        ClientId client_id= *,
     ) except *
     cpdef void request_bars(
         self,
         BarType bar_type,
         datetime from_datetime=*,
         datetime to_datetime=*,
+        ClientId client_id= *,
     ) except *
 
-# -- HANDLERS --------------------------------------------------------------------------------------
+# -- HANDLERS -------------------------------------------------------------------------------------
 
     cpdef void handle_instrument(self, Instrument instrument) except *
     cpdef void handle_order_book(self, OrderBook order_book) except *
@@ -176,11 +183,12 @@ cdef class Actor(Component):
     cpdef void handle_event(self, Event event) except *
 
     cpdef void _handle_data_response(self, DataResponse response) except *
+    cpdef void _handle_instrument_response(self, DataResponse response) except *
     cpdef void _handle_quote_ticks_response(self, DataResponse response) except *
     cpdef void _handle_trade_ticks_response(self, DataResponse response) except *
     cpdef void _handle_bars_response(self, DataResponse response) except *
 
-# -- EGRESS ----------------------------------------------------------------------------------------
+# -- EGRESS ---------------------------------------------------------------------------------------
 
     cdef void _send_data_cmd(self, DataCommand command) except *
     cdef void _send_data_req(self, DataRequest request) except *

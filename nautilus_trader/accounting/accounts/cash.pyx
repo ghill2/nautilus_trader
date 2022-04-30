@@ -107,7 +107,7 @@ cdef class CashAccount(Account):
         if locked is not None:
             self._recalculate_balance(locked.currency)
 
-# -- CALCULATIONS ----------------------------------------------------------------------------------
+# -- CALCULATIONS ---------------------------------------------------------------------------------
 
     cdef void _recalculate_balance(self, Currency currency) except *:
         cdef AccountBalance current_balance = self._balances.get(currency)
@@ -153,7 +153,7 @@ cdef class CashAccount(Account):
             The transaction quantity.
         last_px : Decimal or Price
             The transaction price.
-        liquidity_side : LiquiditySide
+        liquidity_side : LiquiditySide {``MAKER``, ``TAKER``}
             The liquidity side for the transaction.
         inverse_as_quote : bool
             If inverse instrument calculations use quote currency (instead of base).
@@ -211,7 +211,7 @@ cdef class CashAccount(Account):
         ----------
         instrument : Instrument
             The instrument for the calculation.
-        side : OrderSide
+        side : OrderSide {``BUY``, ``SELL``}
             The order side.
         quantity : Quantity
             The order quantity.
@@ -230,7 +230,7 @@ cdef class CashAccount(Account):
         Condition.not_none(price, "price")
 
         cdef Currency quote_currency = instrument.quote_currency
-        cdef Currency base_currency = instrument.get_base_currency()
+        cdef Currency base_currency = instrument.get_base_currency() or instrument.quote_currency
 
         # Determine notional value
         if side == OrderSide.BUY:

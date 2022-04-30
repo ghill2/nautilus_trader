@@ -20,6 +20,7 @@ from nautilus_trader.model.data.tick import QuoteTick
 from nautilus_trader.model.data.tick import TradeTick
 from nautilus_trader.model.enums import AggressorSide
 from nautilus_trader.model.enums import PriceType
+from nautilus_trader.model.identifiers import TradeId
 from nautilus_trader.model.objects import Price
 from nautilus_trader.model.objects import Quantity
 
@@ -28,6 +29,10 @@ AUDUSD_SIM = TestInstrumentProvider.default_fx_ccy("AUD/USD")
 
 
 class TestQuoteTick:
+    def test_fully_qualified_name(self):
+        # Arrange, Act, Assert
+        assert QuoteTick.fully_qualified_name() == "nautilus_trader.model.data.tick:QuoteTick"
+
     def test_tick_hash_str_and_repr(self):
         # Arrange
         tick = QuoteTick(
@@ -168,6 +173,10 @@ class TestQuoteTick:
 
 
 class TestTradeTick:
+    def test_fully_qualified_name(self):
+        # Arrange, Act, Assert
+        assert TradeTick.fully_qualified_name() == "nautilus_trader.model.data.tick:TradeTick"
+
     def test_hash_str_and_repr(self):
         # Arrange
         tick = TradeTick(
@@ -175,7 +184,7 @@ class TestTradeTick:
             price=Price.from_str("1.00000"),
             size=Quantity.from_int(50000),
             aggressor_side=AggressorSide.BUY,
-            trade_id="123456789",
+            trade_id=TradeId("123456789"),
             ts_event=0,
             ts_init=0,
         )
@@ -192,7 +201,7 @@ class TestTradeTick:
             price=Price.from_str("1.00000"),
             size=Quantity.from_int(10000),
             aggressor_side=AggressorSide.BUY,
-            trade_id="123456789",
+            trade_id=TradeId("123456789"),
             ts_event=0,
             ts_init=0,
         )
@@ -219,7 +228,7 @@ class TestTradeTick:
             price=Price.from_str("1.00000"),
             size=Quantity.from_int(10000),
             aggressor_side=AggressorSide.BUY,
-            trade_id="123456789",
+            trade_id=TradeId("123456789"),
             ts_event=0,
             ts_init=0,
         )

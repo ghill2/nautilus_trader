@@ -24,7 +24,6 @@ import pyarrow.dataset as ds
 import pyarrow.parquet as pq
 from pyarrow import ArrowInvalid
 
-from nautilus_trader.core.inspect import is_nautilus_class
 from nautilus_trader.model.data.bar import Bar
 from nautilus_trader.model.data.base import DataType
 from nautilus_trader.model.data.base import GenericData
@@ -37,6 +36,7 @@ from nautilus_trader.model.orderbook.data import OrderBookData
 from nautilus_trader.persistence.external.metadata import load_mappings
 from nautilus_trader.persistence.streaming import read_feather
 from nautilus_trader.persistence.util import Singleton
+from nautilus_trader.persistence.util import is_nautilus_class
 from nautilus_trader.serialization.arrow.serializer import ParquetSerializer
 from nautilus_trader.serialization.arrow.serializer import list_schemas
 from nautilus_trader.serialization.arrow.util import GENERIC_DATA_PREFIX
@@ -48,7 +48,7 @@ from nautilus_trader.serialization.arrow.util import dict_of_lists_to_list_of_di
 
 class DataCatalog(metaclass=Singleton):
     """
-    Provides a queryable data catalogue.
+    Provides a queryable data catalog.
 
     Parameters
     ----------
@@ -75,7 +75,7 @@ class DataCatalog(metaclass=Singleton):
 
     @classmethod
     def from_env(cls):
-        return cls.from_uri(uri=os.environ["NAUTILUS_CATALOG"])
+        return cls.from_uri(uri=os.path.join(os.environ["NAUTILUS_PATH"], "catalog"))
 
     @classmethod
     def from_uri(cls, uri):
@@ -84,7 +84,7 @@ class DataCatalog(metaclass=Singleton):
         protocol, path = uri.split("://")
         return cls(path=path, fs_protocol=protocol)
 
-    # ---- QUERIES ---------------------------------------------------------------------------------------- #
+    # -- QUERIES -----------------------------------------------------------------------------------
 
     def _query(
         self,
@@ -197,7 +197,7 @@ class DataCatalog(metaclass=Singleton):
         as_type: Optional[Dict] = None,
         **kwargs,
     ):
-        if not is_nautilus_class(cls=cls):
+        if not is_nautilus_class(cls):
             # Special handling for generic data
             return self.generic_data(
                 cls=cls,
@@ -215,10 +215,6 @@ class DataCatalog(metaclass=Singleton):
             as_dataframe=not as_nautilus,
             **kwargs,
         )
-        # if as_nautilus:
-        #     return self._make_objects(df=df, cls=cls)
-        # else:
-        #     return df
 
     def _query_subclasses(
         self,
@@ -242,13 +238,13 @@ class DataCatalog(metaclass=Singleton):
                     **kwargs,
                 )
                 dfs.append(df)
-            except ArrowInvalid as e:
+            except ArrowInvalid as ex:
                 # If we're using a `filter_expr` here, there's a good chance this error is using a filter that is
                 # specific to one set of instruments and not the others, so we ignore it. If not; raise
                 if filter_expr is not None:
                     continue
                 else:
-                    raise e
+                    raise ex
 
         if not as_nautilus:
             return pd.concat([df for df in dfs if df is not None])
@@ -366,6 +362,18 @@ class DataCatalog(metaclass=Singleton):
             partitions[level.name] = level.keys
         return partitions
 
+    def list_backtests(self) -> List[str]:
+        return [p.stem for p in map(pathlib.Path, self.fs.glob(f"{self.path}/backtest/*.feather"))]
+
+    def list_live_runs(self) -> List[str]:
+        return [p.stem for p in map(pathlib.Path, self.fs.glob(f"{self.path}/live/*.feather"))]
+
+    def read_live_run(self, live_run_id: str, **kwargs):
+        return self._read_feather(kind="live", run_id=live_run_id, **kwargs)
+
+    def read_backtest(self, backtest_run_id: str, **kwargs):
+        return self._read_feather(kind="backtest", run_id=backtest_run_id, **kwargs)
+
     def _read_feather(self, kind: str, run_id: str, raise_on_failed_deserialize: bool = False):
         class_mapping: Dict[str, type] = {class_to_filename(cls): cls for cls in list_schemas()}
         data = {}
@@ -381,17 +389,11 @@ class DataCatalog(metaclass=Singleton):
                     table=df, cls=class_mapping[cls_name], mappings={}
                 )
                 data[cls_name] = objs
-            except Exception as e:
+            except Exception as ex:
                 if raise_on_failed_deserialize:
                     raise
-                print(f"Failed to deserialize {cls_name}: {e}")
+                print(f"Failed to deserialize {cls_name}: {ex}")
         return sorted(sum(data.values(), list()), key=lambda x: x.ts_init)
-
-    def read_live_run(self, live_run_id: str, **kwargs):
-        return self._read_feather(kind="live", run_id=live_run_id, **kwargs)
-
-    def read_backtest(self, backtest_run_id: str, **kwargs):
-        return self._read_feather(kind="backtest", run_id=backtest_run_id, **kwargs)
 
 
 def combine_filters(*filters):

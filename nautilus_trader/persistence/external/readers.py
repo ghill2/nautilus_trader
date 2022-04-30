@@ -182,6 +182,7 @@ class TextReader(ByteReader):
         line_preprocessor: LinePreprocessor = None,
         instrument_provider: Optional[InstrumentProvider] = None,
         instrument_provider_update: Optional[Callable] = None,
+        newline=b"\n",
     ):
         assert line_preprocessor is None or isinstance(line_preprocessor, LinePreprocessor)
         super().__init__(
@@ -190,11 +191,12 @@ class TextReader(ByteReader):
             instrument_provider=instrument_provider,
         )
         self.line_preprocessor = line_preprocessor or LinePreprocessor()
+        self.newline = newline
 
     def parse(self, block) -> Generator:  # noqa: C901
         self.buffer += block
         if b"\n" in block:
-            process, self.buffer = self.buffer.rsplit(b"\n", maxsplit=1)
+            process, self.buffer = self.buffer.rsplit(self.newline, maxsplit=1)
         else:
             process, self.buffer = block, b""
         if process:
@@ -226,13 +228,13 @@ class CSVReader(Reader):
         The readers instrument provider.
     instrument_provider_update
         Optional hook to call before `parser` for the purpose of loading instruments into an InstrumentProvider
-    header: List[str], default=None
+    header: List[str], default None
         If first row contains names of columns, header has to be set to `None`.
         If data starts right at the first row, header has to be provided the list of column names.
-    chunked: bool, default=True
+    chunked: bool, default True
         If chunked=False, each CSV line will be passed to `block_parser` individually, if chunked=True, the data
         passed will potentially contain many lines (a block).
-    as_dataframe: bool, default=False
+    as_dataframe: bool, default False
         If as_dataframe=True, the passes block will be parsed into a DataFrame before passing to `block_parser`.
     """
 
@@ -244,6 +246,9 @@ class CSVReader(Reader):
         header: Optional[List[str]] = None,
         chunked=True,
         as_dataframe=True,
+        separator=",",
+        newline=b"\n",
+        encoding="utf-8",
     ):
         super().__init__(
             instrument_provider=instrument_provider,
@@ -254,21 +259,24 @@ class CSVReader(Reader):
         self.header_in_first_row = not header
         self.chunked = chunked
         self.as_dataframe = as_dataframe
+        self.separator = separator
+        self.newline = newline
+        self.encoding = encoding
 
     def parse(self, block: bytes) -> Generator:
         if self.header is None:
             header, block = block.split(b"\n", maxsplit=1)
-            self.header = header.decode().split(",")
+            self.header = header.decode(self.encoding).split(self.separator)
 
         self.buffer += block
         if b"\n" in block:
-            process, self.buffer = self.buffer.rsplit(b"\n", maxsplit=1)
+            process, self.buffer = self.buffer.rsplit(self.newline, maxsplit=1)
         else:
             process, self.buffer = block, b""
 
         # Prepare - a little gross but allows a lot of flexibility
         if self.as_dataframe:
-            df = pd.read_csv(BytesIO(process), names=self.header)
+            df = pd.read_csv(BytesIO(process), names=self.header, sep=self.separator)
             if self.chunked:
                 chunks = (df,)
             else:
@@ -277,7 +285,7 @@ class CSVReader(Reader):
             if self.chunked:
                 chunks = (process,)
             else:
-                chunks = tuple([dict(zip(self.header, line.split(b","))) for line in process.split(b"\n")])  # type: ignore
+                chunks = tuple([dict(zip(self.header, line.split(bytes(self.separator)))) for line in process.split(b"\n")])  # type: ignore
 
         for chunk in chunks:
             if self.instrument_provider_update is not None:
@@ -323,8 +331,8 @@ class ParquetReader(ByteReader):
         try:
             df = pd.read_parquet(BytesIO(block))
             self.buffer = b""
-        except Exception as e:
-            logging.error(e)
+        except Exception as ex:
+            logging.exception(f"Error on parse {block[:128]!r}", ex)
             return
 
         if self.instrument_provider_update is not None:

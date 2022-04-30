@@ -31,16 +31,17 @@ from nautilus_trader.model.enums import OrderType
 from nautilus_trader.model.enums import PositionSide
 from nautilus_trader.model.events.order import OrderFilled
 from nautilus_trader.model.identifiers import ClientOrderId
-from nautilus_trader.model.identifiers import ExecutionId
 from nautilus_trader.model.identifiers import PositionId
 from nautilus_trader.model.identifiers import StrategyId
+from nautilus_trader.model.identifiers import TradeId
 from nautilus_trader.model.identifiers import TraderId
 from nautilus_trader.model.identifiers import VenueOrderId
 from nautilus_trader.model.objects import Money
 from nautilus_trader.model.objects import Price
 from nautilus_trader.model.objects import Quantity
 from nautilus_trader.model.position import Position
-from tests.test_kit.stubs import TestStubs
+from tests.test_kit.stubs.events import TestEventStubs
+from tests.test_kit.stubs.identifiers import TestIdStubs
 
 
 AUDUSD_SIM = TestInstrumentProvider.default_fx_ccy("AUD/USD")
@@ -53,8 +54,8 @@ ETHUSD_BITMEX = TestInstrumentProvider.ethusd_bitmex()
 class TestPosition:
     def setup(self):
         # Fixture Setup
-        self.trader_id = TestStubs.trader_id()
-        self.account_id = TestStubs.account_id()
+        self.trader_id = TestIdStubs.trader_id()
+        self.account_id = TestIdStubs.account_id()
         self.order_factory = OrderFactory(
             trader_id=TraderId("TESTER-000"),
             strategy_id=StrategyId("S-001"),
@@ -90,7 +91,7 @@ class TestPosition:
             Quantity.from_int(100000),
         )
 
-        fill = TestStubs.event_order_filled(
+        fill = TestEventStubs.order_filled(
             order,
             instrument=AUDUSD_SIM,
             position_id=PositionId("P-123456"),
@@ -113,7 +114,7 @@ class TestPosition:
             Quantity.from_int(100000),
         )
 
-        fill = TestStubs.event_order_filled(
+        fill = TestEventStubs.order_filled(
             order,
             instrument=AUDUSD_SIM,
             position_id=PositionId("P-123456"),
@@ -146,7 +147,6 @@ class TestPosition:
             "quote_currency": "USD",
             "base_currency": "AUD",
             "cost_currency": "USD",
-            "realized_points": "0",
             "realized_return": "0.00000",
             "realized_pnl": "-2.00 USD",
             "commissions": "['2.00 USD']",
@@ -160,7 +160,7 @@ class TestPosition:
             Quantity.from_int(100000),
         )
 
-        fill = TestStubs.event_order_filled(
+        fill = TestEventStubs.order_filled(
             order,
             instrument=AUDUSD_SIM,
             position_id=PositionId("P-123456"),
@@ -189,15 +189,14 @@ class TestPosition:
         assert position.event_count == 1
         assert position.client_order_ids == [order.client_order_id]
         assert position.venue_order_ids == [VenueOrderId("1")]
-        assert position.execution_ids == [ExecutionId("E-19700101-000000-000-001-1")]
-        assert position.last_execution_id == ExecutionId("E-19700101-000000-000-001-1")
+        assert position.trade_ids == [TradeId("E-19700101-000000-000-001-1")]
+        assert position.last_trade_id == TradeId("E-19700101-000000-000-001-1")
         assert position.id == PositionId("P-123456")
         assert len(position.events) == 1
         assert position.is_long
         assert not position.is_short
         assert position.is_open
         assert not position.is_closed
-        assert position.realized_points == 0
         assert position.realized_return == 0
         assert position.realized_pnl == Money(-2.00, USD)
         assert position.unrealized_pnl(last) == Money(49.00, USD)
@@ -213,7 +212,7 @@ class TestPosition:
             Quantity.from_int(100000),
         )
 
-        fill = TestStubs.event_order_filled(
+        fill = TestEventStubs.order_filled(
             order,
             instrument=AUDUSD_SIM,
             position_id=PositionId("P-123456"),
@@ -233,14 +232,13 @@ class TestPosition:
         assert position.ts_opened == 0
         assert position.avg_px_open == Decimal("1.00001")
         assert position.event_count == 1
-        assert position.execution_ids == [ExecutionId("E-19700101-000000-000-001-1")]
-        assert position.last_execution_id == ExecutionId("E-19700101-000000-000-001-1")
+        assert position.trade_ids == [TradeId("E-19700101-000000-000-001-1")]
+        assert position.last_trade_id == TradeId("E-19700101-000000-000-001-1")
         assert position.id == PositionId("P-123456")
         assert not position.is_long
         assert position.is_short
         assert position.is_open
         assert not position.is_closed
-        assert position.realized_points == 0
         assert position.realized_return == 0
         assert position.realized_pnl == Money(-2.00, USD)
         assert position.unrealized_pnl(last) == Money(-49.00, USD)
@@ -256,7 +254,7 @@ class TestPosition:
             Quantity.from_int(100000),
         )
 
-        fill = TestStubs.event_order_filled(
+        fill = TestEventStubs.order_filled(
             order,
             instrument=AUDUSD_SIM,
             position_id=PositionId("P-123456"),
@@ -280,7 +278,6 @@ class TestPosition:
         assert not position.is_short
         assert position.is_open
         assert not position.is_closed
-        assert position.realized_points == 0
         assert position.realized_return == 0
         assert position.realized_pnl == Money(-2.00, USD)
         assert position.unrealized_pnl(last) == Money(23.50, USD)
@@ -296,20 +293,20 @@ class TestPosition:
             Quantity.from_int(100000),
         )
 
-        fill1 = TestStubs.event_order_filled(
+        fill1 = TestEventStubs.order_filled(
             order,
             instrument=AUDUSD_SIM,
-            execution_id=ExecutionId("1"),
+            trade_id=TradeId("1"),
             position_id=PositionId("P-123456"),
             strategy_id=StrategyId("S-001"),
             last_px=Price.from_str("1.00001"),
             last_qty=Quantity.from_int(50000),
         )
 
-        fill2 = TestStubs.event_order_filled(
+        fill2 = TestEventStubs.order_filled(
             order,
             instrument=AUDUSD_SIM,
-            execution_id=ExecutionId("2"),
+            trade_id=TradeId("2"),
             position_id=PositionId("P-123456"),
             strategy_id=StrategyId("S-001"),
             last_px=Price.from_str("1.00002"),
@@ -333,7 +330,6 @@ class TestPosition:
         assert position.is_short
         assert position.is_open
         assert not position.is_closed
-        assert position.realized_points == 0
         assert position.realized_return == 0
         assert position.realized_pnl == Money(-4.00, USD)
         assert position.unrealized_pnl(last) == Money(-48.50, USD)
@@ -351,7 +347,7 @@ class TestPosition:
             Quantity.from_int(150000),
         )
 
-        fill1 = TestStubs.event_order_filled(
+        fill1 = TestEventStubs.order_filled(
             order,
             instrument=AUDUSD_SIM,
             position_id=PositionId("P-123456"),
@@ -369,7 +365,7 @@ class TestPosition:
             order.instrument_id,
             order.client_order_id,
             VenueOrderId("2"),
-            ExecutionId("E2"),
+            TradeId("E2"),
             PositionId("T123456"),
             OrderSide.SELL,
             OrderType.MARKET,
@@ -402,7 +398,6 @@ class TestPosition:
         assert not position.is_short
         assert not position.is_open
         assert position.is_closed
-        assert position.realized_points == Decimal("0.00010")
         assert position.realized_return == Decimal("0.00009999900000999990000099999000")
         assert position.realized_pnl == Money(12.00, USD)
         assert position.unrealized_pnl(last) == Money(0, USD)
@@ -426,7 +421,7 @@ class TestPosition:
             Quantity.from_int(100000),
         )
 
-        fill1 = TestStubs.event_order_filled(
+        fill1 = TestEventStubs.order_filled(
             order1,
             instrument=AUDUSD_SIM,
             position_id=PositionId("P-19700101-000000-000-001-1"),
@@ -434,20 +429,20 @@ class TestPosition:
 
         position = Position(instrument=AUDUSD_SIM, fill=fill1)
 
-        fill2 = TestStubs.event_order_filled(
+        fill2 = TestEventStubs.order_filled(
             order2,
             instrument=AUDUSD_SIM,
-            execution_id=ExecutionId("1"),
+            trade_id=TradeId("1"),
             position_id=PositionId("P-19700101-000000-000-001-1"),
             strategy_id=StrategyId("S-001"),
             last_px=Price.from_str("1.00001"),
             last_qty=Quantity.from_int(50000),
         )
 
-        fill3 = TestStubs.event_order_filled(
+        fill3 = TestEventStubs.order_filled(
             order2,
             instrument=AUDUSD_SIM,
-            execution_id=ExecutionId("2"),
+            trade_id=TradeId("2"),
             position_id=PositionId("P-19700101-000000-000-001-1"),
             strategy_id=StrategyId("S-001"),
             last_px=Price.from_str("1.00003"),
@@ -493,7 +488,7 @@ class TestPosition:
             Quantity.from_int(100000),
         )
 
-        fill1 = TestStubs.event_order_filled(
+        fill1 = TestEventStubs.order_filled(
             order1,
             instrument=AUDUSD_SIM,
             position_id=PositionId("P-19700101-000000-000-001-1"),
@@ -501,7 +496,7 @@ class TestPosition:
 
         position = Position(instrument=AUDUSD_SIM, fill=fill1)
 
-        fill2 = TestStubs.event_order_filled(
+        fill2 = TestEventStubs.order_filled(
             order2,
             instrument=AUDUSD_SIM,
             position_id=PositionId("P-19700101-000000-000-001-1"),
@@ -521,9 +516,9 @@ class TestPosition:
         assert position.avg_px_open == Decimal("1.0")
         assert position.event_count == 2
         assert position.client_order_ids == [order1.client_order_id, order2.client_order_id]
-        assert position.execution_ids == [
-            ExecutionId("E-19700101-000000-000-001-1"),
-            ExecutionId("E-19700101-000000-000-001-2"),
+        assert position.trade_ids == [
+            TradeId("E-19700101-000000-000-001-1"),
+            TradeId("E-19700101-000000-000-001-2"),
         ]
         assert position.ts_closed == 0
         assert position.avg_px_close == Decimal("1.0")
@@ -531,7 +526,6 @@ class TestPosition:
         assert not position.is_short
         assert not position.is_open
         assert position.is_closed
-        assert position.realized_points == 0
         assert position.realized_return == 0
         assert position.realized_pnl == Money(-4.00, USD)
         assert position.unrealized_pnl(last) == Money(0, USD)
@@ -561,14 +555,14 @@ class TestPosition:
             Quantity.from_int(200000),
         )
 
-        fill1 = TestStubs.event_order_filled(
+        fill1 = TestEventStubs.order_filled(
             order1,
             instrument=AUDUSD_SIM,
             position_id=PositionId("P-123456"),
             strategy_id=StrategyId("S-001"),
         )
 
-        fill2 = TestStubs.event_order_filled(
+        fill2 = TestEventStubs.order_filled(
             order2,
             instrument=AUDUSD_SIM,
             position_id=PositionId("P-123456"),
@@ -576,7 +570,7 @@ class TestPosition:
             last_px=Price.from_str("1.00001"),
         )
 
-        fill3 = TestStubs.event_order_filled(
+        fill3 = TestEventStubs.order_filled(
             order3,
             instrument=AUDUSD_SIM,
             position_id=PositionId("P-123456"),
@@ -649,7 +643,7 @@ class TestPosition:
         )
 
         # Act
-        fill1 = TestStubs.event_order_filled(
+        fill1 = TestEventStubs.order_filled(
             order1,
             instrument=ETHUSDT_BINANCE,
             position_id=PositionId("P-19700101-000000-000-001-1"),
@@ -658,7 +652,7 @@ class TestPosition:
 
         position = Position(instrument=ETHUSDT_BINANCE, fill=fill1)
 
-        fill2 = TestStubs.event_order_filled(
+        fill2 = TestEventStubs.order_filled(
             order2,
             instrument=ETHUSDT_BINANCE,
             position_id=PositionId("P-19700101-000000-000-001-1"),
@@ -670,7 +664,7 @@ class TestPosition:
         assert position.realized_pnl == Money(-0.28830000, USDT)
         assert position.avg_px_open == Decimal("99.41379310344827586206896552")
 
-        fill3 = TestStubs.event_order_filled(
+        fill3 = TestEventStubs.order_filled(
             order3,
             instrument=ETHUSDT_BINANCE,
             position_id=PositionId("P-19700101-000000-000-001-1"),
@@ -683,7 +677,7 @@ class TestPosition:
         assert position.realized_pnl == Money(13.89666207, USDT)
         assert position.avg_px_open == Decimal("99.41379310344827586206896552")
 
-        fill4 = TestStubs.event_order_filled(
+        fill4 = TestEventStubs.order_filled(
             order4,
             instrument=ETHUSDT_BINANCE,
             position_id=PositionId("P-19700101-000000-000-001-1"),
@@ -696,7 +690,7 @@ class TestPosition:
         assert position.realized_pnl == Money(36.19948966, USDT)
         assert position.avg_px_open == Decimal("99.41379310344827586206896552")
 
-        fill5 = TestStubs.event_order_filled(
+        fill5 = TestEventStubs.order_filled(
             order5,
             instrument=ETHUSDT_BINANCE,
             position_id=PositionId("P-19700101-000000-000-001-1"),
@@ -710,7 +704,7 @@ class TestPosition:
         assert position.avg_px_open == Decimal("99.98003629764065335753176042")
         assert (
             repr(position)
-            == "Position(LONG 19.00000 ETH/USDT.BINANCE, id=P-19700101-000000-000-001-1)"
+            == "Position(LONG 19.00000 ETHUSDT.BINANCE, id=P-19700101-000000-000-001-1)"
         )
 
     def test_position_closed_and_reopened_returns_expected_attributes(self):
@@ -721,7 +715,7 @@ class TestPosition:
             Quantity.from_int(150000),
         )
 
-        fill1 = TestStubs.event_order_filled(
+        fill1 = TestEventStubs.order_filled(
             order,
             instrument=AUDUSD_SIM,
             position_id=PositionId("P-123456"),
@@ -739,7 +733,7 @@ class TestPosition:
             order.instrument_id,
             order.client_order_id,
             VenueOrderId("2"),
-            ExecutionId("E2"),
+            TradeId("E2"),
             PositionId("P-123456"),
             OrderSide.SELL,
             OrderType.MARKET,
@@ -762,7 +756,7 @@ class TestPosition:
             order.instrument_id,
             order.client_order_id,
             VenueOrderId("2"),
-            ExecutionId("E3"),
+            TradeId("E3"),
             PositionId("P-123456"),
             OrderSide.BUY,
             OrderType.MARKET,
@@ -794,7 +788,6 @@ class TestPosition:
         assert position.is_open
         assert not position.is_short
         assert not position.is_closed
-        assert position.realized_points == Decimal("0.00010")
         assert position.realized_return == Decimal("0.00009999900000999990000099999000")
         assert position.realized_pnl == Money(12.00, USD)
         assert position.unrealized_pnl(last) == Money(43.50, USD)
@@ -835,7 +828,7 @@ class TestPosition:
         )
 
         # Act
-        fill1 = TestStubs.event_order_filled(
+        fill1 = TestEventStubs.order_filled(
             order1,
             instrument=BTCUSDT_BINANCE,
             position_id=PositionId("P-19700101-000000-000-001-1"),
@@ -844,7 +837,7 @@ class TestPosition:
 
         position = Position(instrument=BTCUSDT_BINANCE, fill=fill1)
 
-        fill2 = TestStubs.event_order_filled(
+        fill2 = TestEventStubs.order_filled(
             order2,
             instrument=BTCUSDT_BINANCE,
             position_id=PositionId("P-19700101-000000-000-001-1"),
@@ -856,7 +849,7 @@ class TestPosition:
         assert position.realized_pnl == Money(-289.98300000, USDT)
         assert position.avg_px_open == Decimal("9999.413793103448275862068966")
 
-        fill3 = TestStubs.event_order_filled(
+        fill3 = TestEventStubs.order_filled(
             order3,
             instrument=BTCUSDT_BINANCE,
             position_id=PositionId("P-19700101-000000-000-001-1"),
@@ -869,7 +862,7 @@ class TestPosition:
         assert position.realized_pnl == Money(-365.71613793, USDT)
         assert position.avg_px_open == Decimal("9999.413793103448275862068966")
 
-        fill4 = TestStubs.event_order_filled(
+        fill4 = TestEventStubs.order_filled(
             order4,
             instrument=BTCUSDT_BINANCE,
             position_id=PositionId("P-19700101-000000-000-001-1"),
@@ -882,7 +875,7 @@ class TestPosition:
         assert position.realized_pnl == Money(-395.72513793, USDT)
         assert position.avg_px_open == Decimal("9999.881559220389805097451274")
 
-        fill5 = TestStubs.event_order_filled(
+        fill5 = TestEventStubs.order_filled(
             order5,
             instrument=BTCUSDT_BINANCE,
             position_id=PositionId("P-19700101-000000-000-001-1"),
@@ -896,7 +889,7 @@ class TestPosition:
         assert position.avg_px_open == Decimal("9999.881559220389805097451274")
         assert (
             repr(position)
-            == "Position(LONG 19.000000 BTC/USDT.BINANCE, id=P-19700101-000000-000-001-1)"
+            == "Position(LONG 19.000000 BTCUSDT.BINANCE, id=P-19700101-000000-000-001-1)"
         )
 
     def test_calculate_pnl_when_given_position_side_flat_returns_zero(self):
@@ -907,7 +900,7 @@ class TestPosition:
             Quantity.from_int(12),
         )
 
-        fill = TestStubs.event_order_filled(
+        fill = TestEventStubs.order_filled(
             order,
             instrument=BTCUSDT_BINANCE,
             position_id=PositionId("P-123456"),
@@ -935,7 +928,7 @@ class TestPosition:
             Quantity.from_int(12),
         )
 
-        fill = TestStubs.event_order_filled(
+        fill = TestEventStubs.order_filled(
             order,
             instrument=BTCUSDT_BINANCE,
             position_id=PositionId("P-123456"),
@@ -967,7 +960,7 @@ class TestPosition:
             Quantity.from_int(12),
         )
 
-        fill = TestStubs.event_order_filled(
+        fill = TestEventStubs.order_filled(
             order,
             instrument=BTCUSDT_BINANCE,
             position_id=PositionId("P-123456"),
@@ -999,7 +992,7 @@ class TestPosition:
             Quantity.from_str("10.150000"),
         )
 
-        fill = TestStubs.event_order_filled(
+        fill = TestEventStubs.order_filled(
             order,
             instrument=BTCUSDT_BINANCE,
             position_id=PositionId("P-123456"),
@@ -1031,7 +1024,7 @@ class TestPosition:
             Quantity.from_str("10"),
         )
 
-        fill = TestStubs.event_order_filled(
+        fill = TestEventStubs.order_filled(
             order,
             instrument=BTCUSDT_BINANCE,
             position_id=PositionId("P-123456"),
@@ -1063,7 +1056,7 @@ class TestPosition:
             Quantity.from_int(100000),
         )
 
-        fill = TestStubs.event_order_filled(
+        fill = TestEventStubs.order_filled(
             order,
             instrument=XBTUSD_BITMEX,
             position_id=PositionId("P-123456"),
@@ -1094,7 +1087,7 @@ class TestPosition:
             Quantity.from_int(100000),
         )
 
-        fill = TestStubs.event_order_filled(
+        fill = TestEventStubs.order_filled(
             order,
             instrument=ETHUSD_BITMEX,
             position_id=PositionId("P-123456"),
@@ -1122,7 +1115,7 @@ class TestPosition:
             Quantity.from_str("2.000000"),
         )
 
-        fill1 = TestStubs.event_order_filled(
+        fill1 = TestEventStubs.order_filled(
             order1,
             instrument=BTCUSDT_BINANCE,
             position_id=PositionId("P-123456"),
@@ -1130,7 +1123,7 @@ class TestPosition:
             last_px=Price.from_str("10500.00"),
         )
 
-        fill2 = TestStubs.event_order_filled(
+        fill2 = TestEventStubs.order_filled(
             order2,
             instrument=BTCUSDT_BINANCE,
             position_id=PositionId("P-123456"),
@@ -1157,7 +1150,7 @@ class TestPosition:
             Quantity.from_str("5.912000"),
         )
 
-        fill = TestStubs.event_order_filled(
+        fill = TestEventStubs.order_filled(
             order,
             instrument=BTCUSDT_BINANCE,
             position_id=PositionId("P-123456"),
@@ -1182,7 +1175,7 @@ class TestPosition:
             Quantity.from_int(100000),
         )
 
-        fill = TestStubs.event_order_filled(
+        fill = TestEventStubs.order_filled(
             order,
             instrument=XBTUSD_BITMEX,
             position_id=PositionId("P-123456"),
@@ -1209,7 +1202,7 @@ class TestPosition:
             Quantity.from_int(1250000),
         )
 
-        fill = TestStubs.event_order_filled(
+        fill = TestEventStubs.order_filled(
             order,
             instrument=XBTUSD_BITMEX,
             position_id=PositionId("P-123456"),
