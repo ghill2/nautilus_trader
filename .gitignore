@@ -48,3 +48,5 @@ examples/backtest/notebooks/catalog
 nautilus_trader/**/.gitignore
 docs/**/*.ipynb
 !nautilus_trader/core/pytime.h
+tests/test_kit/data/betfair/1.166811431.bz2
+tests/test_kit/data/betfair/1.180305278.bz2
