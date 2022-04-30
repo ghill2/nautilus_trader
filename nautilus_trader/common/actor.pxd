@@ -44,6 +44,7 @@ from nautilus_trader.model.orderbook.data cimport OrderBookData
 from nautilus_trader.msgbus.bus cimport MessageBus
 
 
+from libc.stdint cimport int64_t
 cdef class Actor(Component):
     cdef set _warning_events
 
@@ -68,6 +69,12 @@ cdef class Actor(Component):
     cpdef void on_order_book(self, OrderBook order_book) except *
     cpdef void on_ticker(self, Ticker ticker) except *
     cpdef void on_quote_tick(self, QuoteTick tick) except *
+    cpdef void on_prices(self,
+                        int64_t ts,
+                        double bid,
+                        double ask,
+                        double bid_size,
+                        double ask_size) except *
     cpdef void on_trade_tick(self, TradeTick tick) except *
     cpdef void on_bar(self, Bar bar) except *
     cpdef void on_data(self, Data data) except *
