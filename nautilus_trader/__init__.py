@@ -29,3 +29,6 @@ try:
     __version__ = toml.load(PYPROJECT_PATH)["tool"]["poetry"]["version"]
 except FileNotFoundError:  # pragma: no cover
     __version__ = "latest"
+    
+    
+is_modified = True
