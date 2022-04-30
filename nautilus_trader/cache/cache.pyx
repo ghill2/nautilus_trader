@@ -17,7 +17,7 @@ from collections import deque
 from decimal import Decimal
 from typing import Optional
 
-from libc.stdint cimport int64_t
+from libc.stdint cimport int64_t, uint8_t
 
 from nautilus_trader.accounting.accounts.base cimport Account
 from nautilus_trader.accounting.calculators cimport ExchangeRateCalculator
@@ -91,6 +91,8 @@ cdef class Cache(CacheFacade):
         self._xrate_symbols = {}               # type: dict[InstrumentId, str]
         self._tickers = {}                     # type: dict[InstrumentId, deque[Ticker]]
         self._quote_ticks = {}                 # type: dict[InstrumentId, deque[QuoteTick]]
+        self.last_bids = {}                   # type: dict[InstrumentId, double]
+        self.last_asks = {}                   # type: dict[InstrumentId, double]
         self._trade_ticks = {}                 # type: dict[InstrumentId, deque[TradeTick]]
         self._order_books = {}                 # type: dict[InstrumentId, OrderBook]
         self._bars = {}                        # type: dict[BarType, deque[Bar]]
@@ -598,6 +600,8 @@ cdef class Cache(CacheFacade):
         self._instruments.clear()
         self._tickers.clear()
         self._quote_ticks.clear()
+        self.last_bids.clear()
+        self.last_asks.clear()
         self._trade_ticks.clear()
         self._bars.clear()
         self.clear_cache()
@@ -863,7 +867,12 @@ cdef class Cache(CacheFacade):
             self._tickers[instrument_id] = tickers
 
         tickers.appendleft(ticker)
+    cpdef void add_last_prices(self, InstrumentId instrument_id, double bid, double ask) except *:
+        self.last_bids[instrument_id] = bid
+        self.last_asks[instrument_id] = ask
 
+
+                    
     cpdef void add_quote_tick(self, QuoteTick tick) except *:
         """
         Add the given quote tick to the cache.
@@ -1590,6 +1599,11 @@ cdef class Cache(CacheFacade):
         except IndexError:
             return None
 
+
+
+    cpdef bint has_last(self, InstrumentId instrument_id):
+        return not self.last_bids.get(instrument_id) is None
+        
     cpdef TradeTick trade_tick(self, InstrumentId instrument_id, int index=0):
         """
         Return the trade tick for the given instrument ID at the given index
@@ -1876,17 +1890,19 @@ cdef class Cache(CacheFacade):
 
         cdef InstrumentId instrument_id
         cdef str base_quote
+        cdef uint8_t price_precision
         for instrument_id, base_quote in self._xrate_symbols.items():
             if instrument_id.venue != venue:
                 continue
 
-            ticks = self._quote_ticks.get(instrument_id)
+            ticks = self._last_prices.get(instrument_id)
             if not ticks:
                 # No quotes for instrument_id
                 continue
-
-            bid_quotes[base_quote] = ticks[0].bid.as_decimal()
-            ask_quotes[base_quote] = ticks[0].ask.as_decimal()
+            
+            price_precision = self.instrument(instrument_id).price_precision
+            bid_quotes[base_quote] = Price(self.last_bid, price_precision).as_decimal()
+            ask_quotes[base_quote] = Price(self.last_ask, price_precision).as_decimal()
 
         return bid_quotes, ask_quotes
 
