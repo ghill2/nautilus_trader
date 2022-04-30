@@ -14,7 +14,7 @@
 # -------------------------------------------------------------------------------------------------
 
 from cpython.datetime cimport datetime
-from libc.stdint cimport int64_t
+from libc.stdint cimport int64_t, uint8_t
 
 from nautilus_trader.cache.base cimport CacheFacade
 from nautilus_trader.cache.cache cimport Cache
@@ -86,10 +86,39 @@ cdef class BacktestEngine:
     cdef Data _next(self)
     cdef void _advance_time(self, int64_t now_ns) except *
 
+    # ----------------------------------
+    cdef int64_t [:] timestamps
+    
+    # Tick data
+    cdef double[:] bid
+    cdef double[:] bid_volume
+
+    cdef double[:] ask
+    cdef double[:] ask_volume
+
+    # Bid bars
+    cdef double[:] bid_open
+    cdef double[:] bid_high
+    cdef double[:] bid_low
+    cdef double[:] bid_close
+    cdef double[:] bid_size
+
+    # Ask bars
+    cdef double[:] ask_open
+    cdef double[:] ask_high
+    cdef double[:] ask_low
+    cdef double[:] ask_close
+    cdef double[:] ask_size
+
+    # Metadata
+    # bint causes error, still evaluates to true
+    cdef uint8_t[:] is_bar
+
+    cdef uint8_t[:] bar_type
+
 
     cdef InstrumentId instrument_id
-    cdef int64_t [:] timestamps
-    cdef double[:] bids
-    cdef double[:] asks
-    cdef double[:] bid_volumes
-    cdef double[:] ask_volumes
+    cdef list bar_types
+    cdef dict instruments
+
+
