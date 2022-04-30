@@ -19,11 +19,11 @@ from setuptools import Extension
 
 
 # If DEBUG mode is enabled, include traces necessary for coverage, profiling and skip optimizations
-DEBUG_MODE = bool(os.getenv("DEBUG_MODE", ""))
+DEBUG_MODE = False # bool(os.getenv("DEBUG_MODE", ""))
 # If ANNOTATION mode is enabled, generate an annotated HTML version of the input source files
-ANNOTATION_MODE = bool(os.getenv("ANNOTATION_MODE", ""))
+ANNOTATION_MODE = False # bool(os.getenv("ANNOTATION_MODE", ""))
 # If PARALLEL build is enabled, uses all CPUs for compile stage of build
-PARALLEL_BUILD = True if os.getenv("PARALLEL_BUILD", "true") == "true" else False
+PARALLEL_BUILD = False # True if os.getenv("PARALLEL_BUILD", "true") == "true" else False
 # If SKIP_BUILD_COPY is enabled, prevents copying built *.so files back into the source tree
 SKIP_BUILD_COPY = bool(os.getenv("SKIP_BUILD_COPY", ""))
 
@@ -102,7 +102,7 @@ def _build_distribution(extensions: List[Extension]) -> Distribution:
             ext_modules=cythonize(
                 module_list=extensions,
                 compiler_directives=CYTHON_COMPILER_DIRECTIVES,
-                nthreads=os.cpu_count(),
+                # nthreads=os.cpu_count(),
                 build_dir=build_dir,
                 gdb_debug=DEBUG_MODE,
             ),
