@@ -556,6 +556,45 @@ cdef class SimulatedExchange:
         if not self._log.is_bypassed:
             self._log.debug(f"Processed {data}")
 
+    cpdef void process_price(self,
+                            InstrumentId instrument_id, 
+                            int64_t ts,
+                            double bid,
+                            double ask,
+                            double bid_size,
+                            double ask_size) except *:
+        """
+        Process the exchanges market for the given tick.
+
+        Market dynamics are simulated by auctioning working orders.
+
+        Parameters
+        ----------
+        tick : Tick
+            The tick to process.
+
+        """
+    
+
+        self._clock.set_time(ts)
+
+        cdef OrderBook book = self.get_book(instrument_id)
+        # nautilus_trader.model.orderbook.simulated.SimulatedL1OrderBook
+        
+        if book.type == BookType.L1_TBBO:
+            # book.update_tick(tick)
+            book._update_bid(bid, bid_size)
+            book._update_ask(ask, ask_size)
+
+
+        self._iterate_matching_engine(
+            instrument_id,
+            ts,
+        )
+
+        if not self._log.is_bypassed:
+            self._log.debug(f"Processed {bid} {ask}")
+
     cpdef void process_tick(self, Tick tick) except *:
         """
         Process the exchanges market for the given tick.
@@ -1386,6 +1425,7 @@ cdef class SimulatedExchange:
             # Remove order from market
             self._delete_order(order)
 
+        
         # Check contingency orders
         cdef ClientOrderId client_order_id
         cdef PassiveOrder child_order
