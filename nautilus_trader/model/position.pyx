@@ -610,7 +610,6 @@ cdef class Position:
         # LONG POSITION
         elif self.net_qty > 0:
             self.avg_px_close = self._calculate_avg_px_close_px(fill)
-            self.realized_points = self._calculate_points_decimal(self.avg_px_open, self.avg_px_close)
             self.realized_return = self._calculate_return(self.avg_px_open, self.avg_px_close)
             realized_pnl += self._calculate_pnl_decimal(self.avg_px_open, fill.last_px, fill.last_qty)
 

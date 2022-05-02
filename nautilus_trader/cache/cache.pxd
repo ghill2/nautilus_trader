@@ -133,6 +133,6 @@ cdef class Cache(CacheFacade):
     cpdef void update_account(self, Account account) except *
     cpdef void update_order(self, Order order) except *
     cpdef void update_position(self, Position position) except *
-    cpdef void update_strategy(self, TradingStrategy strategy) except *
-    cpdef void delete_strategy(self, TradingStrategy strategy) except *
+    cpdef void update_strategy(self, Strategy strategy) except *
+    cpdef void delete_strategy(self, Strategy strategy) except *
     cpdef bint has_last(self, InstrumentId instrument_id)

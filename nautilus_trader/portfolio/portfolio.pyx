@@ -340,7 +340,7 @@ cdef class Portfolio(PortfolioFacade):
         cdef Money result_unrealized_pnl = self._calculate_unrealized_pnl(instrument_id)
 
         # Check portfolio initialization
-        if result_init is not None and (account.is_cash_account() or (result_maint is not None and result_unrealized_pnl)):
+        if result_init is not None and (account.is_cash_account or (result_maint is not None and result_unrealized_pnl)):
             self._pending_calcs.discard(instrument_id)
             if not self._pending_calcs:
                 self.initialized = True
