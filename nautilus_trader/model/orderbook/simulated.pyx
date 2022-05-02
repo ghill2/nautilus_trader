@@ -94,7 +94,7 @@ cdef class SimulatedL1OrderBook(L1OrderBook):
         self._update_bid(tick.price, tick.size)
         self._update_ask(tick.price, tick.size)
 
-    cdef void _update_bid(self, double price, double size) except *:
+    cpdef void _update_bid(self, double price, double size) except *:
         cdef Order bid
         if self._top_bid is None:
             bid = Order(price, size, OrderSide.BUY, "B")
@@ -106,7 +106,7 @@ cdef class SimulatedL1OrderBook(L1OrderBook):
             self._top_bid.price = price
             self._top_bid.size = size
 
-    cdef void _update_ask(self, double price, double size) except *:
+    cpdef void _update_ask(self, double price, double size) except *:
         cdef Order ask
         if self._top_ask is None:
             ask = Order(price, size, OrderSide.SELL, "A")
