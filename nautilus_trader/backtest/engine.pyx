@@ -69,7 +69,26 @@ from nautilus_trader.system.kernel cimport NautilusKernel
 from nautilus_trader.trading.strategy cimport Strategy
 from nautilus_trader.trading.trader cimport Trader
 
+# My Imports
+from libc.stdint cimport uint8_t
+from nautilus_trader.core.datetime import dt_to_unix_nanos
+from time import perf_counter
 
+import numpy as np
+from pytower.common.date import dt_to_unix_nanos_vectorized
+from pytower.data.common import format_tick_dataframe
+from nautilus_trader.model.objects cimport Price
+from nautilus_trader.model.objects cimport Quantity
+from nautilus_trader.model.identifiers cimport InstrumentId
+from nautilus_trader.backtest.data.providers import TestInstrumentProvider
+from nautilus_trader.model.data.bar cimport BarType
+from pytower.instruments.provider import InstrumentProvider
+import os
+import psutil
+from pytower.common.util import listify
+from nautilus_trader.model.data.bar import BarType
+from nautilus_trader.model.data.bar import BarSpecification
+from nautilus_trader.model.enums import PriceType
 cdef class BacktestEngine:
     """
     Provides a backtest engine to run a portfolio of strategies over historical
@@ -346,7 +365,8 @@ cdef class BacktestEngine:
         self._add_market_data_client_if_not_exists(first.instrument_id.venue)
 
         # Add data
-        self._data = sorted(self._data + data, key=lambda x: x.ts_init)
+        # self._data = sorted(self._data + data, key=lambda x: x.ts_init)
+        self._data = self._data + data
 
         self._log.info(
             f"Added {len(data):,} {first.instrument_id} "
@@ -676,6 +696,11 @@ cdef class BacktestEngine:
         self._data_len = 0
         self._index = 0
 
+        self.bids = None
+        self.asks = None
+        self.bid_volumes = None
+        self.ask_volumes = None
+
     def dispose(self) -> None:
         """
         Dispose of the backtest engine by disposing the trader and releasing system resources.
@@ -695,6 +720,121 @@ cdef class BacktestEngine:
         self.kernel.data_engine.dispose()
         self.kernel.exec_engine.dispose()
         self.kernel.risk_engine.dispose()
+
+    def add_dataframe(self, instrument, bar_types, df):
+
+        Condition.true(
+            instrument.id in self.kernel.cache.instrument_ids(),
+            f"Instrument {instrument.id} for the given data not found in the cache. "
+            "Please add the instrument through `add_instrument()` prior to adding related data.",
+        )
+        
+
+        # Check client has been registered
+        self._add_market_data_client_if_not_exists(instrument.id.venue)
+
+        
+        # df = format_tick_dataframe(df)
+        assert isinstance(df.index, pd.DatetimeIndex)
+        assert df.index.is_monotonic_increasing
+        #for key in """
+        #    bid bid_volume
+        #    ask ask_volume
+        #    bid_open bid_high bid_low bid_close bid_size
+        #    ask_open ask_high ask_low ask_close ask_size
+        #    is_bar bar_type
+        #    """.split():
+        #    assert key in list(df.columns)
+
+        # TO DO, make the engine handle multiple data sets
+        
+        self.instrument_id = instrument.id
+        self.instrument = instrument
+
+        bar_types = listify(bar_types)
+        bar_types = [BarType.from_str(bar_type) if isinstance(bar_type, str)            
+                    else bar_type for bar_type in bar_types]
+        assert all([isinstance(bar_type, BarType) for bar_type in bar_types])
+        self.bar_types = bar_types
+        # date      bid  bid_volume      ask  ask_volume  bid_open  bid_high  bid_low  bid_close  bid_size  ask_open  ask_high  ask_low  ask_close  ask_size  is_bar  bar_type
+        # del statements reduces peak memory by 500MB
+        # Tick data
+        keys = list(df.reset_index().columns)
+        if "bid" in keys:
+            self.bid =  df.bid.values.astype(np.float64)
+            del df['bid']
+
+            self.bid_volume = df.bid_volume.values.astype(np.float64)
+            del df['bid_volume']
+
+            self.ask = df.ask.values.astype(np.float64)
+            del df['ask']
+
+            self.ask_volume = df.ask_volume.values.astype(np.float64)
+            del df['ask_volume']
+        
+        if "bid_open" in keys or "ask_open" in keys:
+            # Bid bars
+            self.bid_open = df.bid_open.values.astype(np.float64)
+            del df['bid_open']
+
+            self.bid_high = df.bid_high.values.astype(np.float64)
+            del df['bid_high']
+
+            self.bid_low = df.bid_low.values.astype(np.float64)
+            del df['bid_low']
+
+            self.bid_close = df.bid_close.values.astype(np.float64)
+            del df['bid_close']
+
+            self.bid_size = df.bid_size.values.astype(np.float64)
+            del df['bid_size']
+
+            # Ask bars
+            self.ask_open = df.ask_open.values.astype(np.float64)
+            del df['ask_open']
+
+            self.ask_high = df.ask_high.values.astype(np.float64)
+            del df['ask_high']
+
+            self.ask_low = df.ask_low.values.astype(np.float64)
+            del df['ask_low']
+
+            self.ask_close = df.ask_close.values.astype(np.float64)
+            del df['ask_close']
+
+            self.ask_size = df.ask_size.values.astype(np.float64)
+            del df['ask_size']
+
+        # Metadata
+        self.is_bar = df.is_bar.values.astype(np.uint8)
+        # self.is_bar = np.array(df.is_bar.values, dtype=bool)
+        del df['is_bar']
+
+        self.bar_type = df.bar_type.values.astype(np.uint8)
+        del df['bar_type']
+
+        assert isinstance(df.index, pd.DatetimeIndex)
+        if isinstance(df.index, pd.core.indexes.numeric.Int64Index):
+            # the index has already been replaced with int timestamps 
+            self.timestamps = df.index.to_series().values.astype(np.int64)
+        else:
+            self.timestamps = dt_to_unix_nanos_vectorized(df.index).to_numpy().astype(np.int64)
+
+        # needed by engine
+        class PlaceHolder:
+            def __init__(self, ts_init):
+                self.ts_init = ts_init
+        self._data.append(PlaceHolder(dt_to_unix_nanos(df.index[0])))
+        self._data.append(PlaceHolder(dt_to_unix_nanos(df.index[-1])))
+
+        del df
+
+        print(f"Child Peak Memory: {str(psutil.Process().memory_info().peak_wset / 1e+9)}GB")
+        
+    
+        # TO DO
+        # create an instrument map so the backtest loop can reference the instrument from integer values
 
     def run(
         self,
@@ -876,23 +1016,147 @@ cdef class BacktestEngine:
                 self._index = i
                 break
 
+        # -- MAIN BACKTEST LOOP (primitive values) -------------------------------------#
+        cdef:
+            int64_t ts
+            double bid
+            double bid_volume
+            double ask
+            double ask_volume
+
+            Bar bar
+            Bar bid_bar
+            Bar ask_bar
+        
+            BarType bar_type
+            int bar_type_index
+            bint is_bar
+
+        # can't use self.iteration in batch mode
+        assert self.timestamps is not None, \
+            "add data to the engine first using engine.add_dataframe"
+        
+        for i in range(len(self.timestamps)):
+            # higher priority handlers will receive messages prior to lower priority handlers.            
+            # actor on_bar = priority 0
+            is_bar = self.is_bar[i]
+            ts = self.timestamps[i]
+            if is_bar:
+                bar_type = self.bar_types[self.bar_type[i]]
+                bid_bar_type = BarType(
+                    bar_type.instrument_id,
+                    BarSpecification(bar_type.spec.step, bar_type.spec.aggregation, PriceType.BID),
+                    aggregation_source = bar_type.aggregation_source  
+                )
+                ask_bar_type = BarType(
+                    bar_type.instrument_id,
+                    BarSpecification(bar_type.spec.step, bar_type.spec.aggregation, PriceType.ASK),
+                    aggregation_source = bar_type.aggregation_source  
+                )
+                bid_bar = Bar(
+                    bid_bar_type,
+                    Price(self.bid_open[i],    self.instrument.price_precision),
+                    Price(self.bid_high[i],    self.instrument.price_precision),
+                    Price(self.bid_low[i],     self.instrument.price_precision),
+                    Price(self.bid_close[i],   self.instrument.price_precision),
+                    Quantity(self.bid_size[i], self.instrument.size_precision),
+                    ts,
+                    ts            
+                )
+                ask_bar = Bar(
+                    ask_bar_type,
+                    Price(self.ask_open[i],    self.instrument.price_precision),
+                    Price(self.ask_high[i],    self.instrument.price_precision),
+                    Price(self.ask_low[i],     self.instrument.price_precision),
+                    Price(self.ask_close[i],   self.instrument.price_precision),
+                    Quantity(self.ask_size[i], self.instrument.size_precision),
+                    ts,
+                    ts            
+                )
+
+                # print("BAR", unix_nanos_to_dt(ts), bid_bar)
+                # print("BAR", unix_nanos_to_dt(ts), ask_bar)
+                
+                for bar in (bid_bar, ask_bar):
+                    self._advance_time(ts)
+                    # if isinstance(data, OrderBookData):
+                    #     self._exchanges[data.instrument_id.venue].process_order_book(data)
+                    # elif isinstance(data, Tick):
+                    #     self._exchanges[data.instrument_id.venue].process_tick(data)
+                    # elif isinstance(data, Bar):
+                    self._exchanges[self.instrument_id.venue].process_bar(bar)
+                    self.kernel.data_engine.process(bar)
+                    for exchange in self._exchanges.values():
+                        exchange.process(ts)
+                    self.iteration += 1
+            else:
+                bid = self.bid[i]
+                ask = self.ask[i]
+                bid_volume = self.bid_volume[i]
+                ask_volume = self.ask_volume[i]
+
+                self._advance_time(ts)
+
+                self._exchanges[self.instrument_id.venue].process_price(
+                                                        self.instrument_id, 
+                                                        ts,
+                                                        bid,
+                                                        ask,
+                                                        bid_volume,
+                                                        ask_volume)
+                
+                # -----------------------------
+                # vvvvvv = self.kernel.data_engine.process(bar)
+
+                # data.engine.process._handle_data    
+                self.kernel.data_engine.data_count += 1
+
+                # data.engine.process._handle_data._handle_quote_tick
+                self.kernel.cache.add_last_prices(self.instrument_id, bid, ask)
+
+                # data.engine.process._handle_data._handle_quote_tick
+                # self._msgbus.publish_c -> portfolio.update_from_instrument_id (priority 10)
+                self.portfolio.update_instrument_id(self.instrument_id)
+
+                # data.engine.process._handle_data._handle_quote_tick
+                # self._msgbus.publish_c -> aggregators.handle_prices (priority 5)
+                for aggregator in self.kernel.data_engine._bar_aggregators.values():
+                    aggregator.handle_prices(ts, bid, ask, bid_volume, ask_volume)
+
+                # data.engine.process._handle_data._handle_quote_tick
+                # self._msgbus.publish_c -> actor.handle_prices (priority 0)
+                for strategy in self.kernel.trader.strategies_c():
+                    strategy.on_prices(ts, bid, ask, bid_volume, ask_volume)
+
+                # -----------------------------
+                
+
+                for exchange in self._exchanges.values():
+                    exchange.process(ts)
+                self.iteration += 1
+                # print("TICK", unix_nanos_to_dt(ts), bid, ask, bid_volume, ask_volume)
+     
+        
+
         # -- MAIN BACKTEST LOOP -----------------------------------------------#
-        cdef Data data = self._next()
-        while data is not None:
-            if data.ts_init > end_ns:
-                break
-            self._advance_time(data.ts_init)
-            if isinstance(data, OrderBookData):
-                self._exchanges[data.instrument_id.venue].process_order_book(data)
-            elif isinstance(data, Tick):
-                self._exchanges[data.instrument_id.venue].process_tick(data)
-            elif isinstance(data, Bar):
-                self._exchanges[data.type.instrument_id.venue].process_bar(data)
-            self.kernel.data_engine.process(data)
-            for exchange in self._exchanges.values():
-                exchange.process(data.ts_init)
-            self.iteration += 1
-            data = self._next()
+        # cdef Data data = self._next()
+        # while data is not None:
+            # if data.ts_init > end_ns:
+            #     break
+
+            # self._advance_time(ts)
+            # if isinstance(data, OrderBookData):
+            #     self._exchanges[data.instrument_id.venue].process_order_book(data)
+            # elif isinstance(data, Tick):
+            #     self._exchanges[data.instrument_id.venue].process_tick(data)
+            # elif isinstance(data, Bar):
+            # self._exchanges[data.type.instrument_id.venue].process_bar(data)
+            # self.kernel.data_engine.process(data)
+            # for exchange in self._exchanges.values():
+             #    exchange.process(ts)
+            # self.iteration += 1
+            # data = self._next()
+        # End for loop
         # ---------------------------------------------------------------------#
         # Process remaining messages
         for exchange in self._exchanges.values():

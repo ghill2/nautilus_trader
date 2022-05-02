@@ -24,6 +24,10 @@ from nautilus_trader.core.data cimport Data
 from nautilus_trader.core.uuid cimport UUID4
 from nautilus_trader.system.kernel cimport NautilusKernel
 
+# My Imports
+from nautilus_trader.model.identifiers cimport InstrumentId
+from nautilus_trader.model.instruments.base cimport Instrument
+from libc.stdint cimport uint8_t
 
 cdef class BacktestEngine:
     cdef object _config
@@ -57,3 +61,39 @@ cdef class BacktestEngine:
 
     cdef Data _next(self)
     cdef void _advance_time(self, int64_t now_ns) except *
+
+    # ----------------------------------
+    cdef int64_t [:] timestamps
+    
+    # Tick data
+    cdef double[:] bid
+    cdef double[:] bid_volume
+
+    cdef double[:] ask
+    cdef double[:] ask_volume
+
+    # Bid bars
+    cdef double[:] bid_open
+    cdef double[:] bid_high
+    cdef double[:] bid_low
+    cdef double[:] bid_close
+    cdef double[:] bid_size
+
+    # Ask bars
+    cdef double[:] ask_open
+    cdef double[:] ask_high
+    cdef double[:] ask_low
+    cdef double[:] ask_close
+    cdef double[:] ask_size
+
+    # Metadata
+    # bint causes error, still evaluates to true
+    cdef uint8_t[:] is_bar
+
+    cdef uint8_t[:] bar_type
+
+
+    cdef InstrumentId instrument_id
+    cdef list bar_types
+    cdef dict instruments
+    cdef Instrument instrument
