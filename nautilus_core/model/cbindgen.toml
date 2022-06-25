@@ -5,6 +5,7 @@ includes = []
 sys_includes = ["stdint.h", "Python.h"]
 no_includes = true
 tab_width = 4
+after_includes = "typedef enum {false=0, true=1} bool;"
 
 [export.rename]
 "Timestamp" = "uint64_t"
@@ -31,3 +32,4 @@ tab_width = 4
 "BarSpecification" = "BarSpecification_t"
 "BarType" = "BarType_t"
 "Bar" = "Bar_t"
+"Instrument" = "Instrument_t"

@@ -5,6 +5,8 @@ sys_includes = ["stdint.h", "Python.h"]
 no_includes = true
 tab_width = 4
 
+after_includes = "cdef extern from *:\n    ctypedef bint bool"
+                    
 [cython]
 header = '"../includes/model.h"'
 
@@ -45,3 +47,4 @@ header = '"../includes/model.h"'
 "BarSpecification" = "BarSpecification_t"
 "BarType" = "BarType_t"
 "Bar" = "Bar_t"
+"Instrument" = "Instrument_t"

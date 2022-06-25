@@ -23,7 +23,8 @@ from nautilus_trader.core.rust.model cimport Quantity_t
 from nautilus_trader.model.currency cimport Currency
 from nautilus_trader.model.identifiers cimport InstrumentId
 
-
+from nautilus_trader.core.rust.model cimport Option_Price
+from nautilus_trader.core.rust.model cimport Option_Quantity
 cdef class Quantity:
     cdef Quantity_t _mem
 
@@ -69,7 +70,8 @@ cdef class Quantity:
     cpdef object as_decimal(self)
     cpdef double as_double(self) except *
 
-
+    @staticmethod
+    cdef Option_Quantity as_option(Quantity quantity)
 cdef class Price:
     cdef Price_t _mem
 
@@ -111,7 +113,8 @@ cdef class Price:
     cpdef object as_decimal(self)
     cpdef double as_double(self) except *
 
-
+    @staticmethod
+    cdef Option_Price as_option(Price price)
 cdef class Money:
     cdef Money_t _mem
 

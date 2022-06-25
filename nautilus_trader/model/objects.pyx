@@ -46,6 +46,9 @@ from nautilus_trader.core.string cimport precision_from_str
 from nautilus_trader.model.currency cimport Currency
 from nautilus_trader.model.identifiers cimport InstrumentId
 
+from nautilus_trader.core.rust.model cimport Option_Price
+from nautilus_trader.core.rust.model cimport OptionTag
+from nautilus_trader.core.rust.model cimport Option_Quantity
 
 @cython.auto_pickle(True)
 cdef class Quantity:
@@ -420,6 +423,14 @@ cdef class Quantity:
         """
         return self.as_f64_c()
 
+    @staticmethod
+    cdef Option_Quantity as_option(Quantity quantity):
+        if quantity:
+            return Option_Quantity(OptionTag.Some, quantity._mem)
+        else:
+            return Option_Quantity(OptionTag.None, quantity_new(0.0, 0))
+            
+            
 
 @cython.auto_pickle(True)
 cdef class Price:
@@ -746,6 +757,17 @@ cdef class Price:
 
         """
         return self.as_f64_c()
+
+    @staticmethod
+    cdef Option_Price as_option(Price price):
+        if price: # can be None
+            return Option_Price(OptionTag.Some, price._mem)
+        else:
+            return Option_Price(OptionTag.None, price_new(0.0, 0))
+            
+            
+            
+
 
 
 cdef class Money:

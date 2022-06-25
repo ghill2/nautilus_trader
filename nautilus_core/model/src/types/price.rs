@@ -14,6 +14,7 @@
 // -------------------------------------------------------------------------------------------------
 
 use crate::types::fixed::{f64_to_fixed_i64, fixed_i64_to_f64};
+use crate::enums::OptionTag;
 use nautilus_core::string::precision_from_str;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter, Result};
@@ -187,6 +188,30 @@ impl Debug for Price {
 impl Display for Price {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{:.*}", self.precision as usize, self.as_f64())
+    }
+}
+
+
+#[repr(C)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Option_Price {
+    tag: OptionTag,
+    some: Price
+}
+
+impl Display for Option_Price {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "{}", self.tag.as_str())
+    }
+}
+
+impl Option_Price {
+    pub fn to_option(self) -> Option<Price> {
+        if self.tag == OptionTag::None {
+            None
+        } else {
+            Some(self.some) 
+        }
     }
 }
 

@@ -2,6 +2,8 @@
 
 from cpython.object cimport PyObject
 from libc.stdint cimport uint8_t, uint16_t, uint64_t, int64_t
+cdef extern from *:
+    ctypedef bint bool
 
 cdef extern from "../includes/model.h":
 
@@ -39,6 +41,10 @@ cdef extern from "../includes/model.h":
     cdef enum CurrencyType:
         Crypto,
         Fiat,
+
+    cdef enum OptionTag:
+        None # = 0,
+        Some # = 1,
 
     cdef enum OrderSide:
         Buy # = 1,
@@ -259,6 +265,17 @@ cdef extern from "../includes/model.h":
     uint8_t bar_eq(const Bar_t *lhs, const Bar_t *rhs);
 
     uint64_t bar_hash(const Bar_t *bar);
+    cdef struct Option_Price:
+        OptionTag tag;
+        Price_t some;
+
+    cdef struct Option_Quantity:
+        OptionTag tag;
+        Quantity_t some;
+
+    cdef struct Instrument_t:
+        Option_Price price_increment;
+        Option_Quantity max_quantity;
 
     void quote_tick_free(QuoteTick_t tick);
 
@@ -633,3 +650,5 @@ cdef extern from "../includes/model.h":
     void quantity_sub_assign(Quantity_t a, Quantity_t b);
 
     void quantity_sub_assign_u64(Quantity_t a, uint64_t b);
+
+    Instrument_t instrument_new(Option_Price price_increment, Option_Quantity max_quantity);

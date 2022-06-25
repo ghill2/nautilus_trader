@@ -14,6 +14,7 @@
 // -------------------------------------------------------------------------------------------------
 
 use crate::types::fixed::{f64_to_fixed_u64, fixed_u64_to_f64};
+use crate::enums::OptionTag;
 use nautilus_core::string::precision_from_str;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter, Result};
@@ -172,6 +173,28 @@ impl Display for Quantity {
     }
 }
 
+#[repr(C)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Option_Quantity {
+    tag: OptionTag,
+    some: Quantity
+}
+
+impl Display for Option_Quantity {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "{}", self.tag.as_str())
+    }
+}
+
+impl Option_Quantity {
+    pub fn to_option(self) -> Option<Quantity> {
+        if self.tag == OptionTag::None {
+            None
+        } else {
+            Some(self.some) 
+        }
+    }
+}
 ////////////////////////////////////////////////////////////////////////////////
 // C API
 ////////////////////////////////////////////////////////////////////////////////

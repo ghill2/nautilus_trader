@@ -4,6 +4,7 @@
 
 #include <stdint.h>
 #include <Python.h>
+typedef enum {false=0, true=1} bool;
 
 #define FIXED_PRECISION 9
 
@@ -43,6 +44,11 @@ typedef enum CurrencyType {
     Crypto,
     Fiat,
 } CurrencyType;
+
+typedef enum OptionTag {
+    None = 0,
+    Some = 1,
+} OptionTag;
 
 typedef enum OrderSide {
     Buy = 1,
@@ -301,6 +307,20 @@ void bar_free(struct Bar_t bar);
 uint8_t bar_eq(const struct Bar_t *lhs, const struct Bar_t *rhs);
 
 uint64_t bar_hash(const struct Bar_t *bar);
+typedef struct Option_Price {
+    enum OptionTag tag;
+    struct Price_t some;
+} Option_Price;
+
+typedef struct Option_Quantity {
+    enum OptionTag tag;
+    struct Quantity_t some;
+} Option_Quantity;
+
+typedef struct Instrument_t {
+    struct Option_Price price_increment;
+    struct Option_Quantity max_quantity;
+} Instrument_t;
 
 void quote_tick_free(struct QuoteTick_t tick);
 
@@ -737,3 +757,6 @@ void quantity_add_assign_u64(struct Quantity_t a, uint64_t b);
 void quantity_sub_assign(struct Quantity_t a, struct Quantity_t b);
 
 void quantity_sub_assign_u64(struct Quantity_t a, uint64_t b);
+
+struct Instrument_t instrument_new(struct Option_Price price_increment,
+                                   struct Option_Quantity max_quantity);

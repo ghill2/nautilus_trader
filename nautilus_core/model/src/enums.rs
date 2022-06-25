@@ -75,6 +75,136 @@ impl Display for OrderSide {
 }
 
 #[repr(C)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[allow(non_camel_case_types)]
+pub enum AssetClass {
+    FX = 1,
+    Equity = 2,
+    Commodity = 3,
+    Metal = 4,
+    Energy = 5,
+    Bond = 6,
+    Index = 7,
+    Crypto = 8,
+    Betting = 9,
+}
+impl From<&str> for AssetClass {
+    fn from(s: &str) -> Self {
+        match s.to_uppercase().as_str() {
+            "FX" => AssetClass::FX,
+            "EQUITY" => AssetClass::Equity,
+            "COMMODITY" => AssetClass::Commodity,
+            "METAL" => AssetClass::Metal,
+            "ENERGY" => AssetClass::Energy,
+            "BOND" => AssetClass::Bond,
+            "INDEX" => AssetClass::Index,
+            "CRYPTO" => AssetClass::Crypto,
+            "BETTING" => AssetClass::Betting,
+            _ => panic!("Invalid `AssetClass` value, was {s}"),
+        }
+    }
+}
+impl From<u8> for AssetClass {
+    fn from(i: u8) -> Self {
+        match i {
+            1 => AssetClass::FX,
+            2 => AssetClass::Equity,
+            3 => AssetClass::Commodity,
+            4 => AssetClass::Metal,
+            5 => AssetClass::Energy,
+            6 => AssetClass::Bond,
+            7 => AssetClass::Index,
+            8 => AssetClass::Crypto,
+            9 => AssetClass::Betting,
+            _ => panic!("Invalid `AssetClass` value, was {i}"),
+        }
+    }
+}
+impl AssetClass {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AssetClass::FX => "FX",
+            AssetClass::Equity => "EQUITY",
+            AssetClass::Commodity => "COMMODITY",
+            AssetClass::Metal => "METAL",
+            AssetClass::Energy => "ENERGY" ,
+            AssetClass::Bond => "BOND" ,
+            AssetClass::Index => "INDEX" ,
+            AssetClass::Crypto => "CRYPTO",
+            AssetClass::Betting => "BETTING",
+        }
+    }
+}
+
+impl Display for AssetClass {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[allow(non_camel_case_types)]
+pub enum AssetType {
+    Spot = 1,
+    Swap = 2,
+    Future = 3,
+    Forward = 4,
+    CFD = 5,
+    Option = 6,
+    Warrant = 7,
+}
+impl From<&str> for AssetType {
+    fn from(s: &str) -> Self {
+        match s.to_uppercase().as_str() {
+            "SPOT" => AssetType::Spot,
+            "SWAP" => AssetType::Swap,
+            "FUTURE" => AssetType::Future,
+            "FORWARD" => AssetType::Forward,
+            "CFD" => AssetType::CFD,
+            "OPTION" => AssetType::Option,
+            "WARRANT" => AssetType::Warrant,
+            _ => panic!("Invalid `AssetType` value, was {s}"),
+        }
+    }
+}
+impl From<u8> for AssetType {
+    fn from(i: u8) -> Self {
+        match i {
+            1 => AssetType::Spot,
+            2 => AssetType::Swap,
+            3 => AssetType::Future,
+            4 => AssetType::Forward,
+            5 => AssetType::CFD,
+            6 => AssetType::Option,
+            7 => AssetType::Warrant,
+            _ => panic!("Invalid `AssetType` value, was {i}"),
+        }
+    }
+}
+impl AssetType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AssetType::Spot => "SPOT",
+            AssetType::Swap => "SWAP",
+            AssetType::Future => "FUTURE",
+            AssetType::Forward => "FORWARD",
+            AssetType::CFD => "CFD",
+            AssetType::Option => "OPTION",
+            AssetType::Warrant => "WARRANT",
+        }
+    }
+}
+
+impl Display for AssetType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+
+
+#[repr(C)]
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 pub enum PriceType {
@@ -284,6 +414,25 @@ impl From<u8> for AggregationSource {
 }
 
 impl Display for AggregationSource {
+	fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum OptionTag {
+    None = 0,
+    Some = 1
+}
+impl OptionTag {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            OptionTag::None => "NONE",
+            OptionTag::Some => "SOME",
+        }
+    }
+}
+impl Display for OptionTag {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{}", self.as_str())
     }
