@@ -66,6 +66,28 @@ where
 ////////////////////////////////////////////////////////////////////////////////
 // C API
 ////////////////////////////////////////////////////////////////////////////////
+use nautilus_model::identifiers::instrument_id::InstrumentId;
+use nautilus_model::types::price::Price;
+use nautilus_model::types::quantity::Quantity;
+#[no_mangle]
+pub unsafe extern "C" fn create_test_cvec()
+-> CVec
+{
+    let data = vec![
+        QuoteTick {
+            instrument_id: InstrumentId::from("ETH-PERP.FTX"),
+            bid: Price::new(10000.0, 4),
+            ask: Price::new(10001.0, 4),
+            bid_size: Quantity::new(1.0, 8),
+            ask_size: Quantity::new(1.0, 8),
+            ts_event: 0,
+            ts_init: 0,
+        };
+        5000
+    ];
+    let cvec = CVec::from(data);
+    cvec
+}
 
 /// Types that implement parquet reader writer traits should also have a
 /// corresponding enum so that they can be passed across the ffi.
@@ -360,11 +382,11 @@ pub unsafe extern "C" fn parquet_reader_drop_chunk(chunk: CVec, parquet_type: Pa
     let CVec { ptr, len, cap } = chunk;
     match parquet_type {
         ParquetType::QuoteTick => {
-            let data: Vec<QuoteTick> = Vec::from_raw_parts(ptr as *mut QuoteTick, len, cap);
+            let data: Vec<QuoteTick> = Vec::<QuoteTick>::from_raw_parts(ptr as *mut QuoteTick, len, cap);
             drop(data);
         }
         ParquetType::TradeTick => {
-            let data: Vec<TradeTick> = Vec::from_raw_parts(ptr as *mut TradeTick, len, cap);
+            let data: Vec<TradeTick> = Vec::<TradeTick>::from_raw_parts(ptr as *mut TradeTick, len, cap);
             drop(data);
         }
     }
