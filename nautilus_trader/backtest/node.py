@@ -24,6 +24,7 @@ from nautilus_trader.backtest.results import BacktestResult
 from nautilus_trader.config import BacktestDataConfig
 from nautilus_trader.config import BacktestRunConfig
 from nautilus_trader.config import BacktestVenueConfig
+from nautilus_trader.config import ModuleFactory
 from nautilus_trader.core.correctness import PyCondition
 from nautilus_trader.core.inspect import is_nautilus_class
 from nautilus_trader.model.currency import Currency
@@ -36,10 +37,9 @@ from nautilus_trader.model.identifiers import ClientId
 from nautilus_trader.model.identifiers import InstrumentId
 from nautilus_trader.model.identifiers import Venue
 from nautilus_trader.model.objects import Money
-from nautilus_trader.persistence.batching import batch_files
+from nautilus_trader.persistence.batching import batch_configs
 from nautilus_trader.persistence.batching import extract_generic_data_client_ids
 from nautilus_trader.persistence.batching import groupby_datatype
-from nautilus_trader.persistence.catalog.parquet import ParquetDataCatalog
 
 
 class BacktestNode:
@@ -163,6 +163,10 @@ class BacktestNode:
 
         # Add venues (must be added prior to instruments)
         for config in venue_configs:
+            modules = None
+            if config.modules:
+                modules = [ModuleFactory.create(x) for x in config.modules]
+
             base_currency: Optional[str] = config.base_currency
             engine.add_venue(
                 venue=Venue(config.name),
@@ -180,6 +184,7 @@ class BacktestNode:
                 routing=config.routing,
                 frozen_account=config.frozen_account,
                 reject_stop_orders=config.reject_stop_orders,
+                modules=modules,
             )
 
         # Add instruments
@@ -236,7 +241,8 @@ class BacktestNode:
             )
 
         # Release data objects
-        engine.dispose()
+        if not engine.trader.is_disposed:
+            engine.dispose()
 
         return engine.get_result()
 
@@ -247,19 +253,19 @@ class BacktestNode:
         data_configs: List[BacktestDataConfig],
         batch_size_bytes: int,
     ) -> None:
-        config = data_configs[0]
-        catalog: ParquetDataCatalog = config.catalog()
-
         data_client_ids = extract_generic_data_client_ids(data_configs=data_configs)
 
-        for batch in batch_files(
-            catalog=catalog,
+        for batch in batch_configs(
             data_configs=data_configs,
+            read_num_rows=10_000,
             target_batch_size_bytes=batch_size_bytes,
         ):
+
             engine.clear_data()
+
             grouped = groupby_datatype(batch)
             for data in grouped:
+
                 if data["type"] in data_client_ids:
                     # Generic data - manually re-add client_id as it gets lost in the streaming join
                     data.update({"client_id": ClientId(data_client_ids[data["type"]])})
@@ -270,7 +276,6 @@ class BacktestNode:
             engine.run_streaming(run_config_id=run_config_id)
 
         engine.end_streaming()
-        engine.dispose()
 
     def _run_oneshot(
         self,

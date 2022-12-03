@@ -59,6 +59,48 @@ class NautilusConfig(pydantic.BaseModel):
         return cls.__module__ + ":" + cls.__qualname__
 
 
+class ImportableStatisticConfig(NautilusConfig):
+    """
+    Configuration for ``StatisticConfig`` instances.
+    """
+
+    statistic_path: str
+
+
+class StatisticFactory:
+    """
+    Provides statistic creation from importable configurations.
+    """
+
+    @staticmethod
+    def create(config: ImportableStatisticConfig):
+        PyCondition.type(config, ImportableStatisticConfig, "config")
+        statistic_cls = resolve_path(config.statistic_path)
+        return statistic_cls()
+
+
+class ImportableModuleConfig(NautilusConfig):
+    """
+    Configuration for ``ModuleConfig`` instances.
+    """
+
+    module_path: str
+    config: dict
+
+
+class ModuleFactory:
+    """
+    Provides module creation from importable configurations.
+    """
+
+    @staticmethod
+    def create(config: ImportableModuleConfig):
+        PyCondition.type(config, ImportableModuleConfig, "config")
+        cls = resolve_path(config.module_path)
+        kwargs = config.config
+        return cls(**kwargs)
+
+
 class CacheConfig(NautilusConfig):
     """
     Configuration for ``Cache`` instances.

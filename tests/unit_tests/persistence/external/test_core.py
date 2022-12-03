@@ -12,7 +12,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # -------------------------------------------------------------------------------------------------
-
 import asyncio
 import pickle
 import sys
@@ -467,3 +466,57 @@ class TestPersistenceCore:
 
         write_objects(catalog=self.catalog, chunk=chunk2)
         assert len(self.catalog.generic_data(NewsEventData)) == 15
+
+    def test_parse_start_by_filename(self):
+        from nautilus_trader.persistence.external.core import _parse_file_start_by_filename
+
+        fn = "/data/test/sample.parquet/instrument_id=a/1577836800000000000-1578182400000000000-0.parquet"
+        assert _parse_file_start_by_filename(fn)
+
+        fn = "1546383600000000000-1577826000000000000-SIM-1-HOUR-BID-EXTERNAL-0.parquet"
+        assert _parse_file_start_by_filename(fn)
+
+        fn = "/data/test/sample.parquet/instrument_id=a/0648140b1fd7491a97983c0c6ece8d57.parquet"
+        assert not _parse_file_start_by_filename(fn)
+
+    def test_is_file_in_time_range_by_filename(self):
+
+        from nautilus_trader.persistence.external.core import is_file_in_time_range_by_filename
+
+        fn = "1546383600000000000-1577826000000000000-SIM-1-HOUR-BID-EXTERNAL-0.parquet"
+        assert is_file_in_time_range_by_filename(fn, 0, 9223372036854775807)
+
+        ############################
+
+        file_start, file_end = 5, 8
+        fn = f"000000000000000000{file_start}-000000000000000000{file_end}-0.parquet"
+
+        start, end = 4, 7  # file_start outside, file_end inside
+        assert is_file_in_time_range_by_filename(fn, start, end)
+
+        start, end = 6, 9  # file_start inside, file_end outside
+        assert is_file_in_time_range_by_filename(fn, start, end)
+
+        start, end = 6, 7  # file_start inside, file_end inside
+        assert is_file_in_time_range_by_filename(fn, start, end)
+
+        start, end = 4, 9  # file_start outside, file_end outside
+        assert is_file_in_time_range_by_filename(fn, start, end)
+
+        ###########################
+
+        file_start, file_end = 5, 8
+        fn1 = f"000000000000000000{file_start}-000000000000000000{file_end}-0.parquet"
+
+        file_start, file_end = 10, 22
+        fn2 = f"00000000000000000{file_start}-00000000000000000{file_end}-0.parquet"
+
+        start, end = 7, 10
+        assert is_file_in_time_range_by_filename(fn1, start, end)
+        assert is_file_in_time_range_by_filename(fn2, start, end)
+        assert is_file_in_time_range_by_filename(fn1, 0, 9223372036854775807)
+
+
+mod = TestPersistenceCore()
+mod.test_is_file_in_time_range_by_filename()
+mod.test_parse_start_by_filename()

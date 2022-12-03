@@ -16,134 +16,232 @@
 import heapq
 import itertools
 import sys
-from collections import namedtuple
-from typing import Dict, Iterator, List, Set
+from pathlib import Path
+from typing import Dict, Generator, List, Optional
 
 import fsspec
-import pandas as pd
-import pyarrow.dataset as ds
+import numpy as np
 import pyarrow.parquet as pq
-from pyarrow.lib import ArrowInvalid
 
 from nautilus_trader.config import BacktestDataConfig
-from nautilus_trader.persistence.catalog.parquet import ParquetDataCatalog
+from nautilus_trader.core.datetime import unix_nanos_to_dt
+from nautilus_trader.model.data.bar import Bar
+from nautilus_trader.model.data.tick import QuoteTick
+from nautilus_trader.model.data.tick import TradeTick
+from nautilus_trader.persistence.catalog.rust.reader import ParquetFileReader
 from nautilus_trader.persistence.funcs import parse_bytes
 from nautilus_trader.serialization.arrow.serializer import ParquetSerializer
-from nautilus_trader.serialization.arrow.util import clean_key
 
 
-FileMeta = namedtuple("FileMeta", "filename datatype instrument_id client_id start end")
+def _generate_batches(
+    files: list[str],
+    cls: type,
+    fs: fsspec.AbstractFileSystem = None,
+    use_rust: bool = False,
+    n_rows: int = 10_000,
+):
+
+    if fs is None:
+        fs = fsspec.filesystem("file")
+
+    # Check for valid files
+    assert isinstance(files, list)
+    assert all(Path(file).exists() for file in files)
+    same_instrument_id = all(Path(f).parent == Path(files[0]).parent for f in files)
+    assert same_instrument_id
+    use_rust = use_rust and cls in (QuoteTick, TradeTick)
+    if use_rust:
+        for file in files:
+            f = pq.ParquetFile(fs.open(file))
+            valid_rust_file = all(x.physical_type == "INT64" for x in list(f.metadata.schema))
+            assert valid_rust_file
+
+    files = sorted(files, key=lambda x: Path(x).stem)
+    for file in files:
+        f = pq.ParquetFile(fs.open(file))
+        if use_rust:
+            for objs in ParquetFileReader(parquet_type=cls, file_path=file, chunk_size=n_rows):
+                yield objs
+        else:
+            for batch in f.iter_batches(batch_size=n_rows):
+                if batch.num_rows == 0:
+                    break
+                objs = ParquetSerializer.deserialize(cls=cls, chunk=batch.to_pylist())
+                yield objs
 
 
-def dataset_batches(
-    file_meta: FileMeta,
-    fs: fsspec.AbstractFileSystem,
-    n_rows: int,
-) -> Iterator[pd.DataFrame]:
-    try:
-        d: ds.Dataset = ds.dataset(file_meta.filename, filesystem=fs)
-    except ArrowInvalid:
-        return
-    for fn in sorted(map(str, d.files)):
-        f = pq.ParquetFile(fs.open(fn))
-        for batch in f.iter_batches(batch_size=n_rows):
-            if batch.num_rows == 0:
-                break
-            df = batch.to_pandas()
-            df = df[(df["ts_init"] >= file_meta.start) & (df["ts_init"] <= file_meta.end)]
-            if df.empty:
-                continue
-            if file_meta.instrument_id:
-                df.loc[:, "instrument_id"] = file_meta.instrument_id
-            yield df
+def generate_batches(
+    files: list[str],
+    cls: type,
+    fs: fsspec.AbstractFileSystem = None,
+    use_rust: bool = False,
+    n_rows: int = 10_000,
+    start_time: int = 0,
+    end_time: int = sys.maxsize,
+):
+
+    batches = _generate_batches(files, cls, fs, use_rust=use_rust, n_rows=n_rows)
+
+    start = start_time
+    end = end_time
+    started = False
+    for batch in batches:
+
+        min = batch[0].ts_init
+        max = batch[-1].ts_init
+        if min < start and max < start:
+            batch = []  # not started yet
+
+        if max >= start and not started:
+            timestamps = np.array([x.ts_init for x in batch])
+            mask = timestamps >= start
+            masked = list(itertools.compress(batch, mask))
+            batch = masked
+            started = True
+
+        if max > end:
+            timestamps = np.array([x.ts_init for x in batch])
+            mask = timestamps <= end
+            masked = list(itertools.compress(batch, mask))
+            batch = masked
+            if batch:
+                yield batch
+            return  # stop iterating
+
+        yield batch
 
 
-def build_filenames(
-    catalog: ParquetDataCatalog,
+class Buffer:
+    """yields batches of nautilus objects, supports trimming from the front by timestamp"""
+
+    def __init__(self, batches: Generator, config=None):
+        self._buffer: list = []
+        self._is_complete = False
+        self._batches = batches
+
+    @property
+    def is_complete(self) -> bool:
+        return self._is_complete and len(self._buffer) == 0
+
+    def update(self) -> None:
+        objs = next(self._batches, None)
+        if objs is None:
+            self._is_complete = True
+        else:
+            self._buffer.extend(objs)
+
+    def pop(self, timestamp_ns: int) -> list:
+
+        if timestamp_ns < self._buffer[0].ts_init:
+            return []  # nothing to pop
+
+        timestamps = np.array([x.ts_init for x in self._buffer])
+        mask = timestamps <= timestamp_ns
+        i = len(self._buffer)
+        masked = list(itertools.compress(self._buffer, mask))
+        assert len(self._buffer) == i
+        removed = masked
+        self._buffer = list(itertools.compress(self._buffer, np.invert(mask)))
+
+        return removed
+
+    @property
+    def max_timestamp(self) -> Optional[int]:
+        return self._buffer[-1].ts_init if self._buffer else None
+
+    def __len__(self) -> int:
+        return len(self._buffer)
+
+
+def batch_configs(  # noqa: C901
     data_configs: List[BacktestDataConfig],
-) -> List[FileMeta]:
-    files = []
-    for config in data_configs:
-        filename = catalog._make_path(cls=config.data_type)
-        if config.instrument_id:
-            filename += f"/instrument_id={clean_key(config.instrument_id)}"
-        if not catalog.fs.exists(filename):
-            continue
-        files.append(
-            FileMeta(
-                filename=filename,
-                datatype=config.data_type,
-                instrument_id=config.instrument_id,
-                client_id=config.client_id,
-                start=config.start_time_nanos,
-                end=config.end_time_nanos,
-            )
-        )
-    return files
-
-
-def frame_to_nautilus(df: pd.DataFrame, cls: type):
-    return ParquetSerializer.deserialize(cls=cls, chunk=df.to_dict("records"))
-
-
-def batch_files(  # noqa: C901
-    catalog: ParquetDataCatalog,
-    data_configs: List[BacktestDataConfig],
-    read_num_rows: int = 10000,
+    read_num_rows: int = 10_000,
     target_batch_size_bytes: int = parse_bytes("100mb"),  # noqa: B008,
 ):
-    files = build_filenames(catalog=catalog, data_configs=data_configs)
-    buffer = {fn.filename: pd.DataFrame() for fn in files}
-    datasets = {
-        f.filename: dataset_batches(file_meta=f, fs=catalog.fs, n_rows=read_num_rows) for f in files
-    }
-    completed: Set[str] = set()
+
+    # Validate configs
+    for config in data_configs:
+        assert config.instrument_id
+        assert config.data_cls
+        if config.data_type is Bar:
+            assert config.bar_spec
+
+    # Sort configs (larger time_aggregated bar specifications first)
+    def sort_by_large_time_aggregated_specifications(config) -> tuple[int, int]:
+        spec = config.bar_specification
+        if spec.data_type is Bar and spec.is_time_aggregated():
+            return (spec.aggregation, spec.step)
+        else:
+            return (sys.maxsize, sys.maxsize)  # last
+
+    data_configs = sorted(data_configs, key=sort_by_large_time_aggregated_specifications)
+    data_configs.reverse()
+
+    # Setup buffers
+    buffers = []
+    for config in data_configs:
+        files = config.get_files()
+
+        assert files, f"No files found for {config}"
+        batch_gen = generate_batches(
+            files=files,
+            cls=config.data_type,
+            fs=fsspec.filesystem(config.catalog_fs_protocol),
+            use_rust=config.use_rust,
+            n_rows=read_num_rows,
+            start_time=config.start_time_nanos,
+            end_time=config.end_time_nanos,
+        )
+        buffer = Buffer(batch_gen, config=config)
+        buffers.append(buffer)
+
+    yield from _iterate_buffers(
+        buffers, read_num_rows=read_num_rows, target_batch_size_bytes=target_batch_size_bytes
+    )
+
+
+def _iterate_buffers(
+    buffers: list[Buffer],
+    read_num_rows: int = 10_000,
+    target_batch_size_bytes: int = parse_bytes("100mb"),  # noqa: B008,
+):
+
     bytes_read = 0
     values = []
-    sent_count = 0
-    while set([f.filename for f in files]) != completed:
+    while len(buffers) != 0:
+        print("\n")
+
         # Fill buffer (if required)
-        for fn in buffer:
-            if len(buffer[fn]) < read_num_rows:
-                next_buf = next(datasets[fn], None)
-                if next_buf is None:
-                    completed.add(fn)
-                    continue
-                buffer[fn] = pd.concat([buffer[fn], next_buf])
+        for buffer in buffers:
+            if len(buffer) < read_num_rows:
+                buffer.update()
 
-        # Determine minimum timestamp
-        max_ts_per_frame = {fn: df["ts_init"].max() for fn, df in buffer.items() if not df.empty}
-        if not max_ts_per_frame:
+        # Remove completed buffers
+        buffers = [b for b in buffers if not b.is_complete]
+
+        # Find pop timestamp
+        max_timestamps = list(filter(None, [buffer.max_timestamp for buffer in buffers]))
+        if not max_timestamps:
             continue
-        min_ts = min(max_ts_per_frame.values())
+        min_timestamp = min(max_timestamps)
 
-        # Filter buffer dataframes based on min_timestamp
-        batches = []
-        for f in files:
-            df = buffer[f.filename]
-            if df.empty:
-                continue
-            ts_filter = df["ts_init"] <= min_ts  # min of max timestamps
-            batch = df[ts_filter]
-            buffer[f.filename] = df[~ts_filter]
-            objs = frame_to_nautilus(df=batch, cls=f.datatype)
-            batches.append(objs)
-            bytes_read += sum([sys.getsizeof(x) for x in objs])
+        # Trim the buffers
+        batches = list(filter(len, [b.pop(min_timestamp) for b in buffers if len(b)]))
+        if not batches:
+            continue
 
-        # Merge ticks
+        # Merge
         values.extend(list(heapq.merge(*batches, key=lambda x: x.ts_init)))
+
+        bytes_read += sum([sys.getsizeof(x) for x in values])
+
         if bytes_read > target_batch_size_bytes:
             yield values
-            sent_count += len(values)
             bytes_read = 0
             values = []
 
-    if values:
+    if values:  # yield remaining values
         yield values
-        sent_count += len(values)
-
-    if sent_count == 0:
-        raise ValueError("No data found, check data_configs")
 
 
 def groupby_datatype(data):
@@ -172,3 +270,22 @@ def extract_generic_data_client_ids(data_configs: List[BacktestDataConfig]) -> D
         dict(data_client_ids)
     ), "data_type found with multiple client_ids"
     return dict(data_client_ids)
+
+
+def _dbg_batches(batches):
+    for batch in batches:
+        item = batch[0]
+        if isinstance(item, Bar):
+            instrument_id = str(item.bar_type.instrument_id)
+        elif isinstance(item, QuoteTick):
+            instrument_id = str(item.instrument_id)
+
+        print(
+            type(item).__name__,
+            instrument_id,
+            len(batch),
+            unix_nanos_to_dt(batch[0].ts_init),
+            " > ",
+            unix_nanos_to_dt(batch[-1].ts_init),
+            sep="|",
+        )

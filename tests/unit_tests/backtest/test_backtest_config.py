@@ -12,7 +12,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # -------------------------------------------------------------------------------------------------
-
 import dataclasses
 import datetime
 import json
@@ -56,6 +55,7 @@ class ExamplePartialable(Partialable):
 class TestBacktestConfig:
     def setup(self):
         self.catalog = data_catalog_setup()
+
         aud_usd_data_loader()
         self.backtest_config = BacktestRunConfig(
             engine=BacktestEngineConfig(),

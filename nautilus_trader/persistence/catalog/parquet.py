@@ -13,10 +13,11 @@
 #  limitations under the License.
 # -------------------------------------------------------------------------------------------------
 
-import itertools
 import os
 import pathlib
 import platform
+import sys
+from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
 import fsspec
@@ -29,13 +30,15 @@ from fsspec.utils import infer_storage_options
 from pyarrow import ArrowInvalid
 
 from nautilus_trader.core.inspect import is_nautilus_class
+from nautilus_trader.model.data.bar import Bar
+from nautilus_trader.model.data.bar import BarSpecification
 from nautilus_trader.model.data.base import DataType
 from nautilus_trader.model.data.base import GenericData
 from nautilus_trader.model.data.tick import QuoteTick
 from nautilus_trader.model.data.tick import TradeTick
+from nautilus_trader.model.identifiers import InstrumentId
 from nautilus_trader.model.objects import FIXED_SCALAR
 from nautilus_trader.persistence.catalog.base import BaseDataCatalog
-from nautilus_trader.persistence.catalog.rust.reader import ParquetFileReader
 from nautilus_trader.persistence.external.metadata import load_mappings
 from nautilus_trader.serialization.arrow.serializer import ParquetSerializer
 from nautilus_trader.serialization.arrow.serializer import list_schemas
@@ -125,6 +128,7 @@ class ParquetDataCatalog(BaseDataCatalog):
         projections: Optional[Dict] = None,
         **kwargs,
     ):
+
         filters = [filter_expr] if filter_expr is not None else []
         if instrument_ids is not None:
             if not isinstance(instrument_ids, list):
@@ -137,6 +141,7 @@ class ParquetDataCatalog(BaseDataCatalog):
         if end is not None:
             filters.append(ds.field(ts_column) <= int(pd.Timestamp(end).to_datetime64()))
 
+        # print(start is not None, filters); exit()
         full_path = self._make_path(cls=cls)
         if not (self.fs.exists(full_path) or self.fs.isdir(full_path)):
             if raise_on_empty:
@@ -144,28 +149,52 @@ class ParquetDataCatalog(BaseDataCatalog):
             else:
                 return pd.DataFrame() if as_dataframe else None
 
-        dataset = ds.dataset(full_path, partitioning="hive", filesystem=self.fs)
+        use_rust = kwargs.get("use_rust") and cls in (QuoteTick, TradeTick)
 
+        if use_rust:
+            start = int(pd.Timestamp(start).to_datetime64())
+            end = int(pd.Timestamp(end).to_datetime64())
+            if kwargs.get("as_nautilus"):
+                # TODO, load multiple instrument_ids?
+
+                from nautilus_trader.persistence.batching import (
+                    generate_batches,  # avoid circular import error
+                )
+
+                files = self.get_files(cls, instrument_ids[0], start, end)
+
+                batches = generate_batches(
+                    files=files,
+                    cls=cls,
+                    fs=self.fs,
+                    use_rust=True,
+                    n_rows=sys.maxsize,
+                    start_time=start,
+                    end_time=end,
+                )
+                objs = []
+                for batch in batches:
+                    objs.extend(batch)
+                return objs
+
+        dataset = ds.dataset(full_path, partitioning="hive", filesystem=self.fs)
         table_kwargs = table_kwargs or {}
         if projections:
             projected = {**{c: ds.field(c) for c in dataset.schema.names}, **projections}
             table_kwargs.update(columns=projected)
+        # print(filters)
+        # print(combine_filters(*filters))
         table = dataset.to_table(filter=combine_filters(*filters), **(table_kwargs or {}))
+
+        # print(table)
+        # print(table.to_pandas())
+
         mappings = self.load_inverse_mappings(path=full_path)
 
-        if (
-            cls in (QuoteTick, TradeTick)
-            and kwargs.get("use_rust")
-            and not kwargs.get("as_nautilus")
-        ):
-            return int_to_float_dataframe(table.to_pandas())
-
-        if cls in (QuoteTick, TradeTick) and kwargs.get("use_rust"):
-            ticks = []
-            for fn in dataset.files:
-                reader = ParquetFileReader(cls, fn)
-                ticks.extend(list(itertools.chain(*list(reader))))
-            return ticks
+        if use_rust:
+            df = int_to_float_dataframe(table.to_pandas())
+            df = df[(df["ts_init"] >= start) & (df["ts_init"] <= end)]
+            return df
 
         if "as_nautilus" in kwargs:
             as_dataframe = not kwargs.pop("as_nautilus")
@@ -176,12 +205,6 @@ class ParquetDataCatalog(BaseDataCatalog):
             )
         else:
             return self._handle_table_nautilus(table=table, cls=cls, mappings=mappings)
-
-    def load_inverse_mappings(self, path):
-        mappings = load_mappings(fs=self.fs, path=path)
-        for key in mappings:
-            mappings[key] = {v: k for k, v in mappings[key].items()}
-        return mappings
 
     @staticmethod
     def _handle_table_dataframe(
@@ -202,6 +225,51 @@ class ParquetDataCatalog(BaseDataCatalog):
         if as_type:
             df = df.astype(as_type)
         return df
+
+    def get_files(
+        self,
+        cls: type,
+        instrument_id: InstrumentId,
+        start: Optional[Union[pd.Timestamp, str, int]] = None,
+        end: Optional[Union[pd.Timestamp, str, int]] = None,
+        bar_spec: Optional[BarSpecification] = None,
+    ) -> list[str]:
+
+        if start:
+            start = pd.Timestamp(start)
+        if end:
+            end = pd.Timestamp(end)
+
+        start_nanos = int(start.to_datetime64())
+        end_nanos = int(end.to_datetime64())
+        from nautilus_trader.persistence.external.core import is_filename_in_time_range
+
+        instrument_id = clean_key(str(instrument_id))
+        folder = Path(self._make_path(cls=cls) + f"/instrument_id={instrument_id}")
+        if not folder.exists():
+            return []
+
+        files = []
+
+        for path in folder.iterdir():
+
+            bar_spec_matched = False
+            if cls is Bar:
+                bar_spec_matched = bar_spec and str(bar_spec) in path.name
+                if not bar_spec_matched:
+                    continue
+
+            timestamp_matched = is_filename_in_time_range(path.name, start_nanos, end_nanos)
+            if timestamp_matched:
+                files.append(str(path))
+
+        return files
+
+    def load_inverse_mappings(self, path):
+        mappings = load_mappings(fs=self.fs, path=path)
+        for key in mappings:
+            mappings[key] = {v: k for k, v in mappings[key].items()}
+        return mappings
 
     @staticmethod
     def _handle_table_nautilus(
