@@ -577,6 +577,18 @@ cdef class BarType:
         """
         return self.aggregation_source == AggregationSource.INTERNAL
 
+    cpdef BarType with_spec(self, BarSpecification spec):
+        return BarType(self.instrument_id, spec, self.aggregation_source)
+
+    cpdef BarType with_price_type(self, PriceType price_type):
+        return BarType(self.instrument_id,
+                        BarSpecification(
+                            self.spec.step,
+                            price_type,
+                            self.spec.aggregation
+                        ),
+                        self.aggregation_source
+                )
 
 cdef class Bar(Data):
     """

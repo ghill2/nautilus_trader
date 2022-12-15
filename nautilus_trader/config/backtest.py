@@ -25,10 +25,14 @@ import pandas as pd
 from nautilus_trader.common import Environment
 from nautilus_trader.config.common import DataEngineConfig
 from nautilus_trader.config.common import ExecEngineConfig
+from nautilus_trader.config.common import ImportableModuleConfig
+from nautilus_trader.config.common import ImportableStatisticConfig
 from nautilus_trader.config.common import NautilusConfig
 from nautilus_trader.config.common import NautilusKernelConfig
 from nautilus_trader.config.common import RiskEngineConfig
 from nautilus_trader.core.datetime import maybe_dt_to_unix_nanos
+from nautilus_trader.model.data.bar import Bar
+from nautilus_trader.model.data.bar import BarSpecification
 from nautilus_trader.model.identifiers import ClientId
 
 
@@ -48,8 +52,8 @@ class BacktestVenueConfig(NautilusConfig):
     routing: bool = False
     frozen_account: bool = False
     reject_stop_orders: bool = True
+    modules: Optional[list[ImportableModuleConfig]] = None
     # fill_model: Optional[FillModel] = None  # TODO(cs): Implement
-    # modules: Optional[list[SimulationModule]] = None  # TODO(cs): Implement
 
 
 class BacktestDataConfig(NautilusConfig):
@@ -67,6 +71,8 @@ class BacktestDataConfig(NautilusConfig):
     filter_expr: Optional[str] = None
     client_id: Optional[str] = None
     metadata: Optional[dict] = None
+    bar_spec: Optional[str] = None
+    use_rust: Optional[bool] = False
 
     @property
     def data_type(self):
@@ -79,13 +85,22 @@ class BacktestDataConfig(NautilusConfig):
 
     @property
     def query(self):
+        # TODO from nautilus_trader.persistence.catalog.parquet import combine_filters
+        if self.data_cls is Bar and self.bar_spec:
+            bar_type = f"{self.instrument_id}-{self.bar_spec}-EXTERNAL"
+            filter_expr = f'field("bar_type") == "{bar_type}"'
+        else:
+            filter_expr = self.filter_expr
+
         return dict(
             cls=self.data_type,
             instrument_ids=[self.instrument_id] if self.instrument_id else None,
             start=self.start_time,
             end=self.end_time,
-            filter_expr=self.filter_expr,
+            filter_expr=parse_filters_expr(filter_expr),
             as_nautilus=True,
+            metadata=self.metadata,
+            use_rust=self.use_rust,
         )
 
     @property
@@ -113,14 +128,14 @@ class BacktestDataConfig(NautilusConfig):
         self,
         start_time: Optional[pd.Timestamp] = None,
         end_time: Optional[pd.Timestamp] = None,
+        as_nautilus: bool = True,
     ):
         query = self.query
         query.update(
             {
                 "start": start_time or query["start"],
                 "end": end_time or query["end"],
-                "filter_expr": parse_filters_expr(query.pop("filter_expr", "None")),
-                "metadata": self.metadata,
+                "as_nautilus": as_nautilus,
             },
         )
 
@@ -135,6 +150,20 @@ class BacktestDataConfig(NautilusConfig):
             "instrument": instruments[0] if self.instrument_id else None,
             "client_id": ClientId(self.client_id) if self.client_id else None,
         }
+
+    def get_files(self):
+        files = self.catalog().get_files(
+            cls=self.data_type,
+            instrument_id=self.instrument_id,
+            start_nanos=self.start_time_nanos,
+            end_nanos=self.end_time_nanos,
+            bar_spec=self.bar_spec,
+        )
+        return files
+
+    @property
+    def bar_specification(self) -> BarSpecification:
+        return BarSpecification.from_str(self.bar_spec or "1-TICK-BID")
 
 
 class BacktestEngineConfig(NautilusKernelConfig):
@@ -182,6 +211,7 @@ class BacktestEngineConfig(NautilusKernelConfig):
     risk_engine: RiskEngineConfig = RiskEngineConfig()
     exec_engine: ExecEngineConfig = ExecEngineConfig()
     run_analysis: bool = True
+    statistics: list[ImportableStatisticConfig] = None
 
 
 class BacktestRunConfig(NautilusConfig):
@@ -247,11 +277,20 @@ def parse_filters_expr(s: str):
 CUSTOM_ENCODINGS: dict[type, Callable] = {}
 
 
+def _encode_dataframe(x):
+    import pickle
+    return pickle.dumps(x)
+    
+# CUSTOM_ENCODINGS["pd.DataFrame", _encode_dataframe]
+CUSTOM_ENCODINGS["DataFrame"] = _encode_dataframe
+
 def json_encoder(x):
     if isinstance(x, (str, Decimal)):
         return str(x)
     elif isinstance(x, type) and hasattr(x, "fully_qualified_name"):
         return x.fully_qualified_name()
+    elif isinstance(x, pd.DataFrame):
+        return x.__class__.__qualname__ # "DataFrame"
     elif x in CUSTOM_ENCODINGS:
         func = CUSTOM_ENCODINGS[x]
         return func(x)

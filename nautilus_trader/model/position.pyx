@@ -14,6 +14,7 @@
 # -------------------------------------------------------------------------------------------------
 
 import cython
+import pandas as pd
 
 from nautilus_trader.core.correctness cimport Condition
 from nautilus_trader.model.c_enums.order_side cimport OrderSide
@@ -99,6 +100,20 @@ cdef class Position:
 
         self.apply(fill)
 
+        # Added
+        self.gross_pnl = Money(0, self.cost_currency) # set on fills
+        self.net_pnl = Money(0, self.cost_currency) # set on position close
+        self.commissions_home = []
+
+        self.rollover_total = 0 # calculated on close (in home currency)
+        self.rollover_amount = [] # set from rollover module (in home currency)
+        self.rollover_rate = [] # set from rollover module
+        self.rollover_date = [] # set from rollover module
+
+        self.balance_total = 0 # calculated on close
+        self.balance_locked = 0 # calculated on close
+        self.balance_free = 0 # calculated on close
+
     def __eq__(self, Position other) -> bool:
         return self.id == other.id
 
@@ -152,6 +167,18 @@ cdef class Position:
             "realized_return": str(round(self.realized_return, 5)),
             "realized_pnl": str(self.realized_pnl.to_str()),
             "commissions": str([c.to_str() for c in self.commissions()]),
+            "home_currency": str(self.gross_pnl.currency),
+            "gross_pnl": float(self.gross_pnl),
+            "net_pnl": float(self.net_pnl),
+            "commissions_home": float(self.commissions_home[0]),
+            "rollover_total": float(self.rollover_total),
+            "rollover_amount": str(self.rollover_amount),
+            "rollover_rate": str(self.rollover_rate),
+            "rollover_date": str(self.rollover_date),
+            "balance_total": float(self.balance_total),
+            "balance_locked": float(self.balance_locked),
+            "balance_free": float(self.balance_free),
+            "duration": str(pd.Timedelta(self.duration_ns)),
         }
 
     cdef list client_order_ids_c(self):
@@ -614,6 +641,10 @@ cdef class Position:
             self.realized_return = self._calculate_return(self.avg_px_open, self.avg_px_close)
             realized_pnl += self._calculate_pnl(self.avg_px_open, last_px, last_qty)
 
+        self.gross_pnl = Money(
+            self._calculate_pnl(self.avg_px_open, fill.last_px.as_f64_c(), fill.last_qty.as_f64_c()),
+            self.cost_currency
+        )
         self.realized_pnl = Money(self.realized_pnl.as_f64_c() + realized_pnl, self.cost_currency)
 
         self._buy_qty.add_assign(last_qty_obj)
@@ -643,6 +674,10 @@ cdef class Position:
             self.realized_return = self._calculate_return(self.avg_px_open, self.avg_px_close)
             realized_pnl += self._calculate_pnl(self.avg_px_open, last_px, last_qty)
 
+        self.gross_pnl = Money(
+            self._calculate_pnl(self.avg_px_open, fill.last_px.as_f64_c(), fill.last_qty.as_f64_c()),
+            self.cost_currency
+        )
         self.realized_pnl = Money(self.realized_pnl.as_f64_c() + realized_pnl, self.cost_currency)
 
         self._sell_qty.add_assign(last_qty_obj)
