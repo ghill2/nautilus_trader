@@ -14,6 +14,7 @@
 # -------------------------------------------------------------------------------------------------
 import heapq
 import itertools
+
 import os
 import pathlib
 import platform
@@ -40,6 +41,7 @@ from nautilus_trader.model.data.base import DataType
 from nautilus_trader.model.data.base import GenericData
 from nautilus_trader.model.data.tick import QuoteTick
 from nautilus_trader.model.data.tick import TradeTick
+from nautilus_trader.model.identifiers import InstrumentId
 from nautilus_trader.model.objects import FIXED_SCALAR
 from nautilus_trader.persistence.catalog.base import BaseDataCatalog
 from nautilus_trader.persistence.external.metadata import load_mappings
@@ -83,7 +85,7 @@ class ParquetDataCatalog(BaseDataCatalog):
             self.fs_protocol, **self.fs_storage_options
         )
 
-        path = make_path_posix(path)
+        path = make_path_posix(str(path))
 
         if (
             isinstance(self.fs, MemoryFileSystem)
@@ -146,6 +148,7 @@ class ParquetDataCatalog(BaseDataCatalog):
         projections: Optional[dict] = None,
         **kwargs,
     ):
+
         filters = [filter_expr] if filter_expr is not None else []
         if instrument_ids is not None:
             if not isinstance(instrument_ids, list):
@@ -204,7 +207,6 @@ class ParquetDataCatalog(BaseDataCatalog):
             return list(heapq.merge(*to_merge, key=lambda x: x.ts_init))
 
         dataset = ds.dataset(full_path, partitioning="hive", filesystem=self.fs)
-
         table_kwargs = table_kwargs or {}
         if projections:
             projected = {**{c: ds.field(c) for c in dataset.schema.names}, **projections}
@@ -338,6 +340,39 @@ class ParquetDataCatalog(BaseDataCatalog):
         if as_type:
             df = df.astype(as_type)
         return df
+
+    def get_files(
+        self,
+        cls: type,
+        instrument_id: InstrumentId,
+        start_nanos: int,
+        end_nanos: int,
+        bar_spec: Optional[BarSpecification] = None,
+    ) -> list[str]:
+
+
+        from nautilus_trader.persistence.external.core import is_filename_in_time_range
+
+        instrument_id = clean_key(str(instrument_id))
+        folder = Path(self._make_path(cls=cls) + f"/instrument_id={instrument_id}")
+        if not folder.exists():
+            return []
+
+        files = []
+
+        for path in folder.iterdir():
+
+            bar_spec_matched = False
+            if cls is Bar:
+                bar_spec_matched = bar_spec and str(bar_spec) in path.name
+                if not bar_spec_matched:
+                    continue
+
+            timestamp_matched = is_filename_in_time_range(path.name, start_nanos, end_nanos)
+            if timestamp_matched:
+                files.append(str(path))
+
+        return files
 
     @staticmethod
     def _handle_table_nautilus(

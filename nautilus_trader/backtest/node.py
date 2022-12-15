@@ -25,6 +25,7 @@ from nautilus_trader.config import ActorFactory
 from nautilus_trader.config import BacktestDataConfig
 from nautilus_trader.config import BacktestRunConfig
 from nautilus_trader.config import BacktestVenueConfig
+from nautilus_trader.config import ModuleFactory
 from nautilus_trader.core.correctness import PyCondition
 from nautilus_trader.core.inspect import is_nautilus_class
 from nautilus_trader.model.currency import Currency
@@ -165,6 +166,10 @@ class BacktestNode:
 
         # Add venues (must be added prior to instruments)
         for config in venue_configs:
+            modules = None
+            if config.modules:
+                modules = [ModuleFactory.create(x) for x in config.modules]
+
             base_currency: Optional[str] = config.base_currency
             if config.leverages:
                 leverages = {
@@ -185,6 +190,7 @@ class BacktestNode:
                 modules=[ActorFactory.create(module) for module in (config.modules or [])],
                 frozen_account=config.frozen_account,
                 reject_stop_orders=config.reject_stop_orders,
+                modules=modules,
             )
 
         # Add instruments
@@ -241,7 +247,8 @@ class BacktestNode:
             )
 
         # Release data objects
-        engine.dispose()
+        if not engine.trader.is_disposed:
+            engine.dispose()
 
         return engine.get_result()
 
@@ -256,13 +263,16 @@ class BacktestNode:
 
         streaming_engine = StreamingEngine(
             data_configs=data_configs,
+            read_num_rows=10_000,
             target_batch_size_bytes=batch_size_bytes,
         )
 
         for batch in streaming_engine:
             engine.clear_data()
+
             grouped = groupby_datatype(batch)
             for data in grouped:
+
                 if data["type"] in data_client_ids:
                     # Generic data - manually re-add client_id as it gets lost in the streaming join
                     data.update({"client_id": ClientId(data_client_ids[data["type"]])})
