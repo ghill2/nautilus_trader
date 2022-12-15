@@ -196,6 +196,8 @@ cdef extern from "../includes/model.h":
     # - Assumes you are immediately returning this pointer to Python.
     PyObject *bar_specification_to_pystr(const BarSpecification_t *bar_spec);
 
+    const char *bar_specification_to_cstr(const BarSpecification_t *bar_spec);
+
     void bar_specification_free(BarSpecification_t bar_spec);
 
     uint64_t bar_specification_hash(const BarSpecification_t *bar_spec);
@@ -241,6 +243,8 @@ cdef extern from "../includes/model.h":
     # - Assumes you are immediately returning this pointer to Python.
     PyObject *bar_type_to_pystr(const BarType_t *bar_type);
 
+    const char *bar_type_to_cstr(const BarType_t *bar_type);
+
     void bar_type_free(BarType_t bar_type);
 
     Bar_t bar_new(BarType_t bar_type,
@@ -271,6 +275,8 @@ cdef extern from "../includes/model.h":
     # to be acquired.
     # - Assumes you are immediately returning this pointer to Python.
     PyObject *bar_to_pystr(const Bar_t *bar);
+
+    const char *bar_to_cstr(const Bar_t *bar);
 
     Bar_t bar_copy(const Bar_t *bar);
 
@@ -312,6 +318,8 @@ cdef extern from "../includes/model.h":
     # - Assumes you are immediately returning this pointer to Python.
     PyObject *quote_tick_to_pystr(const QuoteTick_t *tick);
 
+    const char *quote_tick_to_cstr(const QuoteTick_t *tick);
+
     void trade_tick_free(TradeTick_t tick);
 
     TradeTick_t trade_tick_copy(const TradeTick_t *tick);
@@ -334,6 +342,8 @@ cdef extern from "../includes/model.h":
     # - Assumes you are immediately returning this pointer to Python.
     PyObject *trade_tick_to_pystr(const TradeTick_t *tick);
 
+    const char *trade_tick_to_cstr(const TradeTick_t *tick);
+
     # Returns a Nautilus identifier from a valid Python object pointer.
     #
     # # Safety
@@ -352,6 +362,8 @@ cdef extern from "../includes/model.h":
     # to be acquired.
     # - Assumes you are immediately returning this pointer to Python.
     PyObject *account_id_to_pystr(const AccountId_t *account_id);
+
+    const char *account_id_to_cstr(const AccountId_t *account_id);
 
     uint8_t account_id_eq(const AccountId_t *lhs, const AccountId_t *rhs);
 
@@ -376,6 +388,8 @@ cdef extern from "../includes/model.h":
     # - Assumes you are immediately returning this pointer to Python.
     PyObject *client_id_to_pystr(const ClientId_t *client_id);
 
+    const char *client_id_to_cstr(const ClientId_t *client_id);
+
     uint8_t client_id_eq(const ClientId_t *lhs, const ClientId_t *rhs);
 
     uint64_t client_id_hash(const ClientId_t *client_id);
@@ -398,6 +412,8 @@ cdef extern from "../includes/model.h":
     # to be acquired.
     # - Assumes you are immediately returning this pointer to Python.
     PyObject *client_order_id_to_pystr(const ClientOrderId_t *client_order_id);
+
+    const char *client_order_id_to_cstr(const ClientOrderId_t *client_order_id);
 
     uint8_t client_order_id_eq(const ClientOrderId_t *lhs, const ClientOrderId_t *rhs);
 
@@ -422,6 +438,8 @@ cdef extern from "../includes/model.h":
     # - Assumes you are immediately returning this pointer to Python.
     PyObject *component_to_pystr(const ComponentId_t *component_id);
 
+    const char *component_to_cstr(const ComponentId_t *component_id);
+
     # Returns a pointer to a valid Python UTF-8 string.
     #
     # # Safety
@@ -429,6 +447,8 @@ cdef extern from "../includes/model.h":
     # to be acquired.
     # - Assumes you are immediately returning this pointer to Python.
     PyObject *component_id_to_pystr(const ComponentId_t *component_id);
+
+    const char *component_id_to_cstr(const ComponentId_t *component_id);
 
     uint8_t component_id_eq(const ComponentId_t *lhs, const ComponentId_t *rhs);
 
@@ -452,6 +472,8 @@ cdef extern from "../includes/model.h":
     # to be acquired.
     # - Assumes you are immediately returning this pointer to Python.
     PyObject *exec_algorithm_id_to_pystr(const ExecAlgorithmId_t *exec_algorithm_id);
+
+    const char *exec_algorithm_id_to_cstr(const ExecAlgorithmId_t *exec_algorithm_id);
 
     uint8_t exec_algorithm_id_eq(const ExecAlgorithmId_t *lhs, const ExecAlgorithmId_t *rhs);
 
@@ -484,6 +506,8 @@ cdef extern from "../includes/model.h":
     # - Assumes you are immediately returning this pointer to Python.
     PyObject *instrument_id_to_pystr(const InstrumentId_t *instrument_id);
 
+    const char *instrument_id_to_cstr(const InstrumentId_t *instrument_id);
+
     uint8_t instrument_id_eq(const InstrumentId_t *lhs, const InstrumentId_t *rhs);
 
     uint64_t instrument_id_hash(const InstrumentId_t *instrument_id);
@@ -507,6 +531,8 @@ cdef extern from "../includes/model.h":
     # - Assumes you are immediately returning this pointer to Python.
     PyObject *order_list_id_to_pystr(const OrderListId_t *order_list_id);
 
+    const char *order_list_id_to_cstr(const OrderListId_t *order_list_id);
+
     uint8_t order_list_id_eq(const OrderListId_t *lhs, const OrderListId_t *rhs);
 
     uint64_t order_list_id_hash(const OrderListId_t *order_list_id);
@@ -529,6 +555,8 @@ cdef extern from "../includes/model.h":
     # to be acquired.
     # - Assumes you are immediately returning this pointer to Python.
     PyObject *position_id_to_pystr(const PositionId_t *position_id);
+
+    const char *position_id_to_cstr(const PositionId_t *position_id);
 
     uint8_t position_id_eq(const PositionId_t *lhs, const PositionId_t *rhs);
 
@@ -564,6 +592,8 @@ cdef extern from "../includes/model.h":
     # - Assumes you are immediately returning this pointer to Python.
     PyObject *symbol_to_pystr(const Symbol_t *symbol);
 
+    const char *symbol_to_cstr(const Symbol_t *symbol);
+
     uint8_t symbol_eq(const Symbol_t *lhs, const Symbol_t *rhs);
 
     uint64_t symbol_hash(const Symbol_t *symbol);
@@ -586,6 +616,8 @@ cdef extern from "../includes/model.h":
     # to be acquired.
     # - Assumes you are immediately returning this pointer to Python.
     PyObject *trade_id_to_pystr(const TradeId_t *trade_id);
+
+    const char *trade_id_to_cstr(const TradeId_t *trade_id);
 
     uint8_t trade_id_eq(const TradeId_t *lhs, const TradeId_t *rhs);
 
@@ -621,6 +653,8 @@ cdef extern from "../includes/model.h":
     # - Assumes you are immediately returning this pointer to Python.
     PyObject *venue_to_pystr(const Venue_t *venue);
 
+    const char *venue_to_cstr(const Venue_t *venue);
+
     uint8_t venue_eq(const Venue_t *lhs, const Venue_t *rhs);
 
     uint64_t venue_hash(const Venue_t *venue);
@@ -643,6 +677,8 @@ cdef extern from "../includes/model.h":
     # to be acquired.
     # - Assumes you are immediately returning this pointer to Python.
     PyObject *venue_order_id_to_pystr(const VenueOrderId_t *venue_order_id);
+
+    const char *venue_order_id_to_cstr(const VenueOrderId_t *venue_order_id);
 
     uint8_t venue_order_id_eq(const VenueOrderId_t *lhs, const VenueOrderId_t *rhs);
 
@@ -673,6 +709,8 @@ cdef extern from "../includes/model.h":
     # - Assumes you are immediately returning this pointer to Python.
     PyObject *currency_to_pystr(const Currency_t *currency);
 
+    const char *currency_to_cstr(const Currency_t *currency);
+
     # Returns a pointer to a valid Python UTF-8 string.
     #
     # # Safety
@@ -681,6 +719,8 @@ cdef extern from "../includes/model.h":
     # - Assumes you are immediately returning this pointer to Python.
     PyObject *currency_code_to_pystr(const Currency_t *currency);
 
+    const char *currency_code_to_cstr(const Currency_t *currency);
+
     # Returns a pointer to a valid Python UTF-8 string.
     #
     # # Safety
@@ -688,6 +728,8 @@ cdef extern from "../includes/model.h":
     # to be acquired.
     # - Assumes you are immediately returning this pointer to Python.
     PyObject *currency_name_to_pystr(const Currency_t *currency);
+
+    const char *currency_name_to_cstr(const Currency_t *currency);
 
     uint8_t currency_eq(const Currency_t *lhs, const Currency_t *rhs);
 
