@@ -25,12 +25,14 @@ import pandas as pd
 from nautilus_trader.common import Environment
 from nautilus_trader.config.common import DataEngineConfig
 from nautilus_trader.config.common import ExecEngineConfig
+from nautilus_trader.config.common import ImportableStatisticConfig
 from nautilus_trader.config.common import ImportableConfig
 from nautilus_trader.config.common import NautilusConfig
 from nautilus_trader.config.common import NautilusKernelConfig
 from nautilus_trader.config.common import RiskEngineConfig
 from nautilus_trader.core.datetime import maybe_dt_to_unix_nanos
 from nautilus_trader.model.data.bar import Bar
+from nautilus_trader.model.data.bar import BarSpecification
 from nautilus_trader.model.identifiers import ClientId
 
 
@@ -149,6 +151,20 @@ class BacktestDataConfig(NautilusConfig, frozen=True):
             "client_id": ClientId(self.client_id) if self.client_id else None,
         }
 
+    def get_files(self):
+        files = self.catalog().get_files(
+            cls=self.data_type,
+            instrument_id=self.instrument_id,
+            start_nanos=self.start_time_nanos,
+            end_nanos=self.end_time_nanos,
+            bar_spec=self.bar_spec,
+        )
+        return files
+
+    @property
+    def bar_specification(self) -> BarSpecification:
+        return BarSpecification.from_str(self.bar_spec or "1-TICK-BID")
+
 
 class BacktestEngineConfig(NautilusKernelConfig, frozen=True):
     """
@@ -195,6 +211,7 @@ class BacktestEngineConfig(NautilusKernelConfig, frozen=True):
     risk_engine: RiskEngineConfig = RiskEngineConfig()
     exec_engine: ExecEngineConfig = ExecEngineConfig()
     run_analysis: bool = True
+    statistics: list[ImportableStatisticConfig] = None
 
 
 class BacktestRunConfig(NautilusConfig, frozen=True):
@@ -262,11 +279,22 @@ CUSTOM_ENCODINGS: dict[type, Callable] = {
 }
 
 
+def _encode_dataframe(x):
+    import pickle
+
+    return pickle.dumps(x)
+    
+# CUSTOM_ENCODINGS["pd.DataFrame", _encode_dataframe]
+CUSTOM_ENCODINGS["DataFrame"] = _encode_dataframe
+
+
 def json_encoder(x):
     if isinstance(x, (str, Decimal)):
         return str(x)
     elif isinstance(x, type) and hasattr(x, "fully_qualified_name"):
         return x.fully_qualified_name()
+    elif isinstance(x, pd.DataFrame):
+        return x.__class__.__qualname__ # "DataFrame"
     elif type(x) in CUSTOM_ENCODINGS:
         func = CUSTOM_ENCODINGS[type(x)]
         return func(x)

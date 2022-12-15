@@ -115,6 +115,7 @@ cdef class Actor(Component):
         self._signal_classes: dict[str, type] = {}
 
         self.config = config
+        self.priority = config.priority
 
         self.trader_id = None  # Initialized when registered
         self.msgbus = None     # Initialized when registered

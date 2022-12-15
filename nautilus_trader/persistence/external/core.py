@@ -128,6 +128,7 @@ def process_files(
     instrument: Instrument = None,
     **kwargs,
 ):
+
     PyCondition.type_or_none(executor, Executor, "executor")
     if use_rust:
         assert instrument, "Instrument needs to be provided when saving rust data."

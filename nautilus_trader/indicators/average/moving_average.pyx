@@ -19,7 +19,7 @@ from enum import unique
 from nautilus_trader.core.correctness cimport Condition
 from nautilus_trader.indicators.base.indicator cimport Indicator
 from nautilus_trader.model.enums_c cimport PriceType
-
+from nautilus_trader.common.logging cimport LoggerAdapter
 
 @unique
 class MovingAverageType(Enum):
@@ -59,9 +59,11 @@ cdef class MovingAverage(Indicator):
         int period,
         list params not None,
         PriceType price_type,
+        str id = None,
+        LoggerAdapter log = None
     ):
         Condition.positive_int(period, "period")
-        super().__init__(params)
+        super().__init__(params, id=id, log=log)
 
         self.period = period
         self.price_type = price_type

@@ -13,7 +13,6 @@
 #  limitations under the License.
 # -------------------------------------------------------------------------------------------------
 
-import inspect
 import logging
 from collections.abc import Generator
 from io import BytesIO
@@ -147,7 +146,7 @@ class ByteReader(Reader):
             instrument_provider_update=instrument_provider_update,
             instrument_provider=instrument_provider,
         )
-        assert inspect.isgeneratorfunction(block_parser)
+        # assert inspect.isgeneratorfunction(block_parser)
         self.parser = block_parser
 
     def parse(self, block: bytes) -> Generator:
@@ -254,6 +253,7 @@ class CSVReader(Reader):
         separator: str = ",",
         newline: bytes = b"\n",
         encoding: str = "utf-8",
+        nrows: Optional[int] = None,
     ):
         super().__init__(
             instrument_provider=instrument_provider,
@@ -267,6 +267,7 @@ class CSVReader(Reader):
         self.separator = separator
         self.newline = newline
         self.encoding = encoding
+        self.nrows = nrows
 
     def parse(self, block: bytes) -> Generator:
         if self.header is None:
@@ -281,7 +282,12 @@ class CSVReader(Reader):
 
         # Prepare - a little gross but allows a lot of flexibility
         if self.as_dataframe:
-            df = pd.read_csv(BytesIO(process), names=self.header, sep=self.separator)
+            df = pd.read_csv(
+                BytesIO(process),
+                names=self.header,
+                sep=self.separator,
+                nrows=self.nrows,
+            )
             if self.chunked:
                 chunks = (df,)
             else:
