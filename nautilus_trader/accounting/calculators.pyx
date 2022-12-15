@@ -267,7 +267,13 @@ cdef class RolloverInterestCalculator:
         if quote_data.empty:
             quote_data = self._rate_data[quote_currency].loc[self._rate_data[quote_currency]['TIME'] == time_quarter]
 
-        if base_data.empty and quote_data.empty:
-            raise RuntimeError(f"cannot find rollover interest rate for {instrument_id} on {date}")  # pragma: no cover
+        if base_data.empty and quote_data.empty:  # pragma: no cover
+            raise RuntimeError(f"cannot find rollover interest rate for {instrument_id} on {date}")
 
-        return Decimal(((<double>base_data['Value'] - <double>quote_data['Value']) / 365) / 100)
+        if base_data['Value'].empty:
+            raise RuntimeError(f"cannot find rollover interest rate for {instrument_id} on {date}")
+
+        if quote_data['Value'].empty:
+            raise RuntimeError(f"cannot find rollover interest rate for {instrument_id} on {date}")
+
+        return (<double>base_data['Value'], <double>quote_data['Value'])

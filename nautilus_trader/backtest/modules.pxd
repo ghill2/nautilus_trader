@@ -39,3 +39,4 @@ cdef class FXRolloverInterestModule(SimulationModule):
     cdef int _day_number
 
     cdef void _apply_rollover_interest(self, datetime timestamp, int iso_week_day) except *
+    cdef double _broker_markup

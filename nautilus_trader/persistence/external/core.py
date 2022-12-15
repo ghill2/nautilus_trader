@@ -95,13 +95,23 @@ class RawFile:
                 yield raw
 
 
-def process_raw_file(catalog: ParquetDataCatalog, raw_file: RawFile, reader: Reader):
+def process_raw_file(
+    catalog: ParquetDataCatalog,
+    raw_file: RawFile,
+    reader: Reader,
+    use_rust=False,
+    instrument=None,
+):
     n_rows = 0
     for block in raw_file.iter():
         objs = [x for x in reader.parse(block) if x is not None]
-        dicts = split_and_serialize(objs)
-        dataframes = dicts_to_dataframes(dicts)
-        n_rows += write_tables(catalog=catalog, tables=dataframes)
+        if use_rust:
+            write_parquet_rust(catalog, objs, instrument)
+            n_rows += len(objs)
+        else:
+            dicts = split_and_serialize(objs)
+            dataframes = dicts_to_dataframes(dicts)
+            n_rows += write_tables(catalog=catalog, tables=dataframes)
     reader.on_file_complete()
     return n_rows
 
@@ -113,9 +123,14 @@ def process_files(
     block_size: str = "128mb",
     compression: str = "infer",
     executor: Optional[Executor] = None,
+    use_rust=False,
+    instrument: Instrument = None,
     **kwargs,
 ):
+
     PyCondition.type_or_none(executor, Executor, "executor")
+    if use_rust:
+        assert instrument, "Instrument needs to be provided when saving rust data."
 
     executor = executor or ThreadPoolExecutor()
 
@@ -128,7 +143,14 @@ def process_files(
 
     futures = {}
     for rf in raw_files:
-        futures[rf] = executor.submit(process_raw_file, catalog=catalog, raw_file=rf, reader=reader)
+        futures[rf] = executor.submit(
+            process_raw_file,
+            catalog=catalog,
+            raw_file=rf,
+            reader=reader,
+            instrument=instrument,
+            use_rust=use_rust,
+        )
 
     # Show progress
     for _ in tqdm(list(futures.values())):
@@ -260,6 +282,51 @@ def write_tables(
     return rows_written
 
 
+def write_parquet_rust(catalog: ParquetDataCatalog, objs: list, instrument: Instrument):
+    import os
+    from pathlib import Path
+
+    from nautilus_trader.model.data.tick import QuoteTick
+    from nautilus_trader.model.data.tick import TradeTick
+    from nautilus_trader.persistence.catalog.rust.writer import ParquetWriter
+    from nautilus_trader.serialization.arrow.util import clean_key
+
+    cls = type(objs[0])
+    assert cls in (QuoteTick, TradeTick)
+    instrument_id = str(instrument.id)
+    metadata = {
+        "instrument_id": instrument_id,
+        "price_precision": str(instrument.price_precision),
+        "size_precision": str(instrument.size_precision),
+    }
+    writer = ParquetWriter(cls, metadata)
+    writer.write(objs)
+
+    min_timestamp = objs[0].ts_init
+    max_timestamp = objs[-1].ts_init
+
+    fn = Path(
+        os.path.join(
+            catalog.path,
+            "data",
+            f"{class_to_filename(cls)}.parquet",
+            f"instrument_id={clean_key(instrument_id)}",
+            f"{min_timestamp}-{max_timestamp}-0.parquet",
+        ),
+    )
+
+    data: bytes = writer.flush()
+    fn.parent.mkdir(parents=True, exist_ok=True)
+    fn.write_bytes(data)
+
+    existing_instrument = catalog.instruments(
+        instrument_ids=[str(instrument.id)],
+        instrument_type=type(instrument),
+    )
+    if not existing_instrument.empty:
+        write_objects(catalog, [instrument], existing_data_behavior="overwrite_or_ignore")
+
+
 def write_parquet(
     fs: fsspec.AbstractFileSystem,
     path: str,
@@ -362,19 +429,23 @@ def read_progress(func, total):
     return inner
 
 
-def _parse_file_start_by_filename(fn: str):
+def _parse_file_start_by_filename(fn: str) -> Optional[int]:
     """
     Parse start time by filename.
 
     >>> _parse_file_start_by_filename('/data/test/sample.parquet/instrument_id=a/1577836800000000000-1578182400000000000-0.parquet')
     '1577836800000000000'
 
+    >>> _parse_file_start_by_filename(1546383600000000000-1577826000000000000-SIM-1-HOUR-BID-EXTERNAL-0.parquet)
+    '1546383600000000000'
+
     >>> _parse_file_start_by_filename('/data/test/sample.parquet/instrument_id=a/0648140b1fd7491a97983c0c6ece8d57.parquet')
 
     """
-    match = re.match(r"(?P<start>\d{19})\-\d{19}\-\d", pathlib.Path(fn).stem)
+    match = re.match(r"(?P<start>\d{19})\-\d{19}.*-\d", pathlib.Path(fn).stem)
     if match:
         return int(match.groups()[0])
+    return None
 
 
 def _parse_file_start(fn: str) -> Optional[tuple[str, pd.Timestamp]]:
@@ -384,6 +455,19 @@ def _parse_file_start(fn: str) -> Optional[tuple[str, pd.Timestamp]]:
         start = pd.Timestamp(start)
         return instrument_id, start
     return None
+
+
+def is_filename_in_time_range(fn: str, start: int, end: int) -> bool:
+    """
+    Return True if a filename is within a start and end timestamp range.
+    """
+    file_start = _parse_file_start_by_filename(fn)
+    if file_start is None:
+        raise RuntimeError(f"Invalid filename: {fn}...")
+
+    file_end = int(fn.split("-")[1])
+
+    return file_start >= start and file_start <= end or file_end >= start and file_end <= end
 
 
 def _validate_dataset(catalog: ParquetDataCatalog, path: str, new_partition_format="%Y%m%d"):

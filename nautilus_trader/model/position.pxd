@@ -93,7 +93,7 @@ cdef class Position:
     """The average close price.\n\n:returns: `double`"""
     cdef readonly double realized_return
     """The current realized return for the position.\n\n:returns: `double`"""
-    cdef readonly Money realized_pnl
+    cdef public Money realized_pnl
     """The current realized PnL for the position (including commissions).\n\n:returns: `Money`"""
 
     cpdef str info(self)
@@ -132,3 +132,17 @@ cdef class Position:
     cdef double _calculate_points_inverse(self, double avg_px_open, double avg_px_close)
     cdef double _calculate_return(self, double avg_px_open, double avg_px_close)
     cdef double _calculate_pnl(self, double avg_px_open, double avg_px_close, double quantity)
+
+    # G ADDED
+    cdef public Money gross_pnl
+    cdef public Money net_pnl
+    cdef public list commissions_home
+
+    cdef public double rollover_total
+    cdef public list rollover_rate
+    cdef public list rollover_amount
+    cdef public list rollover_date
+
+    cdef public double balance_total
+    cdef public double balance_locked
+    cdef public double balance_free

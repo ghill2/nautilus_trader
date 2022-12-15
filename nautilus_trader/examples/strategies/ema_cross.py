@@ -100,6 +100,7 @@ class EMACross(Strategy):
         self.instrument: Optional[Instrument] = None  # Initialized in on_start
 
     def on_start(self):
+        self.msgbus.send(endpoint="DataActor.register_strategy", msg=self)
         """Actions to be performed on strategy start."""
         self.instrument = self.cache.instrument(self.instrument_id)
         if self.instrument is None:

@@ -87,7 +87,7 @@ cdef class FXRolloverInterestModule(SimulationModule):
         The interest rate data for the internal rollover interest calculator.
     """
 
-    def __init__(self, rate_data not None: pd.DataFrame):
+    def __init__(self, rate_data not None: pd.DataFrame, broker_markup = None):
         super().__init__()
 
         self._calculator = RolloverInterestCalculator(data=rate_data)
@@ -95,6 +95,20 @@ cdef class FXRolloverInterestModule(SimulationModule):
         self._rollover_applied = False
         self._rollover_totals = {}
         self._day_number = 0
+
+        self._broker_markup = broker_markup
+
+    @classmethod
+    def from_file(cls, path: str):
+
+        cdef object rate_data
+
+        if path.endswith(".csv"):
+            rate_data = pd.read_csv(path)
+        else:
+            raise RuntimeError("Unsupported rate data file extension")
+
+        return cls(rate_data=rate_data)
 
     cpdef void process(self, uint64_t now_ns) except *:
         """
@@ -138,6 +152,14 @@ cdef class FXRolloverInterestModule(SimulationModule):
         cdef double rollover
         cdef double xrate
         cdef Money rollover_total
+        cdef double base_rate
+        cdef double quote_rate
+        cdef double rate_diff
+        cdef double swap_charge
+        cdef double close_price
+        cdef double markup
+        cdef double qty
+        cdef double swap_charge_base
         for position in open_positions:
             instrument = self._exchange.instruments[position.instrument_id]
             if instrument.asset_class != AssetClass.FX:
@@ -155,34 +177,61 @@ cdef class FXRolloverInterestModule(SimulationModule):
                     raise RuntimeError("cannot apply rollover interest, no market prices")
                 mid_prices[instrument.id] = Price(float(mid), precision=instrument.price_precision)
 
-            interest_rate = self._calculator.calc_overnight_rate(
+            close_price = float(mid_prices[instrument.id])
+
+            base_rate, quote_rate = self._calculator.calc_overnight_rate(
                 position.instrument_id,
                 timestamp,
             )
 
-            rollover = position.quantity.as_f64_c() * mid_prices[instrument.id] * float(interest_rate)
+            if base_rate >= quote_rate:
+                rate_diff = base_rate - quote_rate
+            else:
+                rate_diff = quote_rate - base_rate
+
+            swap_charge = 0
+            qty = position.quantity.as_f64_c()
+
+            if self._broker_markup:
+                markup = rate_diff * self._broker_markup
+            else:
+                markup = 0
+
+            if position.is_long_c() and base_rate > quote_rate \
+            or position.is_short_c() and quote_rate > base_rate:
+                swap_charge = (qty * (rate_diff - markup) / 100) * (close_price / 365)
+
+            if position.is_long_c() and base_rate <= quote_rate \
+            or position.is_short_c() and quote_rate <= base_rate:
+                swap_charge = -(qty * (rate_diff + markup) / 100) * (close_price / 365)
 
             if iso_week_day == 3:  # Book triple for Wednesdays
-                rollover *= 3
+                swap_charge *= 3
             elif iso_week_day == 5:  # Book triple for Fridays (holding over weekend)
-                rollover *= 3
+                swap_charge *= 3
 
-            if self._exchange.base_currency is not None:
-                currency = self._exchange.base_currency
-                xrate = self._exchange.cache.get_xrate(
-                    venue=instrument.id.venue,
-                    from_currency=instrument.quote_currency,
-                    to_currency=currency,
-                    price_type=PriceType.MID,
-                )
-                rollover *= xrate
-            else:
-                currency = instrument.quote_currency
+            xrate = self._exchange.cache.get_xrate(
+                        venue=instrument.id.venue,
+                        from_currency=instrument.quote_currency,
+                        to_currency=self._exchange.base_currency,
+                        price_type=PriceType.MID,
+                    )
 
-            rollover_total = Money(self._rollover_totals.get(currency, 0.0) + rollover, currency)
-            self._rollover_totals[currency] = rollover_total
+            swap_charge_home = swap_charge * xrate
 
-            self._exchange.adjust_account(Money(-rollover, currency))
+            position.rollover_date.append(str(timestamp))
+            position.rollover_rate.append(rate_diff)
+            position.rollover_amount.append(swap_charge_home) # in home currency
+
+            # position.rollover_total += swap_charge_home # calculate on close
+            # position.rollover_total_base += swap_charge_base
+
+            # position.rollover_data.append(
+            #     {   "amount": swap_charge_base,
+            #         "rate": rate_diff,
+            #         "date": timestamp,
+            #     }
+            # )
 
     cpdef void log_diagnostics(self, LoggerAdapter log) except *:
         """
