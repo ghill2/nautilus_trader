@@ -57,7 +57,7 @@ cdef class Subscription:
     ):
         Condition.valid_string(topic, "topic")
         Condition.callable(handler, "handler")
-        Condition.not_negative_int(priority, "priority")
+        Condition.in_range_int(priority, -100, 100, "priority")
 
         self.topic = topic
         self.handler = handler

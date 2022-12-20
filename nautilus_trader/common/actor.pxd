@@ -50,6 +50,7 @@ cdef class Actor(Component):
     cdef set _warning_events
     cdef dict _signal_classes
     cdef readonly config
+    cdef readonly int priority
 
     cdef readonly Clock clock
     """The actors clock.\n\n:returns: `Clock`"""

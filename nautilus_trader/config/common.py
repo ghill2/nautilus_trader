@@ -343,6 +343,7 @@ class ActorConfig(NautilusConfig, kw_only=True):
     """
 
     component_id: Optional[str] = None
+    priority: Optional[int] = 0
 
 
 class ImportableActorConfig(NautilusConfig):

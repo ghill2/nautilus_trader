@@ -115,7 +115,8 @@ cdef class Actor(Component):
         self._signal_classes: dict[str, type] = {}
 
         self.config = config
-
+        self.priority = config.priority
+        
         self.trader_id = None  # Initialized when registered
         self.msgbus = None     # Initialized when registered
         self.cache = None      # Initialized when registered
@@ -847,7 +848,7 @@ cdef class Actor(Component):
             topic=f"data.quotes"
                   f".{instrument_id.venue}"
                   f".{instrument_id.symbol}",
-            handler=self.handle_quote_tick,
+            handler=self.handle_quote_tick
         )
 
         cdef Subscribe command = Subscribe(
@@ -908,10 +909,11 @@ cdef class Actor(Component):
         """
         Condition.not_none(bar_type, "bar_type")
         Condition.true(self.trader_id is not None, "The actor has not been registered")
-
+        print(self.config)
         self._msgbus.subscribe(
             topic=f"data.bars.{bar_type}",
             handler=self.handle_bar,
+            priority=self.priority
         )
 
         cdef Subscribe command = Subscribe(
@@ -921,7 +923,7 @@ cdef class Actor(Component):
             command_id=UUID4(),
             ts_init=self._clock.timestamp_ns(),
         )
-
+ 
         self._send_data_cmd(command)
 
     cpdef void subscribe_venue_status_updates(self, Venue venue, ClientId client_id = None) except *:
