@@ -202,6 +202,7 @@ cdef class Trader(Component):
         for strategy in self._strategies:
             strategy.start()
 
+
     cpdef void _stop(self) except *:
         cdef Actor actor
         for actor in self._actors:
