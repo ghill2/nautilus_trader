@@ -220,6 +220,7 @@ class EMACross(Strategy):
             The bar received.
 
         """
+        self.msgbus.send(endpoint="DataActor.register_strategy", msg=self)
         self.log.info(repr(bar), LogColor.CYAN)
 
         # Check if indicators ready
