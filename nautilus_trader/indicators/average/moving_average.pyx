@@ -61,7 +61,7 @@ cdef class MovingAverage(Indicator):
         list params not None,
         PriceType price_type,
         str id = None,
-        LoggerAdapter log = None
+        LoggerAdapter log = None,
     ):
         Condition.positive_int(period, "period")
         super().__init__(params, id=id, log=log)
