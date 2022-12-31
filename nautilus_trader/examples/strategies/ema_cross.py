@@ -93,11 +93,12 @@ class EMACross(Strategy):
         self.bar_type = BarType.from_str(config.bar_type)
         self.trade_size = Decimal(config.trade_size)
 
+        # Create the indicators for the strategy
         self.fast_ema = ExponentialMovingAverage(config.fast_ema_period, id="fast", log=self.log)
         self.slow_ema = ExponentialMovingAverage(config.slow_ema_period, id="slow", log=self.log)
 
         self.bar_types = {}
-        
+
         self.bar_types[PriceType.BID] = self.bar_type.with_price_type(PriceType.BID)
         self.bar_types[PriceType.ASK] = self.bar_type.with_price_type(PriceType.ASK)
 
@@ -205,7 +206,7 @@ class EMACross(Strategy):
 
     def on_bar(self, bar: Bar):
         self.msgbus.send(endpoint="DataActor.register_strategy", msg=self)
-        
+
         """
         Actions to be performed when the strategy is running and receives a bar.
 
@@ -220,15 +221,15 @@ class EMACross(Strategy):
             self.trading = float(bar.open)
         else:
             self.trading = np.nan
-        
-        
+
+
         bid_bar = self.cache.bar(self.bar_types[PriceType.BID], 0)
         ask_bar = self.cache.bar(self.bar_types[PriceType.ASK], 0)
 
         if bid_bar is None and ask_bar is None:
             self.log.info(f"bid_bar, ask_bar is None", color=LogColor.YELLOW)
             return
-        
+
         # self.log.info(f"{unix_nanos_to_dt(ask_bar.ts_init)} {ask_bar}", color=LogColor.YELLOW)
 
         self.i += 1
