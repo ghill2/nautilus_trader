@@ -40,9 +40,9 @@ cdef class ExponentialMovingAverage(MovingAverage):
         If `period` is not positive (> 0).
     """
 
-    def __init__(self, int period, PriceType price_type=PriceType.LAST):
+    def __init__(self, int period, PriceType price_type=PriceType.LAST, str id = None):
         Condition.positive_int(period, "period")
-        super().__init__(period, params=[period], price_type=price_type)
+        super().__init__(period, params=[period], price_type=price_type, id=id)
 
         self.alpha = 2.0 / (period + 1.0)
         self.value = 0
@@ -105,4 +105,5 @@ cdef class ExponentialMovingAverage(MovingAverage):
             self.value = value
 
         self.value = self.alpha * value + ((1.0 - self.alpha) * self.value)
+        self.values['value'] = self.alpha * value + ((1.0 - self.alpha) * self.value)
         self._increment_count()

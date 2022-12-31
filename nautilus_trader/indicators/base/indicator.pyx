@@ -32,12 +32,17 @@ cdef class Indicator:
     This class should not be used directly, but through a concrete subclass.
     """
 
-    def __init__(self, list params not None):
+    def __init__(self, list params not None, str id = None):
         self._params = params.copy()
 
-        self.name = type(self).__name__
+        if id is None:
+            self.name = type(self).__name__
+        else:
+            self.name = type(self).__name__ + "." + id
+        
         self.has_inputs = False
         self.initialized = False
+        self.values = {}
 
     def __repr__(self) -> str:
         return f"{self.name}({self._params_str()})"

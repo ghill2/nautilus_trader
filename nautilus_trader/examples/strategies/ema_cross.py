@@ -94,8 +94,8 @@ class EMACross(Strategy):
         self.trade_size = Decimal(config.trade_size)
 
         # Create the indicators for the strategy
-        self.fast_ema = ExponentialMovingAverage(config.fast_ema_period)
-        self.slow_ema = ExponentialMovingAverage(config.slow_ema_period)
+        self.fast_ema = ExponentialMovingAverage(config.fast_ema_period, id="fast")
+        self.slow_ema = ExponentialMovingAverage(config.slow_ema_period, id="slow")
 
         self.instrument: Optional[Instrument] = None  # Initialized in on_start
 
