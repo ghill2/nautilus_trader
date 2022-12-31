@@ -109,4 +109,5 @@ cdef class ExponentialMovingAverage(MovingAverage):
             self.value = value
 
         self.value = self.alpha * value + ((1.0 - self.alpha) * self.value)
+        self.values['value'] = self.alpha * value + ((1.0 - self.alpha) * self.value)
         self._increment_count()
