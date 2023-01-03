@@ -94,11 +94,11 @@ class EMACross(Strategy):
         self.trade_size = Decimal(config.trade_size)
 
         # Create the indicators for the strategy
-        self.fast_ema = ExponentialMovingAverage(config.fast_ema_period, id="fast", index=-2)
-        self.slow_ema = ExponentialMovingAverage(config.slow_ema_period, id="slow", index=-2)
+        self.fast_ema = ExponentialMovingAverage(config.fast_ema_period, id="fast", index=1)
+        self.slow_ema = ExponentialMovingAverage(config.slow_ema_period, id="slow", index=1)
 
         self.instrument: Optional[Instrument] = None  # Initialized in on_start
-
+        self.i = 0
     def on_start(self):
         self.msgbus.send(endpoint="DataActor.register_strategy", msg=self)
         """Actions to be performed on strategy start."""
@@ -220,6 +220,7 @@ class EMACross(Strategy):
             The bar received.
 
         """
+        self.i += 1
         self.msgbus.send(endpoint="DataActor.register_strategy", msg=self)
         self.log.info(repr(bar), LogColor.CYAN)
 
