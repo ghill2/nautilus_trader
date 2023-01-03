@@ -32,7 +32,7 @@ cdef class Indicator:
     This class should not be used directly, but through a concrete subclass.
     """
 
-    def __init__(self, list params not None, str id = None, int index = -1):
+    def __init__(self, list params not None, str id = None, int index = 0):
         self._params = params.copy()
 
         if id is None:
