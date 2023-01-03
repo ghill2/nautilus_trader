@@ -94,11 +94,10 @@ class EMACross(Strategy):
         self.trade_size = Decimal(config.trade_size)
 
         # Create the indicators for the strategy
-        self.fast_ema = ExponentialMovingAverage(config.fast_ema_period, id="fast", log=self.log)
-        self.slow_ema = ExponentialMovingAverage(config.slow_ema_period, id="slow", log=self.log)
+        self.fast_ema = ExponentialMovingAverage(config.fast_ema_period, id="fast", log=self.log, index=-2)
+        self.slow_ema = ExponentialMovingAverage(config.slow_ema_period, id="slow", log=self.log, index=-2)
 
         self.bar_types = {}
-
         self.bar_types[PriceType.BID] = self.bar_type.with_price_type(PriceType.BID)
         self.bar_types[PriceType.ASK] = self.bar_type.with_price_type(PriceType.ASK)
 
