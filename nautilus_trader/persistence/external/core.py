@@ -429,7 +429,7 @@ def read_progress(func, total):
     return inner
 
 
-def _parse_file_start_by_filename(fn: str) -> Optional[int]:
+def _parse_filename_start(fn: str) -> Optional[int]:
     """
     Parse start time by filename.
 
@@ -450,7 +450,7 @@ def _parse_file_start_by_filename(fn: str) -> Optional[int]:
 
 def _parse_file_start(fn: str) -> Optional[tuple[str, pd.Timestamp]]:
     instrument_id = re.findall(r"instrument_id\=(.*)\/", fn)[0] if "instrument_id" in fn else None
-    start = _parse_file_start_by_filename(fn=fn)
+    start = _parse_filename_start(fn=fn)
     if start is not None:
         start = pd.Timestamp(start)
         return instrument_id, start
@@ -461,13 +461,18 @@ def is_filename_in_time_range(fn: str, start: int, end: int) -> bool:
     """
     Return True if a filename is within a start and end timestamp range.
     """
-    file_start = _parse_file_start_by_filename(fn)
+    file_start = _parse_filename_start(fn)
     if file_start is None:
         raise RuntimeError(f"Invalid filename: {fn}...")
 
     file_end = int(fn.split("-")[1])
 
-    return file_start >= start and file_start <= end or file_end >= start and file_end <= end
+    a, b = start, end
+    x, y = file_start, file_end
+
+    no_overlap = y < a or b < x
+
+    return not no_overlap
 
 
 def _validate_dataset(catalog: ParquetDataCatalog, path: str, new_partition_format="%Y%m%d"):
