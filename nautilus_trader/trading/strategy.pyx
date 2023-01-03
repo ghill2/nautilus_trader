@@ -1355,7 +1355,14 @@ cdef class Strategy(Actor):
     cdef void _handle_indicators_for_bar(self, list indicators, Bar bar):
         cdef Indicator indicator
         for indicator in indicators:
-            indicator.handle_bar(bar)
+            if indicator.index != -1:
+                try:
+                    bar = self.cache.bars(bar.bar_type)[indicator.index]
+                except:
+                    pass
+                    
+                indicator.handle_bar(bar)
+
 
 # -- EVENTS ---------------------------------------------------------------------------------------
 

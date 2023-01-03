@@ -26,6 +26,7 @@ cdef class Indicator:
     cdef readonly str name
     """The name of the indicator.\n\n:returns: `str`"""
     cdef readonly str id
+    cdef readonly int index
     cdef readonly bint has_inputs
     """If the indicator has received inputs.\n\n:returns: `bool`"""
     cdef readonly bint initialized

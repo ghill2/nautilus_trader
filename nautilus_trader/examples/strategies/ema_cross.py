@@ -113,7 +113,6 @@ class EMACross(Strategy):
         self.slow_ema = ExponentialMovingAverage(config.slow_ema_period, id="slow", log=self.log)
 
         self.bar_types = {}
-
         self.bar_types[PriceType.BID] = self.bar_type.with_price_type(PriceType.BID)
         self.bar_types[PriceType.ASK] = self.bar_type.with_price_type(PriceType.ASK)
 

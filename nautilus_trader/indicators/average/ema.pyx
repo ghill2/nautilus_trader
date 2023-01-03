@@ -46,7 +46,7 @@ cdef class ExponentialMovingAverage(MovingAverage):
 
     def __init__(self, int period, PriceType price_type=PriceType.LAST, str id = None, LoggerAdapter log = None):
         Condition.positive_int(period, "period")
-        super().__init__(period, params=["period"], price_type=price_type, id=id, log=log)
+        super().__init__(period, params=[period], price_type=price_type, id=id, index=index, log=log)
 
         self.alpha = 2.0 / (period + 1.0)
         self.value = 0
