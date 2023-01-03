@@ -59,10 +59,11 @@ cdef class MovingAverage(Indicator):
         int period,
         list params not None,
         PriceType price_type,
-        str id = None
+        str id = None,
+        int index = -1
     ):
         Condition.positive_int(period, "period")
-        super().__init__(params, id=id)
+        super().__init__(params, id=id, index=index)
 
         self.period = period
         self.price_type = price_type
