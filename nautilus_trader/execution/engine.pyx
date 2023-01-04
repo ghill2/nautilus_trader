@@ -60,8 +60,8 @@ from nautilus_trader.execution.messages cimport SubmitOrderList
 from nautilus_trader.execution.messages cimport TradingCommand
 from nautilus_trader.model.enums_c cimport OmsType
 from nautilus_trader.model.enums_c cimport PositionSide
-from nautilus_trader.model.enums_c cimport oms_type_to_str
 from nautilus_trader.model.enums_c cimport PriceType
+from nautilus_trader.model.enums_c cimport oms_type_to_str
 from nautilus_trader.model.events.order cimport OrderEvent
 from nautilus_trader.model.events.order cimport OrderFilled
 from nautilus_trader.model.events.position cimport PositionChanged

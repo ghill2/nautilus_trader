@@ -281,10 +281,12 @@ CUSTOM_ENCODINGS: dict[type, Callable] = {
 
 def _encode_dataframe(x):
     import pickle
-    return pickle.dumps(x)
 
+    return pickle.dumps(x)
+    
 # CUSTOM_ENCODINGS["pd.DataFrame", _encode_dataframe]
 CUSTOM_ENCODINGS["DataFrame"] = _encode_dataframe
+
 
 def json_encoder(x):
     if isinstance(x, (str, Decimal)):
