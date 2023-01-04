@@ -16,15 +16,15 @@
 from nautilus_trader.model.data.bar cimport Bar
 from nautilus_trader.model.data.tick cimport QuoteTick
 from nautilus_trader.model.data.tick cimport TradeTick
-
+from nautilus_trader.common.logging cimport LoggerAdapter
 
 cdef class Indicator:
     cdef readonly list _params
     cdef public dict values
+    cdef readonly LoggerAdapter log
     cdef readonly str name
     """The name of the indicator.\n\n:returns: `str`"""
     cdef readonly str id
-    cdef readonly int index
     cdef readonly bint has_inputs
     """If the indicator has received inputs.\n\n:returns: `bool`"""
     cdef readonly bint initialized
