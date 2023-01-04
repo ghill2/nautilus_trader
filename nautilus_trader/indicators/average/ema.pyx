@@ -78,7 +78,7 @@ cdef class ExponentialMovingAverage(MovingAverage):
         self.update_raw(Price.raw_to_f64_c(tick._mem.price.raw))
 
     cpdef void handle_bar(self, Bar bar) except *:
-        self.log.info(f"{unix_nanos_to_dt(bar.ts_init)} {bar}")
+        # self.log.info(f"{unix_nanos_to_dt(bar.ts_init)} {bar}")
         """
         Update the indicator with the given bar.
 
