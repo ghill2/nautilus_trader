@@ -258,11 +258,11 @@ cdef class RolloverInterestCalculator:
 
         cdef object base_value = base_data.get(time_monthly)
         cdef object quote_value = quote_data.get(time_monthly)
-        
+
         if base_value is None: # pragma: no cover
             raise RuntimeError(f"Rollover interest rate NOT found for base currency {base_currency} on month {time_monthly}")
 
         if quote_value is None:  # pragma: no cover
             raise RuntimeError(f"Rollover interest rate NOT found for quote currency {quote_currency} on month {time_monthly}")
-        
+
         return <double>base_value, <double>quote_value

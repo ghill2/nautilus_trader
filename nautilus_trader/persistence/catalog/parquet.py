@@ -257,7 +257,6 @@ class ParquetDataCatalog(BaseDataCatalog):
         bar_spec: Optional[BarSpecification] = None,
     ) -> list[str]:
 
-        
         from nautilus_trader.persistence.external.core import is_filename_in_time_range
 
         instrument_id = clean_key(str(instrument_id))

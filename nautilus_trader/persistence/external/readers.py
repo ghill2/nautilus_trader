@@ -13,7 +13,6 @@
 #  limitations under the License.
 # -------------------------------------------------------------------------------------------------
 
-import inspect
 import logging
 from collections.abc import Generator
 from io import BytesIO

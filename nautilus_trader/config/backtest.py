@@ -279,10 +279,13 @@ CUSTOM_ENCODINGS: dict[type, Callable] = {}
 
 def _encode_dataframe(x):
     import pickle
+
     return pickle.dumps(x)
-    
+
+
 # CUSTOM_ENCODINGS["pd.DataFrame", _encode_dataframe]
 CUSTOM_ENCODINGS["DataFrame"] = _encode_dataframe
+
 
 def json_encoder(x):
     if isinstance(x, (str, Decimal)):
@@ -290,7 +293,7 @@ def json_encoder(x):
     elif isinstance(x, type) and hasattr(x, "fully_qualified_name"):
         return x.fully_qualified_name()
     elif isinstance(x, pd.DataFrame):
-        return x.__class__.__qualname__ # "DataFrame"
+        return x.__class__.__qualname__  # "DataFrame"
     elif x in CUSTOM_ENCODINGS:
         func = CUSTOM_ENCODINGS[x]
         return func(x)

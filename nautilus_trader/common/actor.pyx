@@ -116,7 +116,7 @@ cdef class Actor(Component):
 
         self.config = config
         self.priority = config.priority
-        
+
         self.trader_id = None  # Initialized when registered
         self.msgbus = None     # Initialized when registered
         self.cache = None      # Initialized when registered
@@ -923,7 +923,7 @@ cdef class Actor(Component):
             command_id=UUID4(),
             ts_init=self._clock.timestamp_ns(),
         )
- 
+
         self._send_data_cmd(command)
 
     cpdef void subscribe_venue_status_updates(self, Venue venue, ClientId client_id = None) except *:
