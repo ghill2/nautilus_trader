@@ -33,8 +33,8 @@ from nautilus_trader.model.orderbook.book import OrderBook
 from nautilus_trader.model.orderbook.data import OrderBookData
 from nautilus_trader.model.orders.market import MarketOrder
 from nautilus_trader.trading.strategy import Strategy
-
-
+from nautilus_trader.core.datetime import unix_nanos_to_dt
+from nautilus_trader.model.enums import PriceType
 # *** THIS IS A TEST STRATEGY WITH NO ALPHA ADVANTAGE WHATSOEVER. ***
 # *** IT IS NOT INTENDED TO BE USED TO TRADE LIVE WITH REAL MONEY. ***
 
@@ -93,37 +93,32 @@ class EMACross(Strategy):
         self.bar_type = BarType.from_str(config.bar_type)
         self.trade_size = Decimal(config.trade_size)
 
-        # Create the indicators for the strategy
-        self.fast_ema = ExponentialMovingAverage(config.fast_ema_period, id="fast", index=1)
-        self.slow_ema = ExponentialMovingAverage(config.slow_ema_period, id="slow", index=1)
+        print(config.fast_ema_period, config.slow_ema_period) # 4, 24
+        
+        self.fast_ema = ExponentialMovingAverage(config.fast_ema_period, id="fast", log=self.log)
+        self.slow_ema = ExponentialMovingAverage(config.slow_ema_period, id="slow", log=self.log)
+
+        self.bar_types = {}
+        
+        self.bar_types[PriceType.BID] = self.bar_type.with_price_type(PriceType.BID)
+        self.bar_types[PriceType.ASK] = self.bar_type.with_price_type(PriceType.ASK)
 
         self.instrument: Optional[Instrument] = None  # Initialized in on_start
         self.i = 0
+
     def on_start(self):
         self.msgbus.send(endpoint="DataActor.register_strategy", msg=self)
-        """Actions to be performed on strategy start."""
+
         self.instrument = self.cache.instrument(self.instrument_id)
         if self.instrument is None:
             self.log.error(f"Could not find instrument for {self.instrument_id}")
             self.stop()
             return
 
-        # Register the indicators for updating
         self.register_indicator_for_bars(self.bar_type, self.fast_ema)
         self.register_indicator_for_bars(self.bar_type, self.slow_ema)
-
-        # Get historical data
-        self.request_bars(self.bar_type)
-        # self.request_quote_ticks(self.instrument_id)
-        # self.request_trade_ticks(self.instrument_id)
-
-        # Subscribe to live data
         self.subscribe_bars(self.bar_type)
         self.subscribe_quote_ticks(self.instrument_id)
-        # self.subscribe_trade_ticks(self.instrument_id)
-        # self.subscribe_ticker(self.instrument_id)  # For debugging
-        # self.subscribe_order_book_deltas(self.instrument_id, depth=20)  # For debugging
-        # self.subscribe_order_book_snapshots(self.instrument_id, depth=20)  # For debugging
 
     def on_instrument(self, instrument: Instrument):
         """
@@ -211,6 +206,8 @@ class EMACross(Strategy):
         pass
 
     def on_bar(self, bar: Bar):
+        self.msgbus.send(endpoint="DataActor.register_strategy", msg=self)
+        
         """
         Actions to be performed when the strategy is running and receives a bar.
 
@@ -220,21 +217,31 @@ class EMACross(Strategy):
             The bar received.
 
         """
+        import numpy as np
+        if str(unix_nanos_to_dt(bar.ts_init)).startswith("2012-01-10 08:00:00"):
+            self.trading = float(bar.open)
+        else:
+            self.trading = np.nan
+        
+        
+        bid_bar = self.cache.bar(self.bar_types[PriceType.BID], 0)
+        ask_bar = self.cache.bar(self.bar_types[PriceType.ASK], 0)
+
+        if bid_bar is None and ask_bar is None:
+            print("bid_bar, ask_bar is None")
+            return
+        
+        self.log.info(f"{unix_nanos_to_dt(ask_bar.ts_init)} {ask_bar}", color=LogColor.YELLOW)
+
         self.i += 1
-        self.msgbus.send(endpoint="DataActor.register_strategy", msg=self)
-        self.log.info(repr(bar), LogColor.CYAN)
 
         # Check if indicators ready
         if not self.indicators_initialized():
             self.log.info(
                 f"Waiting for indicators to warm up " f"[{self.cache.bar_count(self.bar_type)}]...",
-                color=LogColor.BLUE,
+                color=LogColor.YELLOW,
             )
             return  # Wait for indicators to warm up...
-
-        if bar.is_single_price():
-            # Implies no market information for this bar
-            return
 
         # BUY LOGIC
         if self.fast_ema.value >= self.slow_ema.value:
@@ -243,6 +250,7 @@ class EMACross(Strategy):
             elif self.portfolio.is_net_short(self.instrument_id):
                 self.close_all_positions(self.instrument_id)
                 self.buy()
+
         # SELL LOGIC
         elif self.fast_ema.value < self.slow_ema.value:
             if self.portfolio.is_flat(self.instrument_id):
