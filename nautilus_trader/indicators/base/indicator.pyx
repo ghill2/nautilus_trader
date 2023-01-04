@@ -43,7 +43,6 @@ cdef class Indicator:
         self.has_inputs = False
         self.initialized = False
         self.values = {}
-        self.index = index
         self.log = log
 
     def __repr__(self) -> str:
