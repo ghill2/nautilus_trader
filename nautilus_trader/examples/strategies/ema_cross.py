@@ -93,8 +93,6 @@ class EMACross(Strategy):
         self.bar_type = BarType.from_str(config.bar_type)
         self.trade_size = Decimal(config.trade_size)
 
-        print(config.fast_ema_period, config.slow_ema_period) # 4, 24
-        
         self.fast_ema = ExponentialMovingAverage(config.fast_ema_period, id="fast", log=self.log)
         self.slow_ema = ExponentialMovingAverage(config.slow_ema_period, id="slow", log=self.log)
 
@@ -228,10 +226,10 @@ class EMACross(Strategy):
         ask_bar = self.cache.bar(self.bar_types[PriceType.ASK], 0)
 
         if bid_bar is None and ask_bar is None:
-            print("bid_bar, ask_bar is None")
+            self.log.info(f"bid_bar, ask_bar is None", color=LogColor.YELLOW)
             return
         
-        self.log.info(f"{unix_nanos_to_dt(ask_bar.ts_init)} {ask_bar}", color=LogColor.YELLOW)
+        # self.log.info(f"{unix_nanos_to_dt(ask_bar.ts_init)} {ask_bar}", color=LogColor.YELLOW)
 
         self.i += 1
 
