@@ -190,6 +190,7 @@ class BacktestNode:
                 modules=[ActorFactory.create(module) for module in (config.modules or [])],
                 frozen_account=config.frozen_account,
                 reject_stop_orders=config.reject_stop_orders,
+                latency_model=LatencyModel(),
                 modules=modules,
             )
 
