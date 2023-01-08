@@ -40,7 +40,7 @@ from nautilus_trader.model.objects import Money
 from nautilus_trader.persistence.batching import batch_configs
 from nautilus_trader.persistence.batching import extract_generic_data_client_ids
 from nautilus_trader.persistence.batching import groupby_datatype
-from nautilus_trader.backtest.models import LatencyModel
+
 
 class BacktestNode:
     """
@@ -184,7 +184,6 @@ class BacktestNode:
                 routing=config.routing,
                 frozen_account=config.frozen_account,
                 reject_stop_orders=config.reject_stop_orders,
-                latency_model=LatencyModel(),
                 modules=modules,
             )
 
