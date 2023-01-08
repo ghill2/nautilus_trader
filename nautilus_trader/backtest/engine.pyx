@@ -970,11 +970,13 @@ cdef class BacktestEngine:
             elif isinstance(data, InstrumentStatusUpdate):
                 self._venues[data.instrument_id.venue].process_instrument_status(data)
 
-            self._data_engine.process(data)
-
             # Process all exchange messages
             for exchange in self._venues.values():
                 exchange.process(data.ts_init)
+                
+            self._data_engine.process(data)
+
+            
 
             last_ns = data.ts_init
             data = self._next()
