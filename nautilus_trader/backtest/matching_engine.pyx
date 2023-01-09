@@ -1497,6 +1497,7 @@ cdef class OrderMatchingEngine:
                         trigger_price=None,
                     )
             if not fill_qty._mem.raw > 0:
+                self._log.warning("Insufficient quantity for order")
                 return  # Done
             self.fill_order(
                 order=order,
