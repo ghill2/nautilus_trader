@@ -35,6 +35,7 @@ from nautilus_trader.model.orders.market import MarketOrder
 from nautilus_trader.trading.strategy import Strategy
 from nautilus_trader.core.datetime import unix_nanos_to_dt
 from nautilus_trader.model.enums import PriceType
+from nautilus_trader.common.queue import Queue
 # *** THIS IS A TEST STRATEGY WITH NO ALPHA ADVANTAGE WHATSOEVER. ***
 # *** IT IS NOT INTENDED TO BE USED TO TRADE LIVE WITH REAL MONEY. ***
 
@@ -71,20 +72,6 @@ class EMACrossConfig(StrategyConfig):
 
 
 class EMACross(Strategy):
-    """
-    A simple moving average cross example strategy.
-
-    When the fast EMA crosses the slow EMA then enter a position at the market
-    in that direction.
-
-    Cancels all orders and closes all positions on stop.
-
-    Parameters
-    ----------
-    config : EMACrossConfig
-        The configuration for the instance.
-    """
-
     def __init__(self, config: EMACrossConfig):
         super().__init__(config)
 
@@ -104,6 +91,8 @@ class EMACross(Strategy):
         self.instrument: Optional[Instrument] = None  # Initialized in on_start
         self.i = 0
 
+        self._message_queue = Queue()
+
     def on_start(self):
         self.msgbus.send(endpoint="DataActor.register_strategy", msg=self)
 
@@ -115,131 +104,44 @@ class EMACross(Strategy):
 
         self.register_indicator_for_bars(self.bar_type, self.fast_ema)
         self.register_indicator_for_bars(self.bar_type, self.slow_ema)
+
         self.subscribe_bars(self.bar_type)
+
         self.subscribe_quote_ticks(self.instrument_id)
 
-    def on_instrument(self, instrument: Instrument):
-        """
-        Actions to be performed when the strategy is running and receives an
-        instrument.
-
-        Parameters
-        ----------
-        instrument : Instrument
-            The instrument received.
-
-        """
-        # For debugging (must add a subscription)
-        # self.log.info(repr(instrument), LogColor.CYAN)
-        pass
-
-    def on_order_book_delta(self, data: OrderBookData):
-        """
-        Actions to be performed when the strategy is running and receives order data.
-
-        Parameters
-        ----------
-        data : OrderBookData
-            The order book data received.
-
-        """
-        # For debugging (must add a subscription)
-        # self.log.info(repr(data), LogColor.CYAN)
-        pass
-
-    def on_order_book(self, order_book: OrderBook):
-        """
-        Actions to be performed when the strategy is running and receives an order book.
-
-        Parameters
-        ----------
-        order_book : OrderBook
-            The order book received.
-
-        """
-        # For debugging (must add a subscription)
-        # self.log.info(repr(order_book), LogColor.CYAN)
-        pass
-
-    def on_ticker(self, ticker: Ticker):
-        """
-        Actions to be performed when the strategy is running and receives a ticker.
-
-        Parameters
-        ----------
-        ticker : Ticker
-            The ticker received.
-
-        """
-        # For debugging (must add a subscription)
-        # self.log.info(repr(ticker), LogColor.CYAN)
-        pass
-
-    def on_quote_tick(self, tick: QuoteTick):
-        """
-        Actions to be performed when the strategy is running and receives a quote tick.
-
-        Parameters
-        ----------
-        tick : QuoteTick
-            The tick received.
-
-        """
-        # For debugging (must add a subscription)
-        # self.log.info(repr(tick), LogColor.CYAN)
-        pass
-
-    def on_trade_tick(self, tick: TradeTick):
-        """
-        Actions to be performed when the strategy is running and receives a trade tick.
-
-        Parameters
-        ----------
-        tick : TradeTick
-            The tick received.
-
-        """
-        # For debugging (must add a subscription)
-        # self.log.info(repr(tick), LogColor.CYAN)
-        pass
-
     def on_bar(self, bar: Bar):
-        self.msgbus.send(endpoint="DataActor.register_strategy", msg=self)
-        
-        """
-        Actions to be performed when the strategy is running and receives a bar.
-
-        Parameters
-        ----------
-        bar : Bar
-            The bar received.
-
-        """
-        import numpy as np
-        if str(unix_nanos_to_dt(bar.ts_init)).startswith("2012-01-10 08:00:00"):
-            self.trading = float(bar.open)
-        else:
-            self.trading = np.nan
-        
-        
-        bid_bar = self.cache.bar(self.bar_types[PriceType.BID], 0)
-        ask_bar = self.cache.bar(self.bar_types[PriceType.ASK], 0)
-
-        if bid_bar is None and ask_bar is None:
-            self.log.info(f"bid_bar, ask_bar is None", color=LogColor.YELLOW)
-            return
-        
-        # self.log.info(f"{unix_nanos_to_dt(ask_bar.ts_init)} {ask_bar}", color=LogColor.YELLOW)
-
+        if self.i == 3:
+            quit()
         self.i += 1
+        self.log.warning("Strategy processed")
+
+
+        self.log.info(str(self.fast_ema) + repr(bar), LogColor.YELLOW)
+        self.msgbus.send(endpoint="DataActor.register_strategy",msg=self)
 
         # Check if indicators ready
         if not self.indicators_initialized():
             self.log.info(
                 f"Waiting for indicators to warm up " f"[{self.cache.bar_count(self.bar_type)}]...",
-                color=LogColor.YELLOW,
+                color=LogColor.BLUE,
             )
             return  # Wait for indicators to warm up...
+
+
+        # if bar.bar_type != self.bar_types[PriceType.BID]:
+        #     return # filter bars
+
+
+
+        # bar_bid = self.cache.bar(self.bar_types[PriceType.BID], index=0)
+        # bar_ask = self.cache.bar(self.bar_types[PriceType.ASK], index=0)
+
+        # if bar_bid is None or bar_ask is None:
+        #     return
+
+        # if not self._message_queue.empty:
+        #     while not self._message_queue.empty:
+        #         self.submit_order(self._message_queue._get_nowait())
 
         # BUY LOGIC
         if self.fast_ema.value >= self.slow_ema.value:
@@ -258,111 +160,23 @@ class EMACross(Strategy):
                 self.sell()
 
     def buy(self):
-        """
-        Users simple buy method (example).
-        """
         order: MarketOrder = self.order_factory.market(
             instrument_id=self.instrument_id,
             order_side=OrderSide.BUY,
             quantity=self.instrument.make_qty(self.trade_size),
-            # time_in_force=TimeInForce.FOK,
         )
-
+        self._message_queue.put_nowait(order)
         self.submit_order(order)
 
     def sell(self):
-        """
-        Users simple sell method (example).
-        """
         order: MarketOrder = self.order_factory.market(
             instrument_id=self.instrument_id,
             order_side=OrderSide.SELL,
             quantity=self.instrument.make_qty(self.trade_size),
-            # time_in_force=TimeInForce.FOK,
         )
-
+        # self._message_queue.put_nowait(order)
         self.submit_order(order)
 
-    def on_data(self, data: Data):
-        """
-        Actions to be performed when the strategy is running and receives generic data.
-
-        Parameters
-        ----------
-        data : Data
-            The data received.
-
-        """
-        pass
-
-    def on_event(self, event: Event):
-        """
-        Actions to be performed when the strategy is running and receives an event.
-
-        Parameters
-        ----------
-        event : Event
-            The event received.
-
-        """
-        pass
-
-    def on_stop(self):
-        """
-        Actions to be performed when the strategy is stopped.
-        """
-        self.cancel_all_orders(self.instrument_id)
-        self.close_all_positions(self.instrument_id)
-
-        # Unsubscribe from data
-        self.unsubscribe_bars(self.bar_type)
-        # self.unsubscribe_quote_ticks(self.instrument_id)
-        # self.unsubscribe_trade_ticks(self.instrument_id)
-        # self.unsubscribe_ticker(self.instrument_id)
-        # self.unsubscribe_order_book_deltas(self.instrument_id)
-        # self.unsubscribe_order_book_snapshots(self.instrument_id)
-
     def on_reset(self):
-        """
-        Actions to be performed when the strategy is reset.
-        """
-        # Reset indicators here
         self.fast_ema.reset()
         self.slow_ema.reset()
-
-    def on_save(self) -> dict[str, bytes]:
-        """
-        Actions to be performed when the strategy is saved.
-
-        Create and return a state dictionary of values to be saved.
-
-        Returns
-        -------
-        dict[str, bytes]
-            The strategy state dictionary.
-
-        """
-        return {}
-
-    def on_load(self, state: dict[str, bytes]):
-        """
-        Actions to be performed when the strategy is loaded.
-
-        Saved state values will be contained in the give state dictionary.
-
-        Parameters
-        ----------
-        state : dict[str, bytes]
-            The strategy state dictionary.
-
-        """
-        pass
-
-    def on_dispose(self):
-        """
-        Actions to be performed when the strategy is disposed.
-
-        Cleanup any resources used by the strategy here.
-
-        """
-        pass
