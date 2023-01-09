@@ -545,8 +545,8 @@ cdef class OrderMatchingEngine:
         # Create reusable tick
         cdef QuoteTick tick = QuoteTick(
             self._book.instrument_id,
-            self._last_bid_bar.close,
-            self._last_ask_bar.close,
+            self._last_bid_bar.open,
+            self._last_ask_bar.open,
             bid_size,
             ask_size,
             self._last_bid_bar.ts_event,
