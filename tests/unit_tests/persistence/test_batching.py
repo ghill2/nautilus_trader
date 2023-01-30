@@ -20,6 +20,7 @@ import sys
 
 import fsspec
 import pandas as pd
+import pytest
 
 from nautilus_trader.adapters.betfair.providers import BetfairInstrumentProvider
 from nautilus_trader.backtest.data.providers import TestInstrumentProvider
@@ -34,13 +35,17 @@ from nautilus_trader.model.data.bar import Bar
 from nautilus_trader.model.data.bar import BarType
 from nautilus_trader.model.data.tick import QuoteTick
 from nautilus_trader.model.data.venue import InstrumentStatusUpdate
+from nautilus_trader.model.identifiers import InstrumentId
 from nautilus_trader.model.identifiers import Venue
+from nautilus_trader.model.objects import Price
+from nautilus_trader.model.objects import Quantity
 from nautilus_trader.model.orderbook.data import OrderBookData
 from nautilus_trader.persistence.batching import Buffer
 from nautilus_trader.persistence.batching import _iterate_buffers
 from nautilus_trader.persistence.batching import batch_configs
 from nautilus_trader.persistence.batching import generate_batches
 from nautilus_trader.persistence.catalog.rust.reader import ParquetFileReader
+from nautilus_trader.persistence.catalog.rust.writer import ParquetWriter
 from nautilus_trader.persistence.external.core import process_files
 from nautilus_trader.persistence.external.readers import CSVReader
 from nautilus_trader.persistence.external.readers import ParquetReader
@@ -51,16 +56,6 @@ from nautilus_trader.test_kit.stubs.persistence import TestPersistenceStubs
 from tests import TEST_DATA_DIR
 from tests.integration_tests.adapters.betfair.test_kit import BetfairTestStubs
 
-import pytest
-
-from nautilus_trader.backtest.data.providers import TestInstrumentProvider
-from nautilus_trader.backtest.data.wranglers import QuoteTickDataWrangler
-from nautilus_trader.model.data.tick import QuoteTick
-from nautilus_trader.model.identifiers import InstrumentId
-from nautilus_trader.model.objects import Price
-from nautilus_trader.model.objects import Quantity
-from nautilus_trader.persistence.catalog.rust.reader import ParquetFileReader
-from nautilus_trader.persistence.catalog.rust.writer import ParquetWriter
 
 class TestBatchingData:
 
@@ -954,7 +949,7 @@ class TestBatchConfigsRust(TestBatchingData):
                 return psutil.Process().memory_info().peak_wset / BYTES_IN_GIGABYTE
             else:
                 raise RuntimeError("Unsupported OS.")
-        
+
         # Arrange
         # data_configs=[
         #     BacktestDataConfig(
@@ -982,13 +977,15 @@ class TestBatchConfigsRust(TestBatchingData):
         end = str(pd.Timestamp("2014-01-01", tz="UTC"))
 
         from pytower import CATALOG_DIR
+
         instrument_id = "USD/JPY.DUKA"
         strategy_bar_spec = "1-HOUR-ASK"
         from pytower.instruments.provider import InstrumentProvider
+
         instrument_qh = InstrumentProvider.get_home_instrument(instrument_id)
         strategy_bar_type_qh = BarType.from_str(f"{instrument_qh}-1-DAY-BID-EXTERNAL")
 
-        data_configs=[
+        data_configs = [
             BacktestDataConfig(  # Strategy ticks
                 catalog_path=str(CATALOG_DIR),
                 data_cls=QuoteTick,
@@ -1023,7 +1020,7 @@ class TestBatchConfigsRust(TestBatchingData):
         print(f"{start_memory:2f}")
 
         for i in range(5):
-            
+
             batch_gen = batch_configs(data_configs, target_batch_size_bytes=parse_bytes("200mb"))
             for _ in batch_gen:
                 pass
@@ -1137,13 +1134,11 @@ class TestPersistenceBatching:
         # Assert
         assert node
 
+
 if __name__ == "__main__":
     mod = TestBatchConfigsRust()  # type:ignore
     mod.setup()  # type:ignore
     mod.test_batch_configs_memory_usage()
-
-
-
 
     # mod = TestGenerateBatches()  # type:ignore
     # mod.test_generate_batches_returns_empty_list_before_start_timestamp_with_end_timestamp()  # type:ignore

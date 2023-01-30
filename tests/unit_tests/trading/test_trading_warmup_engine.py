@@ -1,21 +1,20 @@
 import pandas as pd
 import pytest
+
 from nautilus_trader.core.datetime import dt_to_unix_nanos
 from nautilus_trader.model.data.bar import Bar
 from nautilus_trader.model.data.bar import BarType
 from nautilus_trader.model.objects import Price
 from nautilus_trader.model.objects import Quantity
-
 from nautilus_trader.test_kit.mocks.data import data_catalog_setup
-from nautilus_trader.trading.warmup.engine import _sort_nautilus_bars
-from nautilus_trader.trading.warmup.range import StaticWarmupRange
-from nautilus_trader.trading.warmup.range import WarmupRange
 from nautilus_trader.trading.warmup.engine import WarmupEngine
-
-from tests.unit_tests.trading.test_trading_warmup import load_warmup_bars_into_catalog
 from nautilus_trader.trading.warmup.engine import _keep_largest_warmup_range_for_each_bar_type
 from nautilus_trader.trading.warmup.engine import _sort_nautilus_bars
 from nautilus_trader.trading.warmup.engine import sort_dataframe_bars
+from nautilus_trader.trading.warmup.range import StaticWarmupRange
+from nautilus_trader.trading.warmup.range import WarmupRange
+from tests.unit_tests.trading.test_trading_warmup import load_warmup_bars_into_catalog
+
 
 @pytest.mark.parametrize(
     "ranges, end_date",
@@ -45,7 +44,9 @@ from nautilus_trader.trading.warmup.engine import sort_dataframe_bars
 )
 class TestWarmupEngine:
     def test_request_bars_returns_expected_as_dataframe(
-        self, ranges: list[WarmupRange], end_date: pd.Timestamp
+        self,
+        ranges: list[WarmupRange],
+        end_date: pd.Timestamp,
     ):
         catalog = data_catalog_setup(protocol="file")
         bar_types = [r.bar_type for r in ranges]
@@ -57,7 +58,9 @@ class TestWarmupEngine:
             assert len(bars[bars.bar_type == r.bar_type]) >= r.count
 
     def test_request_bars_returns_expected_as_nautilus(
-        self, ranges: list[WarmupRange], end_date: pd.Timestamp
+        self,
+        ranges: list[WarmupRange],
+        end_date: pd.Timestamp,
     ):
         catalog = data_catalog_setup(protocol="file")
         bar_types = [r.bar_type for r in ranges]
@@ -104,7 +107,8 @@ class TestWarmupEngine:
     ],
 )
 def test_use_max_lookback_per_bar_type(
-    ranges: list[WarmupRange], expected: list[WarmupRange]
+    ranges: list[WarmupRange],
+    expected: list[WarmupRange],
 ):
     assert _keep_largest_warmup_range_for_each_bar_type(ranges) == expected
 
@@ -151,7 +155,7 @@ class TestSortDataFrame:
         bar_type_1 = BarType.from_str("EUR/USD.SIM-1-HOUR-BID-EXTERNAL")
         bar_type_2 = BarType.from_str("EUR/USD.SIM-4-HOUR-BID-EXTERNAL")
         df = pd.DataFrame.from_dict(
-            {"ts_event": [timestamp, timestamp], "bar_type": [bar_type_1, bar_type_2]}
+            {"ts_event": [timestamp, timestamp], "bar_type": [bar_type_1, bar_type_2]},
         )
         df = sort_dataframe_bars(df)
         expected = [bar_type_2, bar_type_1]
@@ -165,7 +169,7 @@ class TestSortDataFrame:
             {
                 "ts_event": [timestamp, timestamp],
                 "bar_type": [bar_type_1, bar_type_2],
-            }
+            },
         )
         df = sort_dataframe_bars(df)
         expected = [bar_type_2, bar_type_1]

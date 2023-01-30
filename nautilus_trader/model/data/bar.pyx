@@ -54,15 +54,15 @@ from nautilus_trader.model.data.bar_aggregation cimport BarAggregation
 from nautilus_trader.model.enums_c cimport AggregationSource
 from nautilus_trader.model.enums_c cimport PriceType
 from nautilus_trader.model.enums_c cimport aggregation_source_from_str
+from nautilus_trader.model.enums_c cimport aggregation_source_to_str
 from nautilus_trader.model.enums_c cimport bar_aggregation_from_str
 from nautilus_trader.model.enums_c cimport bar_aggregation_to_str
 from nautilus_trader.model.enums_c cimport price_type_from_str
+from nautilus_trader.model.enums_c cimport price_type_to_str
 from nautilus_trader.model.identifiers cimport InstrumentId
 from nautilus_trader.model.objects cimport Price
 from nautilus_trader.model.objects cimport Quantity
-from nautilus_trader.model.enums_c cimport price_type_to_str
-from nautilus_trader.model.enums_c cimport bar_aggregation_to_str
-from nautilus_trader.model.enums_c cimport aggregation_source_to_str
+
 
 cdef class BarSpecification:
     """
@@ -915,5 +915,3 @@ cdef class Bar(Data):
 
         """
         return self._mem.open.raw == self._mem.high.raw == self._mem.low.raw == self._mem.close.raw
-
-

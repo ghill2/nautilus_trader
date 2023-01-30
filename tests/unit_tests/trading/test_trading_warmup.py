@@ -2,8 +2,15 @@ import itertools
 
 import pandas as pd
 import pytest
+
+from nautilus_trader.backtest.data.providers import TestDataProvider
+from nautilus_trader.backtest.data.providers import TestInstrumentProvider
 from nautilus_trader.backtest.data.wranglers import BarDataWrangler
 from nautilus_trader.backtest.data.wranglers import QuoteTickDataWrangler
+from nautilus_trader.backtest.engine import BacktestEngine
+from nautilus_trader.config import BacktestEngineConfig
+from nautilus_trader.config.common import StrategyConfig
+from nautilus_trader.config.common import WarmupConfig
 from nautilus_trader.indicators.base.indicator import Indicator
 from nautilus_trader.model.currencies import USD
 from nautilus_trader.model.data.bar import Bar
@@ -15,18 +22,11 @@ from nautilus_trader.model.identifiers import Venue
 from nautilus_trader.model.objects import Money
 from nautilus_trader.model.objects import Price
 from nautilus_trader.model.objects import Quantity
-from nautilus_trader.trading.strategy import Strategy
-
-from nautilus_trader.backtest.data.providers import TestDataProvider
-from nautilus_trader.backtest.data.providers import TestInstrumentProvider
-from nautilus_trader.backtest.engine import BacktestEngine
-from nautilus_trader.config import BacktestEngineConfig
-from nautilus_trader.config.common import StrategyConfig
-from nautilus_trader.config.common import WarmupConfig
 from nautilus_trader.persistence.catalog import ParquetDataCatalog
 from nautilus_trader.persistence.external.core import process_files
 from nautilus_trader.persistence.external.readers import ParquetReader
 from nautilus_trader.test_kit.mocks.data import data_catalog_setup
+from nautilus_trader.trading.strategy import Strategy
 from nautilus_trader.trading.warmup.engine import WarmupEngine
 from nautilus_trader.trading.warmup.range import StaticWarmupRange
 from tests import TEST_DATA_DIR
@@ -85,7 +85,7 @@ class TestMockWarmupIndicator:
                 Quantity(5, 0),
                 0,
                 0,
-            )
+            ),
         ] * n
         indicator = MockWarmupIndicator(n)
         for i, bar in enumerate(bars):
@@ -112,55 +112,6 @@ class MockWarmupStrategy(Strategy):
 
         if self.config.warmup_config:
             self.warmup()
-
-    def warmup(self):
-        """
-        start_date: The start date of the test
-        """
-        assert self.config.warmup_config.catalog_path
-        assert self.config.warmup_config.end_time
-
-        catalog_path = self.config.warmup_config.catalog_path
-        end_time = self.config.warmup_config.end_time
-
-        catalog = ParquetDataCatalog(catalog_path)
-
-        # Create warmup ranges from indicators
-        ranges: list[StaticWarmupRange] = []
-        for bar_type, indicators in self._indicators_for_bars.items():
-            for indicator in indicators:
-                warmup_value = indicator.get_warmup_value()
-                if warmup_value is None:
-                    self.log.warning(
-                        f"{indicator} was excluded from the warmup because the warmup_value attribute was not set"
-                    )
-                    continue
-                ranges.append(StaticWarmupRange(warmup_value, bar_type))
-
-        # Create warmup engine
-        engine = WarmupEngine(ranges=ranges, end_date=end_time, catalog=catalog)
-
-        # Warmup the indicators
-        bars_dict = engine.request_bars_dict()
-
-        # TODO, send bar to DataEngine?
-        for bar_type, bars in bars_dict.items():
-            # warmup indicators + strategy with EXTERNAL bar_types
-            self.handle_bars(bars)
-
-            # warmup indicators with INTERNAL bar_types
-            bar_type_internal = bar_type.with_aggregation_source(AggregationSource.INTERNAL)
-            indicators = self._indicators_for_bars.get(bar_type_internal)
-            if indicators:
-                for indicator in indicators:
-                    for bar in bars:
-                        indicator.handle_bar(bar)
-
-            # get subscriptions in the data engine
-            self.request_bars(bar_type)
-
-        if not self.indicators_initialized:
-            self.log.error("Strategy warmup failure")
 
 
 class TestStrategyWarmup:
@@ -208,7 +159,7 @@ class TestStrategyWarmup:
 
         indicators = list(itertools.chain(*indicators_dict.values()))
         registered_strategy_indicators = list(
-            itertools.chain(*strategy._indicators_for_bars.values())
+            itertools.chain(*strategy._indicators_for_bars.values()),
         )
 
         for indicator in indicators:
@@ -246,7 +197,8 @@ class TestStrategyWarmup:
         ],
     )
     def test_various_indicators_warmup_completes_before_strategy_start(
-        self, indicators_dict: dict[BarType, list[Indicator]]
+        self,
+        indicators_dict: dict[BarType, list[Indicator]],
     ):
         # Load data into catalog
         catalog = data_catalog_setup(protocol="file")
@@ -254,7 +206,8 @@ class TestStrategyWarmup:
 
         # Create configs
         warmup_config = WarmupConfig(
-            catalog_path=catalog.path, end_time=pd.Timestamp("2020-01-01 00:00:00+00:00")
+            catalog_path=catalog.path,
+            end_time=pd.Timestamp("2020-01-01 00:00:00+00:00"),
         )
         strategy_config = StrategyConfig(warmup_config=warmup_config)
 
