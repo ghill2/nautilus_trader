@@ -34,7 +34,7 @@ cdef class Indicator:
     This class should not be used directly, but through a concrete subclass.
     """
 
-    def __init__(self, list params not None, str id = None, LoggerAdapter log = None):
+    def __init__(self, list params not None, int warmup_value = 0, str id = None, LoggerAdapter log = None):
         self._params = params.copy()
 
         if id is None:
@@ -46,6 +46,7 @@ cdef class Indicator:
         self.initialized = False
         self.values = {}
         self.log = log
+        self._warmup_value = warmup_value
 
     def __repr__(self) -> str:
         return f"{self.name}({self._params_str()})"
@@ -88,6 +89,9 @@ cdef class Indicator:
     def get_warmup_value(self) -> Optional[int]:
         """Return the user defined bar count needed to warmup the indicator"""
         try:
-            return int(self.warmup_value)
+            value = int(self._warmup_value)
+            if value == 0:
+                return None
+            return value
         except:
             return None
