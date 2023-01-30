@@ -85,7 +85,7 @@ from nautilus_trader.msgbus.bus cimport MessageBus
 
 from nautilus_trader.persistence.catalog import ParquetDataCatalog
 from nautilus_trader.trading.warmup.engine import WarmupEngine
-from nautilus_trader.trading.warmup.range import WarmupRange
+from nautilus_trader.trading.warmup.range import StaticWarmupRange
 from nautilus_trader.model.enums import AggregationSource
 
 cdef class Strategy(Actor):
@@ -1297,7 +1297,7 @@ cdef class Strategy(Actor):
         catalog = ParquetDataCatalog(catalog_path)
 
         # Create warmup ranges from indicators
-        ranges: list[WarmupRange] = []
+        ranges: list[StaticWarmupRange] = []
         for bar_type, indicators in self._indicators_for_bars.items():
             for indicator in indicators:
                 warmup_value = indicator.get_warmup_value()
@@ -1306,7 +1306,7 @@ cdef class Strategy(Actor):
                         f"{indicator} was excluded from the warmup because the warmup_value attribute was not set"
                     )
                     continue
-                ranges.append(WarmupRange(warmup_value, bar_type))
+                ranges.append(StaticWarmupRange(warmup_value, bar_type))
 
         # Create warmup engine
         engine = WarmupEngine(ranges=ranges, end_date=end_time, catalog=catalog)
