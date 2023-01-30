@@ -83,6 +83,10 @@ from nautilus_trader.model.orders.market cimport MarketOrder
 from nautilus_trader.model.position cimport Position
 from nautilus_trader.msgbus.bus cimport MessageBus
 
+from nautilus_trader.persistence.catalog import ParquetDataCatalog
+from nautilus_trader.trading.warmup.engine import WarmupEngine
+from nautilus_trader.trading.warmup.range import WarmupRange
+from nautilus_trader.model.enums import AggregationSource
 
 cdef class Strategy(Actor):
     """
@@ -1218,3 +1222,45 @@ cdef class Strategy(Actor):
         if not self.log.is_bypassed:
             self.log.info(f"{CMD}{SENT} {command}.")
         self._msgbus.send(endpoint="ExecEngine.execute", msg=command)
+
+    def warmup(self):
+        """
+        start_date: The start date of the test
+        """
+        assert self.config.warmup_config.catalog_path
+        assert self.config.warmup_config.end_time
+
+        catalog_path = self.config.warmup_config.catalog_path
+        end_time = self.config.warmup_config.end_time
+
+        catalog = ParquetDataCatalog(catalog_path)
+
+        # Create warmup ranges from indicators
+        ranges: list[WarmupRange] = []
+        for bar_type, indicators in self._indicators_for_bars.items():
+            for indicator in indicators:
+                warmup_value = indicator.get_warmup_value()
+                if warmup_value is None:
+                    self.log.warning(
+                        f"{indicator} was excluded from the warmup because the warmup_value attribute was not set"
+                    )
+                    continue
+                ranges.append(WarmupRange(warmup_value, bar_type))
+
+        # Create warmup engine
+        engine = WarmupEngine(ranges=ranges, end_date=end_time, catalog=catalog)
+
+        # Warmup the indicators
+        bars_dict = engine.request_bars_dict()
+
+        for bar_type, bars in bars_dict.items():
+            # warmup indicators + strategy with EXTERNAL bar_types
+            self.handle_bars(bars)
+
+            # warmup indicators with INTERNAL bar_types
+            bar_type_internal = bar_type.with_aggregation_source(AggregationSource.INTERNAL)
+            indicators = self._indicators_for_bars.get(bar_type_internal)
+            if indicators:
+                for indicator in indicators:
+                    for bar in bars:
+                        indicator.handle_bar(bar)
