@@ -17,8 +17,10 @@ from decimal import Decimal
 from typing import Optional
 
 from nautilus_trader.common.enums import LogColor
+from nautilus_trader.common.queue import Queue
 from nautilus_trader.config import StrategyConfig
 from nautilus_trader.core.data import Data
+from nautilus_trader.core.datetime import unix_nanos_to_dt
 from nautilus_trader.core.message import Event
 from nautilus_trader.indicators.average.ema import ExponentialMovingAverage
 from nautilus_trader.model.data.bar import Bar
@@ -27,15 +29,15 @@ from nautilus_trader.model.data.tick import QuoteTick
 from nautilus_trader.model.data.tick import TradeTick
 from nautilus_trader.model.data.ticker import Ticker
 from nautilus_trader.model.enums import OrderSide
+from nautilus_trader.model.enums import PriceType
 from nautilus_trader.model.identifiers import InstrumentId
 from nautilus_trader.model.instruments.base import Instrument
 from nautilus_trader.model.orderbook.book import OrderBook
 from nautilus_trader.model.orderbook.data import OrderBookData
 from nautilus_trader.model.orders.market import MarketOrder
 from nautilus_trader.trading.strategy import Strategy
-from nautilus_trader.core.datetime import unix_nanos_to_dt
-from nautilus_trader.model.enums import PriceType
-from nautilus_trader.common.queue import Queue
+
+
 # *** THIS IS A TEST STRATEGY WITH NO ALPHA ADVANTAGE WHATSOEVER. ***
 # *** IT IS NOT INTENDED TO BE USED TO TRADE LIVE WITH REAL MONEY. ***
 
@@ -84,7 +86,7 @@ class EMACross(Strategy):
         self.slow_ema = ExponentialMovingAverage(config.slow_ema_period, id="slow", log=self.log)
 
         self.bar_types = {}
-        
+
         self.bar_types[PriceType.BID] = self.bar_type.with_price_type(PriceType.BID)
         self.bar_types[PriceType.ASK] = self.bar_type.with_price_type(PriceType.ASK)
 
@@ -117,7 +119,7 @@ class EMACross(Strategy):
 
 
         self.log.info(str(self.fast_ema) + repr(bar), LogColor.YELLOW)
-        self.msgbus.send(endpoint="DataActor.register_strategy",msg=self)
+        self.msgbus.send(endpoint="DataActor.register_strategy", msg=self)
 
         # Check if indicators ready
         if not self.indicators_initialized():

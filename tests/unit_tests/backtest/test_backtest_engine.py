@@ -627,64 +627,71 @@ class TestBacktestWithAddedBars:
         )
 
 
+import gc
+
 ####################################################################################################
 from pytower import CATALOG_DIR
-import gc
-from nautilus_trader.model.data.tick import QuoteTick
-from nautilus_trader.config import BacktestDataConfig
-from nautilus_trader.persistence.batching import batch_configs
-from nautilus_trader.persistence.funcs import parse_bytes
 from pytower.instruments.provider import InstrumentProvider
 from setproctitle import setproctitle
+
+from nautilus_trader.config import BacktestDataConfig
 from nautilus_trader.config import BacktestEngineConfig
 from nautilus_trader.config import CacheConfig
 from nautilus_trader.config import RiskEngineConfig
 from nautilus_trader.model.data.bar import Bar
+from nautilus_trader.model.data.tick import QuoteTick
+from nautilus_trader.persistence.batching import batch_configs
+from nautilus_trader.persistence.funcs import parse_bytes
+
+
 setproctitle("nau")
 
 instrument_id = "USD/JPY.DUKA"
 start = str(pd.Timestamp("2012-01-01", tz="UTC"))
 end = str(pd.Timestamp("2012-03-01", tz="UTC"))
 tick_config = BacktestDataConfig(  # Strategy ticks
-            catalog_path=str(CATALOG_DIR),
-            data_cls=QuoteTick,
-            instrument_id=str(instrument_id),
-            start_time=start,
-            end_time=end,
-            use_rust=True,
-    )
+    catalog_path=str(CATALOG_DIR),
+    data_cls=QuoteTick,
+    instrument_id=str(instrument_id),
+    start_time=start,
+    end_time=end,
+    use_rust=True,
+)
 bar_config = BacktestDataConfig(  # Strategy bars
-                catalog_path=str(CATALOG_DIR),
-                data_cls=Bar,
-                instrument_id=str(instrument_id),
-                start_time=start,
-                end_time=end,
-                bar_spec="1-HOUR-ASK",
-            )
+    catalog_path=str(CATALOG_DIR),
+    data_cls=Bar,
+    instrument_id=str(instrument_id),
+    start_time=start,
+    end_time=end,
+    bar_spec="1-HOUR-ASK",
+)
+
+
 def _create_engine():
-    
-    
+
     bar_spec = "1-HOUR-ASK"
-    
+
     bar_type = BarType.from_str(f"{instrument_id}-{bar_spec}-EXTERNAL")
     instrument = InstrumentProvider.get(instrument_id)
     # Arrange
     engine = BacktestEngine(
-                config=BacktestEngineConfig(
-                    risk_engine=RiskEngineConfig(bypass=True),
-                    cache=CacheConfig(bar_capacity=1, tick_capacity=1),
-                    log_level="WRN"
-                )
-            )
-    strategy = EMACross(EMACrossConfig(
-                                    instrument_id=str(GBPUSD_SIM.id),
-                                    bar_type=str(bar_type),
-                                    trade_size=Decimal(100_000),
-                                    fast_ema_period=10,
-                                    slow_ema_period=20,
-                    ))
+        config=BacktestEngineConfig(
+            risk_engine=RiskEngineConfig(bypass=True),
+            cache=CacheConfig(bar_capacity=1, tick_capacity=1),
+            log_level="WRN",
+        ),
+    )
+    strategy = EMACross(
+        EMACrossConfig(
+            instrument_id=str(GBPUSD_SIM.id),
+            bar_type=str(bar_type),
+            trade_size=Decimal(100_000),
+            fast_ema_period=10,
+            slow_ema_period=20,
+        ),
+    )
     engine.add_strategy(strategy)
-                        
+
     engine.add_venue(
         venue=Venue("DUKA"),
         oms_type=OMSType.HEDGING,
@@ -695,6 +702,7 @@ def _create_engine():
     )
     engine.add_instrument(instrument)
     return engine
+
 
 def get_peak_memory_usage_gb():
     import platform
@@ -711,25 +719,30 @@ def get_peak_memory_usage_gb():
     else:
         raise RuntimeError("Unsupported OS.")
 
+
 def get_memory_usage_gb():
-    import psutil
     import os
+
+    import psutil
+
     BYTES_IN_GIGABYTE = 1e9
     return psutil.Process(os.getpid()).memory_info().rss / BYTES_IN_GIGABYTE
 
 
-
 def test_venue_to_str_frees():
     from nautilus_trader.model.identifiers import Venue
+
     print(f"{str(round(get_memory_usage_gb(), 2))}, {str(round(get_peak_memory_usage_gb(), 2))}")
     strings = [str(Venue("DUKA")) for _ in range(3_000_000)]
-    del strings # disabling this line makes no difference
+    del strings  # disabling this line makes no difference
     gc.collect()
     # f"{_}, {str(round(get_memory_usage_gb(), 2))}, {str(round(get_peak_memory_usage_gb(), 2))}"
     print(f"{str(round(get_memory_usage_gb(), 2))}, {str(round(get_peak_memory_usage_gb(), 2))}")
 
+
 def test_topic_to_str_frees():
     from nautilus_trader.model.identifiers import InstrumentId
+
     print(f"{str(round(get_memory_usage_gb(), 2))}, {str(round(get_peak_memory_usage_gb(), 2))}")
     n = 1_000_000
     ticks = [
@@ -744,14 +757,20 @@ def test_topic_to_str_frees():
         )
         for _ in range(n)
     ]
-    tick_strings = [f"data.quotes"f".{tick.instrument_id.venue}"f".{tick.instrument_id.symbol}" for tick in ticks]
-    del tick_strings # disabling this line makes no difference
+    tick_strings = [
+        f"data.quotes" f".{tick.instrument_id.venue}" f".{tick.instrument_id.symbol}"
+        for tick in ticks
+    ]
+    del tick_strings  # disabling this line makes no difference
     del ticks
     gc.collect()
     # f"{_}, {str(round(get_memory_usage_gb(), 2))}, {str(round(get_peak_memory_usage_gb(), 2))}"
     print(f"{str(round(get_memory_usage_gb(), 2))}, {str(round(get_peak_memory_usage_gb(), 2))}")
+
+
 def test_quote_tick_repr_frees():
     from nautilus_trader.model.identifiers import InstrumentId
+
     print(f"{str(round(get_memory_usage_gb(), 2))}, {str(round(get_peak_memory_usage_gb(), 2))}")
     n = 1_000_000
     ticks = [
@@ -774,11 +793,13 @@ def test_quote_tick_repr_frees():
     # f"{_}, {str(round(get_memory_usage_gb(), 2))}, {str(round(get_peak_memory_usage_gb(), 2))}"
     print(f"{str(round(get_memory_usage_gb(), 2))}, {str(round(get_peak_memory_usage_gb(), 2))}")
 
+
 def test_quote_tick_frees(i):
     from nautilus_trader.model.identifiers import InstrumentId
+
     print(f"{get_peak_memory_usage_gb():2f}")
     for _ in range(i):
-        
+
         data = [
             QuoteTick(
                 instrument_id=InstrumentId.from_str(instrument_id),
@@ -797,12 +818,15 @@ def test_quote_tick_frees(i):
     gc.collect()
     print(f"{get_peak_memory_usage_gb():2f}")
 
+
 def test_quote_tick_frees_reader(i, data_config):
     print(f"{get_peak_memory_usage_gb():2f}")
-    from nautilus_trader.persistence.catalog.rust.reader import ParquetFileReader
     import itertools
+
+    from nautilus_trader.persistence.catalog.rust.reader import ParquetFileReader
+
     file_path = data_config.get_files()[0]
-    
+
     for _ in range(i):
         for __ in range(1000):
             reader = ParquetFileReader(QuoteTick, file_path)
@@ -812,7 +836,8 @@ def test_quote_tick_frees_reader(i, data_config):
         print(_, f"{(get_memory_usage_gb()):2f}", f"{(get_peak_memory_usage_gb()):2f}")
     gc.collect()
     print(f"{get_peak_memory_usage_gb():2f}")
-    
+
+
 def test_loading_data_frees(i, data_config):
     """
     tick_config = True
@@ -820,17 +845,18 @@ def test_loading_data_frees(i, data_config):
     print(f"{get_peak_memory_usage_gb():2f}")
     for _ in range(i):
         print(_, f"{(get_memory_usage_gb()):2f}", f"{(get_peak_memory_usage_gb()):2f}")
-        data = data_config.load()['data']
+        data = data_config.load()["data"]
         del data
         gc.collect()
     gc.collect()
     print(f"{get_peak_memory_usage_gb():2f}")
-    
+
+
 def test_loading_to_engine_frees(i, data_config):
     print(f"{get_peak_memory_usage_gb():2f}")
     for _ in range(i):
         engine = _create_engine()
-        data = data_config.load()['data']
+        data = data_config.load()["data"]
         engine.add_data(data)
         engine.dispose()
         del data
@@ -840,35 +866,39 @@ def test_loading_to_engine_frees(i, data_config):
     gc.collect()
     print(f"{get_peak_memory_usage_gb():2f}")
 
+
 def test_engine_run_streaming_frees(i, data_config):
 
     data = []
     data.append(get_peak_memory_usage_gb())
     for _ in range(i):
         engine = _create_engine()
-        for j, batch in enumerate(batch_configs(
-            data_configs=[data_config],
-            read_num_rows=10_000,
-            target_batch_size_bytes=parse_bytes("10mb"),
-        )):
+        for j, batch in enumerate(
+            batch_configs(
+                data_configs=[data_config],
+                read_num_rows=10_000,
+                target_batch_size_bytes=parse_bytes("10mb"),
+            ),
+        ):
             engine.clear_data()
             engine.add_data(data=batch)
             engine.run_streaming()
             engine.clear_data()
             del batch
             gc.collect()
-            data.append(f"{j}, {str(round(get_memory_usage_gb(), 2))}, {str(round(get_peak_memory_usage_gb(), 2))}")
+            data.append(
+                f"{j}, {str(round(get_memory_usage_gb(), 2))}, {str(round(get_peak_memory_usage_gb(), 2))}"
+            )
         engine.end_streaming()
         engine.dispose()
         del engine
         gc.collect()
-        
+
     gc.collect()
     data.append(get_peak_memory_usage_gb())
     for x in data:
         print(x)
 
-    
 
 if __name__ == "__main__":
     test_venue_to_str_frees()
@@ -878,19 +908,15 @@ if __name__ == "__main__":
     # test_loading_data_frees(10, tick_config)
     # test_loading_to_engine_frees(10, tick_config)
     # test_loading_to_engine_frees(100_000, bar_config)
-    
 
     # test_quote_tick_frees_reader(1_000, bar_config)
-    # test_engine_memory_ticks()
+    # test_engine_memory_ticks()
     # test_quote_tick_frees_from_init_func()
-    
+
     # _run_memory_streaming_test(10, data_config)
     # test_engine_memory_bars()
-    
+
     # test_loading_data_frees(1_000, data_config)
     # _run_memory_test_one_shot(10_000, data_config)
     # _run_memory_streaming_test(10, data_configs)
     # test_quote_tick_frees(100)
-        
-
-        

@@ -14,10 +14,11 @@
 # -------------------------------------------------------------------------------------------------
 from typing import Optional
 
+from nautilus_trader.common.logging cimport LoggerAdapter
 from nautilus_trader.model.data.bar cimport Bar
 from nautilus_trader.model.data.tick cimport QuoteTick
 from nautilus_trader.model.data.tick cimport TradeTick
-from nautilus_trader.common.logging cimport LoggerAdapter
+
 
 cdef class Indicator:
     """

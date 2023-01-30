@@ -1,31 +1,25 @@
 import numpy as np
 import pandas as pd
+from pyarrow import dataset as ds
+
 from nautilus_trader.core.correctness import PyCondition
-from nautilus_trader.core.correctness import PyCondition
-from nautilus_trader.core.correctness import PyCondition
-from nautilus_trader.core.correctness import PyCondition
+from nautilus_trader.core.datetime import dt_to_unix_nanos
 from nautilus_trader.core.datetime import unix_nanos_to_dt
 from nautilus_trader.indicators.base.indicator import Indicator
 from nautilus_trader.model.data.bar import Bar
 from nautilus_trader.model.data.bar import BarType
-from nautilus_trader.model.data.bar import BarType
-from nautilus_trader.model.data.bar import BarType
-from nautilus_trader.model.data.bar import BarType
 from nautilus_trader.model.enums import AggregationSource
-from pyarrow import dataset as ds
-
 from nautilus_trader.persistence.catalog import ParquetDataCatalog
-from nautilus_trader.core.datetime import unix_nanos_to_dt
-from nautilus_trader.core.datetime import dt_to_unix_nanos
+
 
 class WarmupDataProvider:
     def __init__(
-            self,
-            catalog: ParquetDataCatalog,
-            end_date: pd.Timestamp,
-            grow_size: pd.Timedelta,
-            bar_type: BarType,
-            stop_date: pd.Timestamp,
+        self,
+        catalog: ParquetDataCatalog,
+        end_date: pd.Timestamp,
+        grow_size: pd.Timedelta,
+        bar_type: BarType,
+        stop_date: pd.Timestamp,
     ):
         self._catalog = catalog
         self._grow_size = grow_size
@@ -45,14 +39,13 @@ class WarmupDataProvider:
                 return
             yield timestamps
 
-
     def _load_timestamps(self, start: pd.Timestamp) -> pd.Index:
         filter_expr = ds.field("bar_type").cast("string").isin([str(self._bar_type)])
         df = self._catalog.query(
             cls=Bar,
             filter_expr=filter_expr,
             start=start,
-            end=self._end_date - pd.Timedelta(milliseconds=1),   # exclusive range end
+            end=self._end_date - pd.Timedelta(milliseconds=1),  # exclusive range end
             as_nautilus=False,
             instrument_ids=[str(self._bar_type.instrument_id)],
             raise_on_empty=False,
@@ -88,7 +81,7 @@ class WarmupRange:
     def __repr__(self):
         return str(self)
 
-    def __eq__(self, other: 'WarmupRange'):
+    def __eq__(self, other: "WarmupRange"):
         return self.count == other.count and self.bar_type == other.bar_type
 
 
@@ -115,7 +108,7 @@ class StaticWarmupRange(WarmupRange):
         for timestamps in timestamps_gen:
             if len(timestamps) >= self.count:
                 # TODO timestamps[(self._count * -1) - 1]
-                timestamps = timestamps[len(timestamps) - self.count:]
+                timestamps = timestamps[len(timestamps) - self.count :]
                 assert len(timestamps) == self.count
                 return unix_nanos_to_dt(timestamps[0])
 
@@ -136,6 +129,7 @@ class DynamicWarmupRange(WarmupRange):
         + 20% and do warmup again
         """
         pass
+
 
 # def _prepend_next(self, start: pd.Timestamp) -> None:
 #     data_new = self._load_timestamps(start)
