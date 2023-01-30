@@ -20,8 +20,11 @@ from nautilus_trader.model.data.tick cimport QuoteTick
 from nautilus_trader.model.data.tick cimport TradeTick
 from nautilus_trader.model.enums_c cimport PriceType
 from nautilus_trader.model.objects cimport Price
+
 from nautilus_trader.core.datetime import unix_nanos_to_dt
+
 from nautilus_trader.common.logging cimport LoggerAdapter
+
 
 cdef class ExponentialMovingAverage(MovingAverage):
     """
@@ -47,7 +50,7 @@ cdef class ExponentialMovingAverage(MovingAverage):
 
         self.alpha = 2.0 / (period + 1.0)
         self.value = 0
-        
+
     cpdef void handle_quote_tick(self, QuoteTick tick) except *:
         """
         Update the indicator with the given quote tick.

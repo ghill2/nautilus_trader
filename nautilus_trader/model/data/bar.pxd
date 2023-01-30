@@ -17,6 +17,7 @@ from nautilus_trader.core.data cimport Data
 from nautilus_trader.core.rust.model cimport Bar_t
 from nautilus_trader.core.rust.model cimport BarSpecification_t
 from nautilus_trader.core.rust.model cimport BarType_t
+from nautilus_trader.model.enums_c cimport AggregationSource
 from nautilus_trader.model.enums_c cimport BarAggregation
 from nautilus_trader.model.enums_c cimport PriceType
 from nautilus_trader.model.identifiers cimport Venue

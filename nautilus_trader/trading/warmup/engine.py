@@ -1,15 +1,13 @@
-from typing import List
 from datetime import datetime
-from typing import Dict
 
 import pandas as pd
 import pyarrow.dataset as ds
 
-from nautilus_trader.persistence.catalog.parquet import ParquetDataCatalog
-from nautilus_trader.model.data.bar import BarType
-from nautilus_trader.model.data.bar import Bar
-from nautilus_trader.indicators.base.indicator import Indicator
 from nautilus_trader.core.correctness import PyCondition
+from nautilus_trader.indicators.base.indicator import Indicator
+from nautilus_trader.model.data.bar import Bar
+from nautilus_trader.model.data.bar import BarType
+from nautilus_trader.persistence.catalog.parquet import ParquetDataCatalog
 from nautilus_trader.trading.warmup.range import WarmupRange
 
 
@@ -20,7 +18,7 @@ def unix_nanos_to_dt_vectorized(values: pd.Series):
 class WarmupEngine:
     def __init__(
         self,
-        ranges: List[WarmupRange],
+        ranges: list[WarmupRange],
         end_date: datetime,
         catalog: ParquetDataCatalog,
     ):
@@ -40,11 +38,10 @@ class WarmupEngine:
     @property
     def start_date(self) -> pd.Timestamp:
         return min(
-            r.start_date(catalog=self._catalog, end_date=self._end_date)
-            for r in self._ranges
+            r.start_date(catalog=self._catalog, end_date=self._end_date) for r in self._ranges
         )
 
-    def request_bars(self, as_nautilus=True) -> List[Bar]:
+    def request_bars(self, as_nautilus=True) -> list[Bar]:
         bar_types = [x.bar_type for x in self._ranges]
 
         filter_expr = ds.field("bar_type").cast("string").isin([str(bt) for bt in bar_types])
@@ -71,10 +68,12 @@ class WarmupEngine:
             result.setdefault(bar.bar_type, []).append(bar)
         return result
 
+
 def _keep_largest_warmup_range_for_each_bar_type(
-    ranges: List[WarmupRange],
-) -> List[WarmupRange]:
+    ranges: list[WarmupRange],
+) -> list[WarmupRange]:
     return list({r.bar_type: r for r in sorted(ranges, key=lambda r: r.count)}.values())
+
 
 def _sort_nautilus_bars(bars):
     bars.sort(key=lambda x: (x.bar_type.spec.aggregation * -1, x.bar_type.spec.step * -1))
@@ -121,4 +120,3 @@ def sort_dataframe_bars(df):
 # assert all(
 #     x.is_externally_aggregated() for x in self._bar_types
 # ), "Strategy warmup failed, BarTypes are not all AggregationSource.EXTERNAL."
-
