@@ -12,6 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # -------------------------------------------------------------------------------------------------
+import pandas as pd
 
 from cpython.datetime cimport timedelta
 from libc.stdint cimport uint64_t
@@ -52,15 +53,16 @@ from nautilus_trader.model.data.bar_aggregation cimport BarAggregation
 from nautilus_trader.model.enums_c cimport AggregationSource
 from nautilus_trader.model.enums_c cimport PriceType
 from nautilus_trader.model.enums_c cimport aggregation_source_from_str
+from nautilus_trader.model.enums_c cimport aggregation_source_to_str
 from nautilus_trader.model.enums_c cimport bar_aggregation_from_str
 from nautilus_trader.model.enums_c cimport bar_aggregation_to_str
 from nautilus_trader.model.enums_c cimport price_type_from_str
+from nautilus_trader.model.enums_c cimport price_type_to_str
 from nautilus_trader.model.identifiers cimport InstrumentId
+from nautilus_trader.model.identifiers cimport Venue
 from nautilus_trader.model.objects cimport Price
 from nautilus_trader.model.objects cimport Quantity
-from nautilus_trader.model.enums_c cimport price_type_to_str
-from nautilus_trader.model.enums_c cimport bar_aggregation_to_str
-from nautilus_trader.model.enums_c cimport aggregation_source_to_str
+
 
 cdef class BarSpecification:
     """
@@ -451,6 +453,25 @@ cdef class BarSpecification:
         """
         return BarSpecification.check_information_aggregated_c(self.aggregation)
 
+    def to_timedelta(self) -> pd.Timedelta or None:
+        if not self.is_time_aggregated():
+            return None
+        elif self.aggregation == BarAggregation.MILLISECOND:
+            return pd.Timedelta(milliseconds=self.step)
+        elif self.aggregation == BarAggregation.SECOND:
+            return pd.Timedelta(seconds=self.step)
+        elif self.aggregation == BarAggregation.MINUTE:
+            return pd.Timedelta(minutes=self.step)
+        elif self.aggregation == BarAggregation.HOUR:
+            return pd.Timedelta(hours=self.step)
+        elif self.aggregation == BarAggregation.DAY:
+            return pd.Timedelta(days=self.step)
+        elif self.aggregation == BarAggregation.WEEK:
+            return pd.Timedelta(weeks=self.step)
+        elif self.aggregation == BarAggregation.MONTH:
+            return pd.Timedelta(weeks=self.step * 4)
+        else:
+            raise RuntimeError("Unable to parse aggregation to timedelta")
 
 cdef class BarType:
     """
@@ -660,6 +681,17 @@ cdef class BarType:
             f"{price_type_to_str(price_type)}-"
             f"{aggregation_source_to_str(self.aggregation_source)}"
         )
+    cpdef BarType with_aggregation_source(self, AggregationSource aggregation_source) except *:
+        return BarType(
+            instrument_id=self.instrument_id,
+            bar_spec=self.spec,
+            aggregation_source=aggregation_source,
+        )
+
+    cpdef BarType with_venue(self, Venue venue):
+        instrument_id = InstrumentId(self.instrument_id.symbol, venue)
+        return BarType(instrument_id, self.spec, self.aggregation_source)
+
 
 cdef class Bar(Data):
     """

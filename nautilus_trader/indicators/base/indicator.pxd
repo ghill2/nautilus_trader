@@ -13,16 +13,19 @@
 #  limitations under the License.
 # -------------------------------------------------------------------------------------------------
 
+from nautilus_trader.common.logging cimport LoggerAdapter
 from nautilus_trader.model.data.bar cimport Bar
 from nautilus_trader.model.data.tick cimport QuoteTick
 from nautilus_trader.model.data.tick cimport TradeTick
-from nautilus_trader.common.logging cimport LoggerAdapter
+
 
 cdef class Indicator:
     cdef readonly list _params
     cdef public dict values
     cdef readonly LoggerAdapter log
     cdef readonly str name
+    cdef readonly object config
+
     """The name of the indicator.\n\n:returns: `str`"""
     cdef readonly str id
     cdef readonly int index

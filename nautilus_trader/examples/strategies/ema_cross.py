@@ -1,5 +1,7 @@
-# -------------------------------------------------------------------------------------------------
-#  Copyright (C) 2015-2023 Nautech Systems Pty Ltd. All rights reserved.
+from nautilus_trader.warmup.tree import WarmupConfig
+
+4  # -------------------------------------------------------------------------------------------------
+#  Copyright (C) 2015-2022 Nautech Systems Pty Ltd. All rights reserved.
 #  https://nautechsystems.io
 #
 #  Licensed under the GNU Lesser General Public License Version 3.0 (the "License");
@@ -17,8 +19,10 @@ from decimal import Decimal
 from typing import Optional
 
 from nautilus_trader.common.enums import LogColor
+from nautilus_trader.common.queue import Queue
 from nautilus_trader.config import StrategyConfig
 from nautilus_trader.core.data import Data
+from nautilus_trader.core.datetime import unix_nanos_to_dt
 from nautilus_trader.core.message import Event
 from nautilus_trader.indicators.average.ema import ExponentialMovingAverage
 from nautilus_trader.model.data.bar import Bar
@@ -27,15 +31,15 @@ from nautilus_trader.model.data.tick import QuoteTick
 from nautilus_trader.model.data.tick import TradeTick
 from nautilus_trader.model.data.ticker import Ticker
 from nautilus_trader.model.enums import OrderSide
+from nautilus_trader.model.enums import PriceType
 from nautilus_trader.model.identifiers import InstrumentId
 from nautilus_trader.model.instruments.base import Instrument
 from nautilus_trader.model.orderbook.book import OrderBook
 from nautilus_trader.model.orderbook.data import OrderBookData
 from nautilus_trader.model.orders.market import MarketOrder
 from nautilus_trader.trading.strategy import Strategy
-from nautilus_trader.core.datetime import unix_nanos_to_dt
-from nautilus_trader.model.enums import PriceType
-from nautilus_trader.common.queue import Queue
+
+
 # *** THIS IS A TEST STRATEGY WITH NO ALPHA ADVANTAGE WHATSOEVER. ***
 # *** IT IS NOT INTENDED TO BE USED TO TRADE LIVE WITH REAL MONEY. ***
 
@@ -80,13 +84,16 @@ class EMACross(Strategy):
         self.bar_type = BarType.from_str(config.bar_type)
         self.trade_size = Decimal(config.trade_size)
 
-        # Create the indicators for the strategy
-        self.fast_ema = ExponentialMovingAverage(config.fast_ema_period, id="fast", log=self.log, index=-2)
-        self.slow_ema = ExponentialMovingAverage(config.slow_ema_period, id="slow", log=self.log, index=-2)
+        self.bar_types = {
+            PriceType.BID: self.bar_type.with_price_type(PriceType.BID),
+            PriceType.ASK: self.bar_type.with_price_type(PriceType.ASK),
+        }
 
-        self.bar_types = {}
-        self.bar_types[PriceType.BID] = self.bar_type.with_price_type(PriceType.BID)
-        self.bar_types[PriceType.ASK] = self.bar_type.with_price_type(PriceType.ASK)
+        warmup_config = WarmupConfig(count=config.fast_ema_period, bar_type=self.bar_type)
+        self.fast_ema = ExponentialMovingAverage(config.fast_ema_period, id="fast", log=self.log, warmup_config=warmup_config)
+
+        warmup_config = WarmupConfig(count=config.slow_ema_period, bar_type=self.bar_type)
+        self.slow_ema = ExponentialMovingAverage(config.slow_ema_period, id="slow", log=self.log, warmup_config=warmup_config)
 
         self.instrument: Optional[Instrument] = None  # Initialized in on_start
         self.i = 0
@@ -106,29 +113,18 @@ class EMACross(Strategy):
         self.register_indicator_for_bars(self.bar_type, self.slow_ema)
 
         self.subscribe_bars(self.bar_type)
-
         self.subscribe_quote_ticks(self.instrument_id)
 
+        self.warmup()
+
+
+
     def on_bar(self, bar: Bar):
-        self.msgbus.send(endpoint="DataActor.register_strategy", msg=self)
-
-        """
-        Actions to be performed when the strategy is running and receives a bar.
-
-        Parameters
-        ----------
-        bar : Bar
-            The bar received.
-
-        """
-        bid_bar = self.cache.bar(self.bar_types[PriceType.BID], 0)
-        ask_bar = self.cache.bar(self.bar_types[PriceType.ASK], 0)
-
-        if bid_bar is None and ask_bar is None:
-            self.log.info(f"bid_bar, ask_bar is None", color=LogColor.YELLOW)
-            return
-
         self.i += 1
+        self.log.warning("Strategy processed")
+
+        self.log.info(str(self.fast_ema) + repr(bar), LogColor.YELLOW)
+        self.msgbus.send(endpoint="DataActor.register_strategy", msg=self)
 
         # Check if indicators ready
         if not self.indicators_initialized():
