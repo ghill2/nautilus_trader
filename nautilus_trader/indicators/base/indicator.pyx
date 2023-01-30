@@ -12,6 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # -------------------------------------------------------------------------------------------------
+from typing import Optional
 
 from nautilus_trader.common.logging cimport LoggerAdapter
 from nautilus_trader.model.data.bar cimport Bar
@@ -33,7 +34,7 @@ cdef class Indicator:
     This class should not be used directly, but through a concrete subclass.
     """
 
-    def __init__(self, list params not None, str id = None, LoggerAdapter log = None, int index = 0):
+    def __init__(self, list params not None, object warmup_config = None, str id = None, LoggerAdapter log = None):
         self._params = params.copy()
 
         if id is None:
@@ -44,8 +45,8 @@ cdef class Indicator:
         self.has_inputs = False
         self.initialized = False
         self.values = {}
-        self.index = index
         self.log = log
+        self.config = warmup_config
 
     def __repr__(self) -> str:
         return f"{self.name}({self._params_str()})"
@@ -84,3 +85,10 @@ cdef class Indicator:
     cpdef void _reset(self):
         """Abstract method (implement in subclass)."""
         raise NotImplementedError("method must be implemented in the subclass")  # pragma: no cover
+
+    def get_warmup_value(self) -> Optional[int]:
+        """Return the user defined bar count needed to warmup the indicator"""
+        try:
+            return int(self.warmup_value)
+        except:
+            return None
