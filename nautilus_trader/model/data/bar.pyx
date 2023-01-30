@@ -59,6 +59,7 @@ from nautilus_trader.model.enums_c cimport bar_aggregation_to_str
 from nautilus_trader.model.enums_c cimport price_type_from_str
 from nautilus_trader.model.enums_c cimport price_type_to_str
 from nautilus_trader.model.identifiers cimport InstrumentId
+from nautilus_trader.model.identifiers cimport Venue
 from nautilus_trader.model.objects cimport Price
 from nautilus_trader.model.objects cimport Quantity
 
@@ -452,7 +453,6 @@ cdef class BarSpecification:
         """
         return BarSpecification.check_information_aggregated_c(self.aggregation)
 
-
     def to_timedelta(self) -> pd.Timedelta or None:
         if not self.is_time_aggregated():
             return None
@@ -687,6 +687,11 @@ cdef class BarType:
             bar_spec=self.spec,
             aggregation_source=aggregation_source,
         )
+
+    cpdef BarType with_venue(self, Venue venue):
+        instrument_id = InstrumentId(self.instrument_id.symbol, venue)
+        return BarType(instrument_id, self.spec, self.aggregation_source)
+
 
 cdef class Bar(Data):
     """
