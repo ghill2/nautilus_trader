@@ -25,6 +25,7 @@ from nautilus_trader.config.validation import PositiveInt
 from nautilus_trader.core.correctness import PyCondition
 from nautilus_trader.persistence.catalog.parquet import ParquetDataCatalog
 
+from typing import Union
 
 def resolve_path(path: str):
     module, cls = path.rsplit(":", maxsplit=1)
@@ -33,7 +34,7 @@ def resolve_path(path: str):
     return cls
 
 
-class NautilusConfig(msgspec.Struct, kw_only=True):
+class NautilusConfig(msgspec.Struct, kw_only=True): #
     """
     The base class for all Nautilus configuration objects.
     """
@@ -330,7 +331,7 @@ class StreamingConfig(NautilusConfig):
         )
 
 
-class ActorConfig(NautilusConfig, kw_only=True):
+class ActorConfig(NautilusConfig, kw_only=True): # ,
     """
     The base model for all actor configurations.
 
@@ -395,8 +396,11 @@ class ActorFactory:
         config_cls = resolve_path(config.config_path)
         return strategy_cls(config=config_cls(**config.config))
 
+class WarmupConfig(NautilusConfig):
+    catalog_path: str
+    end_time: Union[str, int]
 
-class StrategyConfig(NautilusConfig, kw_only=True):
+class StrategyConfig(NautilusConfig, kw_only=True): # ,
     """
     The base model for all trading strategy configurations.
 
@@ -415,6 +419,8 @@ class StrategyConfig(NautilusConfig, kw_only=True):
     strategy_id: Optional[str] = None
     order_id_tag: Optional[str] = None
     oms_type: Optional[str] = None
+    warmup_config: Optional[WarmupConfig] = None
+
 
 
 class ImportableStrategyConfig(NautilusConfig):
@@ -552,3 +558,4 @@ class ImportableConfig(NautilusConfig):
         assert ":" in self.path, "`path` variable should be of the form `path.to.module:class`"
         cls = resolve_path(self.path)
         return msgspec.json.decode(msgspec.json.encode(self.config), type=cls)
+
