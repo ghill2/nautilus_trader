@@ -27,8 +27,6 @@ from nautilus_trader.persistence.external.core import process_files
 from nautilus_trader.persistence.external.readers import ParquetReader
 from nautilus_trader.test_kit.mocks.data import data_catalog_setup
 from nautilus_trader.trading.strategy import Strategy
-from nautilus_trader.trading.warmup.engine import WarmupEngine
-from nautilus_trader.trading.warmup.range import StaticWarmupRange
 from tests import TEST_DATA_DIR
 
 
@@ -43,16 +41,22 @@ def load_warmup_bars_into_catalog(catalog: ParquetDataCatalog, test_bar_types: l
         )  # USDJPY-SIM-1-DAY-BID-EXTERNAL-2019.parquet
 
         def bar_parser(df):
-            instrument = TestInstrumentProvider.default_fx_ccy("EUR/USD")
+            symbol = str(bar_type.instrument_id.symbol)
+            instrument = TestInstrumentProvider.default_fx_ccy(symbol)
             wrangler = BarDataWrangler(instrument=instrument, bar_type=bar_type)
             bars = wrangler.process(data=df)
             yield from bars
+
+        import os
+        assert os.path.exists(TEST_DATA_DIR + "/" + filename)
 
         process_files(
             glob_path=TEST_DATA_DIR + "/" + filename,
             catalog=catalog,
             reader=ParquetReader(parser=bar_parser),
         )
+
+
 
 
 class MockWarmupIndicator(Indicator):
@@ -173,7 +177,7 @@ class TestStrategyWarmup:
                 BarType.from_str("EUR/USD.SIM-4-HOUR-BID-EXTERNAL"): [MockWarmupIndicator(3)],
             },
             {
-                BarType.from_str("EUR/USD.SIM-1-MINUTE-BID-EXTERNAL"): [
+                BarType.from_str("USD/JPY.SIM-1-MINUTE-BID-EXTERNAL"): [
                     MockWarmupIndicator(1),
                     MockWarmupIndicator(5),
                 ],
@@ -221,93 +225,3 @@ class TestStrategyWarmup:
         # Assert
         assert strategy.registered_indicators
         assert strategy.indicators_initialized
-
-    # def test_internal_bar_types(
-    #         self
-    # ):
-    #     indicators_dict: dict[BarType, list[Indicator]] = {
-    #         H1_INT: [MockWarmupIndicator(10)],
-    #         H4_INT: [MockWarmupIndicator(3)],
-    #     }
-    #
-    #     # Load data into catalog
-    #     catalog = data_catalog_setup(protocol="file")
-    #     load_warmup_bars_into_catalog(catalog, indicators_dict.keys())
-    #
-    #     # Create configs
-    #     warmup_config = WarmupConfig(
-    #         catalog_path=catalog.path, end_time=pd.Timestamp("2020-01-01 00:00:00+00:00")
-    #     )
-    #     strategy_config = StrategyConfig(warmup_config=warmup_config)
-    #
-    #     strategy = TestWarmupStrategy(config=strategy_config, indicators_dict=indicators_dict)
-    #     self.engine.add_strategy(strategy)
-    #
-    #     # Act
-    #     self.engine.run()
-    #
-    #     # Assert
-    #     assert strategy.registered_indicators
-    #     assert strategy.indicators_initialized
-
-
-if __name__ == "__main__":
-    # TestWarmupRange().test_get_warmup_start_date_returns_expected()
-    TestSortDataFrame().test_sort_dataframe_by_step_returns_expected()
-    TestSortDataFrame().test_sort_dataframe_by_aggregation_returns_expected()
-    TestSortBars().test_sort_bars_by_step_returns_expected()
-    TestSortBars().test_sort_bars_by_aggregation_returns_expected()
-    TestWarmupEngine().test_request_bars_returns_expected()
-
-# {
-#     test_bar_type("EUR/USD", "H1"): [MockWarmupIndicator(1), MockWarmupIndicator(90)],
-#     test_bar_type("GBP/USD", "D1"): [MockWarmupIndicator(9)],
-# }
-# {
-#     test_bar_type("EUR/USD", "H4"): [MockWarmupIndicator(8)],
-#     test_bar_type("GBP/USD", "D1"): [MockWarmupIndicator(10)],
-# }
-# indicators_dict = {
-#     H1: TestWarmupIndicator(50),
-#     test_bar_type("GBP/USD", "H1"): TestWarmupIndicator(12),
-# }
-
-#
-
-#
-
-#
-#     def test_missing_indicator_warmup_value_raises(self):
-#         class TestWarmupIndicatorNoWarmupValue(Indicator):
-#             def __init__(self):
-#                 super().__init__([])
-#
-#         with pytest.raises(ValueError):
-#             WarmupEngine.from_indicators(
-#                 strategy_start_date=pd.Timestamp("2019-01-05", tz="UTC"),
-#                 indicators={test_bar_type("EUR/USD", "H1"): [TestWarmupIndicatorNoWarmupValue()]},
-#                 catalog=TEST_BAR_CATALOG,
-#             )
-
-
-#     def test_from_indicators(self):
-#         class TestWarmupIndicator(Indicator):
-#             def __init__(self, lookback):
-#                 self.warmup = lookback
-#                 super().__init__([])
-#
-#         strategy_start_date = pd.Timestamp("2019-01-05", tz="UTC")
-
-#
-#         calculator = WarmupEngine.from_indicators(
-#             strategy_start_date=strategy_start_date,
-#             indicators=indicators_dict,
-#             catalog=TEST_BAR_CATALOG,
-#         )
-#
-#         assert calculator._tasks == [
-#             WarmupRange(50, test_bar_type("EUR/USD", "H1")),
-#             WarmupRange(12, test_bar_type("GBP/USD", "H1")),
-#         ]
-#         assert calculator._catalog == TEST_BAR_CATALOG
-#         assert calculator._strategy_start_date == strategy_start_date

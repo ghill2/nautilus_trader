@@ -30,6 +30,7 @@ class WarmupDataProvider:
     def __iter__(self) -> pd.Index:
         start = self._end_date
         stop_nanos = dt_to_unix_nanos(self._stop_date)
+
         while True:
             start -= self._grow_size
             timestamps = self._load_timestamps(start)
@@ -41,11 +42,12 @@ class WarmupDataProvider:
 
     def _load_timestamps(self, start: pd.Timestamp) -> pd.Index:
         filter_expr = ds.field("bar_type").cast("string").isin([str(self._bar_type)])
+        end = self._end_date - pd.Timedelta(milliseconds=1)  # exclusive range end
         df = self._catalog.query(
             cls=Bar,
             filter_expr=filter_expr,
             start=start,
-            end=self._end_date - pd.Timedelta(milliseconds=1),  # exclusive range end
+            end=end,
             as_nautilus=False,
             instrument_ids=[str(self._bar_type.instrument_id)],
             raise_on_empty=False,
@@ -53,8 +55,7 @@ class WarmupDataProvider:
             table_kwargs={"columns": "ts_event instrument_id".split()},
         )
         if df.empty:
-            # raise no data error
-            pass
+            return pd.Index([], dtype=np.int64)
         return pd.Index(df.ts_event, dtype=np.int64)
 
 
@@ -71,9 +72,11 @@ class WarmupRange:
 
     def start_date(self, catalog: ParquetDataCatalog, end_date: pd.Timestamp) -> pd.Timestamp:
         """
+        Calculate the warmup start date for the lookback based on the data in the ParquetDataCatalog
+
         To be implemented in a concrete sub-class
         """
-        pass
+        raise NotImplementedError()
 
     def __str__(self):
         return f"{self.__class__.__name__}({self.count}-{self.bar_type})"
@@ -87,15 +90,12 @@ class WarmupRange:
 
 class StaticWarmupRange(WarmupRange):
     def start_date(self, catalog: ParquetDataCatalog, end_date: pd.Timestamp) -> pd.Timestamp:
-        """
-        Calculate the warmup start date for the lookback based on the data in the ParquetDataCatalog
 
-        """
         PyCondition.type(end_date, pd.Timestamp, "end_date")
         PyCondition.type(catalog, ParquetDataCatalog, "catalog")
 
         warmup_length = self.to_timedelta()
-        stop_date = (warmup_length * 10) + (end_date - pd.Timedelta(weeks=52))
+        stop_date = (end_date - pd.Timedelta(weeks=52)) - (warmup_length / 2)
 
         timestamps_gen = WarmupDataProvider(
             catalog=catalog,
@@ -106,13 +106,16 @@ class StaticWarmupRange(WarmupRange):
         )
 
         for timestamps in timestamps_gen:
+
             if len(timestamps) >= self.count:
                 # TODO timestamps[(self._count * -1) - 1]
                 timestamps = timestamps[len(timestamps) - self.count :]
                 assert len(timestamps) == self.count
                 return unix_nanos_to_dt(timestamps[0])
 
-        raise RuntimeError()
+        raise RuntimeError(
+                f"Not enough data for {self} in catalog {catalog.path}"
+        )
 
 
 class DynamicWarmupRange(WarmupRange):
