@@ -12,6 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # -------------------------------------------------------------------------------------------------
+from typing import Optional
 
 from nautilus_trader.model.data.bar cimport Bar
 from nautilus_trader.model.data.tick cimport QuoteTick
@@ -82,3 +83,10 @@ cdef class Indicator:
     cpdef void _reset(self) except *:
         """Abstract method (implement in subclass)."""
         raise NotImplementedError("method must be implemented in the subclass")  # pragma: no cover
+
+    def get_warmup_value(self) -> Optional[int]:
+        """Return the user defined bar count needed to warmup the indicator"""
+        try:
+            return int(self.warmup_value)
+        except:
+            return None

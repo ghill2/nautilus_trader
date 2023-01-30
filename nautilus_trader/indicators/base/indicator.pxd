@@ -40,3 +40,4 @@ cdef class Indicator:
     cpdef void _set_has_inputs(self, bint setting) except *
     cpdef void _set_initialized(self, bint setting) except *
     cpdef void _reset(self) except *
+
