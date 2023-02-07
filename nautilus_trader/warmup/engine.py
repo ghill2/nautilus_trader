@@ -2,7 +2,7 @@ from typing import Optional
 from typing import Union
 
 import pandas as pd
-from nautilus_trader.config.common import NautilusConfig
+
 from nautilus_trader.core.correctness import PyCondition
 from nautilus_trader.indicators.base.indicator import Indicator
 from nautilus_trader.model.data.bar import Bar
@@ -12,9 +12,6 @@ from pyarrow import dataset as ds
 from nautilus_trader.persistence.catalog import ParquetDataCatalog
 from nautilus_trader.warmup.tree import WarmupTree
 
-class WarmupEngineConfig(NautilusConfig):
-    catalog_path: str
-    end_date: Optional[Union[str, int]]
 
 class WarmupEngine:
     def __init__(

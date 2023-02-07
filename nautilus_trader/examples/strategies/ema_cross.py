@@ -36,7 +36,7 @@ from nautilus_trader.model.orderbook.book import OrderBook
 from nautilus_trader.model.orderbook.data import OrderBookData
 from nautilus_trader.model.orders.market import MarketOrder
 from nautilus_trader.trading.strategy import Strategy
-
+from nautilus_trader.warmup.tree import WarmupConfig
 
 # *** THIS IS A TEST STRATEGY WITH NO ALPHA ADVANTAGE WHATSOEVER. ***
 # *** IT IS NOT INTENDED TO BE USED TO TRADE LIVE WITH REAL MONEY. ***
@@ -82,8 +82,20 @@ class EMACross(Strategy):
         self.bar_type = BarType.from_str(config.bar_type)
         self.trade_size = Decimal(config.trade_size)
 
-        self.fast_ema = ExponentialMovingAverage(config.fast_ema_period, id="fast", log=self.log)
-        self.slow_ema = ExponentialMovingAverage(config.slow_ema_period, id="slow", log=self.log)
+        self.fast_ema = ExponentialMovingAverage(config.fast_ema_period,
+                                                 id="fast",
+                                                 log=self.log,
+                                                 warmup_config=WarmupConfig(count=config.fast_ema_period,
+                                                                     bar_type=self.bar_type
+                                                                     )
+                                                 )
+        self.slow_ema = ExponentialMovingAverage(config.slow_ema_period,
+                                                 id="slow",
+                                                 log=self.log,
+                                                 warmup_config=WarmupConfig(count=config.slow_ema_period,
+                                                                     bar_type=self.bar_type
+                                                                     )
+                                                 )
 
         self.bar_types = {}
 
@@ -108,8 +120,11 @@ class EMACross(Strategy):
         self.register_indicator_for_bars(self.bar_type, self.slow_ema)
 
         self.subscribe_bars(self.bar_type)
-
         self.subscribe_quote_ticks(self.instrument_id)
+
+        self.warmup()
+
+
 
     def on_bar(self, bar: Bar):
         if self.i == 3:

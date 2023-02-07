@@ -411,11 +411,9 @@ class ActorFactory:
         config_cls = resolve_path(config.config_path)
         return actor_cls(config=config_cls(**config.config))
 
-
-class WarmupConfig(NautilusConfig):
+class WarmupEngineConfig(NautilusConfig):
     catalog_path: str
-    end_time: Union[str, int]
-
+    end_date: Optional[Union[str, int]]
 
 class StrategyConfig(NautilusConfig, kw_only=True):  # ,
     """
@@ -436,7 +434,8 @@ class StrategyConfig(NautilusConfig, kw_only=True):  # ,
     strategy_id: Optional[str] = None
     order_id_tag: Optional[str] = None
     oms_type: Optional[str] = None
-    warmup_config: Optional[WarmupConfig] = None
+    warmup_engine_config: Optional[WarmupEngineConfig] = None
+
 
 
 class ImportableStrategyConfig(NautilusConfig):
