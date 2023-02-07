@@ -17,7 +17,7 @@ from nautilus_trader.model.data.bar import BarType
 
 from nautilus_trader.persistence.catalog import ParquetDataCatalog
 from nautilus_trader.test_kit.mocks.data import data_catalog_setup
-from nautilus_trader.warmup.config import WarmupConfig
+from nautilus_trader.warmup.tree import WarmupConfig
 from nautilus_trader.warmup.tree import WarmupTree
 from tests.unit_tests.warmup.test_warmup_engine import load_warmup_bars_into_catalog
 

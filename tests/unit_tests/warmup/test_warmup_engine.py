@@ -18,7 +18,7 @@ from nautilus_trader.persistence.catalog import ParquetDataCatalog
 from nautilus_trader.persistence.external.core import process_files
 from nautilus_trader.persistence.external.readers import ParquetReader
 from nautilus_trader.warmup.engine import WarmupEngine
-from nautilus_trader.warmup.config import WarmupConfig
+from nautilus_trader.warmup.tree import WarmupConfig
 from tests import TEST_DATA_DIR
 from tests.unit_tests.warmup.warmup_mocks import MockWarmupIndicator
 
@@ -49,6 +49,8 @@ def load_warmup_bars_into_catalog(catalog: ParquetDataCatalog, test_bar_types: l
             reader=ParquetReader(parser=bar_parser),
         )
 
+
+
 def warmup_indicators_test_case_1() -> list[Indicator]:
     bar_type = BarType.from_str("EUR/USD.SIM-1-HOUR-BID-EXTERNAL")
     indicator3 = MockWarmupIndicator(WarmupConfig(5, bar_type))
@@ -76,6 +78,17 @@ def warmup_indicators_test_case_3() -> list[Indicator]:
     indicator3 = MockWarmupIndicator(WarmupConfig(8, EURUSD_H1, children=[indicator4]))
     indicator2 = MockWarmupIndicator(WarmupConfig(10, USDJPY_H4, children=[indicator3]))
     indicator1 = MockWarmupIndicator(WarmupConfig(20, EURUSD_H1, children=[indicator2]))
+    return [
+        indicator1, indicator2, indicator3, indicator4
+    ]
+
+def warmup_internal_indicators_test_case_1() -> list[Indicator]:
+    EURUSD_H1 = BarType.from_str("EUR/USD.SIM-1-HOUR-BID-INTERNAL")
+    USDJPY_H4 = BarType.from_str("USD/JPY.SIM-4-HOUR-BID-INTERNAL")
+    indicator4 = MockWarmupIndicator(WarmupConfig(5, USDJPY_H4))
+    indicator3 = MockWarmupIndicator(WarmupConfig(8, EURUSD_H1, children=[indicator4]))
+    indicator2 = MockWarmupIndicator(WarmupConfig(4, USDJPY_H4, children=[indicator3]))
+    indicator1 = MockWarmupIndicator(WarmupConfig(10, EURUSD_H1, children=[indicator2]))
     return [
         indicator1, indicator2, indicator3, indicator4
     ]
@@ -115,7 +128,6 @@ class TestWarmupEngine:
 
         load_warmup_bars_into_catalog(catalog, bar_types)
 
-
         engine = WarmupEngine(indicators=indicators, catalog=catalog, end_date=end_date)
 
         bars = engine._request_bars()
@@ -127,6 +139,7 @@ class TestWarmupEngine:
     @pytest.mark.parametrize(
         "indicators",
         [
+            warmup_internal_indicators_test_case_1,
             warmup_indicators_test_case_1,
             warmup_indicators_test_case_2,
             warmup_indicators_test_case_3,
@@ -140,7 +153,7 @@ class TestWarmupEngine:
             pd.Timestamp("2019-09-10 02:00:00", tz="UTC"),
         ],
     )
-    def test_various_static_indicators_warmup_completes_before_end_date(
+    def test_various_indicators_warmup_completes_before_end_date(
             self,
             indicators: Callable,
             end_date: pd.Timestamp

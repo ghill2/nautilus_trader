@@ -28,6 +28,7 @@ attempts to operate without a managing `Trader` instance.
 from typing import Optional
 
 import cython
+import pandas as pd
 
 from nautilus_trader.config import ImportableStrategyConfig
 from nautilus_trader.config import StrategyConfig
@@ -84,9 +85,7 @@ from nautilus_trader.model.position cimport Position
 from nautilus_trader.msgbus.bus cimport MessageBus
 
 from nautilus_trader.persistence.catalog import ParquetDataCatalog
-from nautilus_trader.trading.warmup.engine import WarmupEngine
-from nautilus_trader.trading.warmup.range import StaticWarmupRange
-from nautilus_trader.model.enums import AggregationSource
+from nautilus_trader.warmup.engine import WarmupEngine
 
 cdef class Strategy(Actor):
     """
@@ -1285,43 +1284,14 @@ cdef class Strategy(Actor):
         self._msgbus.send(endpoint="ExecEngine.execute", msg=command)
 
     def warmup(self):
-        """
-        start_date: The start date of the test
-        """
-        assert self.config.warmup_config.catalog_path
-        assert self.config.warmup_config.end_time
+        config = self.config.warmup_engine_config
+        if config is None:
+            self.log.error("warmup was started without a WarmupEngineConfig. Add a WarmupEngineConfig to the StrategyConfig")
 
-        catalog_path = self.config.warmup_config.catalog_path
-        end_time = self.config.warmup_config.end_time
+        end_date = pd.Timestamp(config.end_date)
+        catalog = ParquetDataCatalog(config.catalog_path)
 
-        catalog = ParquetDataCatalog(catalog_path)
+        engine = WarmupEngine(indicators=self.registered_indicators, end_date=end_date, catalog=catalog)
+        engine.process()
+        self.log.info("Warmup completed.")
 
-        # Create warmup ranges from indicators
-        ranges: list[StaticWarmupRange] = []
-        for bar_type, indicators in self._indicators_for_bars.items():
-            for indicator in indicators:
-                warmup_value = indicator.get_warmup_value()
-                if warmup_value is None:
-                    self.log.warning(
-                        f"{indicator} was excluded from the warmup because the warmup_value attribute was not set"
-                    )
-                    continue
-                ranges.append(StaticWarmupRange(warmup_value, bar_type))
-
-        # Create warmup engine
-        engine = WarmupEngine(ranges=ranges, end_date=end_time, catalog=catalog)
-
-        # Warmup the indicators
-        bars_dict = engine.request_bars_dict()
-
-        for bar_type, bars in bars_dict.items():
-            # warmup indicators + strategy with EXTERNAL bar_types
-            self.handle_bars(bars)
-
-            # warmup indicators with INTERNAL bar_types
-            bar_type_internal = bar_type.with_aggregation_source(AggregationSource.INTERNAL)
-            indicators = self._indicators_for_bars.get(bar_type_internal)
-            if indicators:
-                for indicator in indicators:
-                    for bar in bars:
-                        indicator.handle_bar(bar)
