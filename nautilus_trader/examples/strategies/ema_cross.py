@@ -129,8 +129,6 @@ class EMACross(Strategy):
 
 
     def on_bar(self, bar: Bar):
-        if self.i == 3:
-            quit()
         self.i += 1
         self.log.warning("Strategy processed")
 
