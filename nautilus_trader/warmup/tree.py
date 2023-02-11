@@ -40,27 +40,32 @@ class WarmupConfig(WarmupStart):
             self,
             count: int,
             bar_type: BarType,
-            unstable: int = 0,
             children: list[Indicator] = None
+            # unstable: int = 0,
     ):
         PyCondition.positive_int(count, "count")
         # PyCondition.not_negative(unstable, "unstable")
         PyCondition.type(bar_type, BarType, "bar_type")
 
         self.parents = []
-
-        if children is None:
-            children = []
-        PyCondition.list_type(children, Indicator, "children")
-        for child in children:
-            child.parent = self
-
-        self.children = children
+        self.children = []
+        if children is not None:
+            PyCondition.list_type(children, Indicator, "children")
+            for child in children:
+                self.add_child(child)
 
         assert bar_type.spec.is_time_aggregated(), "Only TIME aggregated BarTypes allowed"
         self.bar_type = bar_type.with_aggregation_source(AggregationSource.EXTERNAL)
 
         self.count = count
+
+    def add_child(self, indicator: Indicator) -> None:
+        PyCondition.type(indicator, Indicator, "indicator")
+        indicator.warmup_config.add_parent(self)
+        self.children.append(indicator)
+
+    def add_parent(self, indicator: Indicator) -> None:
+        self.parents.append(indicator)
 
     def __str__(self):
         return f"{self.__class__.__name__}({self.count}-{self.bar_type})"
