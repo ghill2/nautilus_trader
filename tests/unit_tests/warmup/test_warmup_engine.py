@@ -124,7 +124,7 @@ class TestWarmupEngine:
 
         catalog = data_catalog_setup(protocol="file")
 
-        bar_types = [indicator.config.bar_type for indicator in indicators]
+        bar_types = [indicator.warmup_config.bar_type for indicator in indicators]
 
         load_warmup_bars_into_catalog(catalog, bar_types)
 
@@ -132,8 +132,8 @@ class TestWarmupEngine:
 
         bars = engine._request_bars()
         for indicator in indicators:
-            count = indicator.config.count
-            bar_type = indicator.config.bar_type
+            count = indicator.warmup_config.count
+            bar_type = indicator.warmup_config.bar_type
             assert len([bar for bar in bars if bar.bar_type == bar_type]) >= count
 
     @pytest.mark.parametrize(
@@ -161,7 +161,7 @@ class TestWarmupEngine:
 
         indicators = indicators()
 
-        bar_types = [indicator.config.bar_type for indicator in indicators]
+        bar_types = [indicator.warmup_config.bar_type for indicator in indicators]
 
         # Arrange
         catalog = data_catalog_setup(protocol="file")

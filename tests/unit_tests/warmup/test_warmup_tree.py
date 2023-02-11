@@ -26,7 +26,7 @@ from pathlib import Path
 from tests.unit_tests.warmup.warmup_mocks import MockWarmupIndicator
 
 
-def test_data_filepath(bar_type: BarType) -> Path:
+def data_filepath(bar_type: BarType) -> Path:
     filename = (
             str(bar_type).replace("/", "").replace(".", "-") + "-2019.parquet"
     )  # USDJPY-SIM-1-DAY-BID-EXTERNAL-2019.parquet
@@ -48,7 +48,7 @@ def load_warmup_bars_into_catalog(catalog: ParquetDataCatalog, bar_types: list[B
         # assert os.path.exists(file_path)
 
         process_files(
-            glob_path=test_data_filepath(bar_type).as_posix(),
+            glob_path=data_filepath(bar_type).as_posix(),
             catalog=catalog,
             reader=ParquetReader(parser=bar_parser),
         )
@@ -63,24 +63,24 @@ class TestWarmupTree:
     def test_configs_on_level(self):
         bar_type = BarType.from_str("EUR/USD.SIM-1-HOUR-BID-EXTERNAL")
 
-        indicator3 = MockWarmupIndicator(WarmupConfig(bar_type, 5))
-        indicator2 = MockWarmupIndicator(WarmupConfig(bar_type, 10, children=[indicator3]))
-        indicator1 = MockWarmupIndicator(WarmupConfig(bar_type, 20, children=[indicator2]))
+        indicator3 = MockWarmupIndicator(WarmupConfig(5, bar_type))
+        indicator2 = MockWarmupIndicator(WarmupConfig(10, bar_type, children=[indicator3]))
+        indicator1 = MockWarmupIndicator(WarmupConfig(20, bar_type, children=[indicator2]))
 
         levels = WarmupTree._configs_on_level(indicator1)
 
         assert levels == [
-            [indicator1.config],
-            [indicator2.config],
-            [indicator3.config]
+            [indicator1.warmup_config],
+            [indicator2.warmup_config],
+            [indicator3.warmup_config]
         ]
 
     def test_indicators_on_level(self):
         bar_type = BarType.from_str("EUR/USD.SIM-1-HOUR-BID-EXTERNAL")
 
-        indicator3 = MockWarmupIndicator(WarmupConfig(bar_type, 5))
-        indicator2 = MockWarmupIndicator(WarmupConfig(bar_type, 10, children=[indicator3]))
-        indicator1 = MockWarmupIndicator(WarmupConfig(bar_type, 20, children=[indicator2]))
+        indicator3 = MockWarmupIndicator(WarmupConfig(5, bar_type))
+        indicator2 = MockWarmupIndicator(WarmupConfig(10, bar_type, children=[indicator3]))
+        indicator1 = MockWarmupIndicator(WarmupConfig(20, bar_type, children=[indicator2]))
 
         assert WarmupTree._indicators_on_level(indicator1) == [
             [indicator1],
@@ -100,13 +100,13 @@ class TestWarmupTree:
 
         tree = WarmupTree(indicator=indicator1)
 
-        data = as_utc_index(pd.read_parquet(test_data_filepath(bar_type))).index
+        data = as_utc_index(pd.read_parquet(data_filepath(bar_type))).index
 
         start_date = tree.start_date(end_date=data[-1], catalog=catalog)
 
-        expected_index = indicator1.config.count \
-                         + indicator2.config.count \
-                         + indicator3.config.count \
+        expected_index = indicator1.warmup_config.count \
+                         + indicator2.warmup_config.count \
+                         + indicator3.warmup_config.count \
 
         expected = data[-expected_index - 1]
 
@@ -123,11 +123,11 @@ class TestWarmupTree:
         catalog = data_catalog_setup(protocol="file")
         load_warmup_bars_into_catalog(catalog, [bar_type])
 
-        data = as_utc_index(pd.read_parquet(test_data_filepath(bar_type))).index
+        data = as_utc_index(pd.read_parquet(data_filepath(bar_type))).index
 
-        expected_index = indicator1.config.count \
-                         + indicator2.config.count \
-                         + indicator4.config.count
+        expected_index = indicator1.warmup_config.count \
+                         + indicator2.warmup_config.count \
+                         + indicator4.warmup_config.count
 
         expected = data[-expected_index - 1]
 
