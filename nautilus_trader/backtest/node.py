@@ -166,9 +166,6 @@ class BacktestNode:
 
         # Add venues (must be added prior to instruments)
         for config in venue_configs:
-            modules = None
-            if config.modules:
-                modules = [ModuleFactory.create(x) for x in config.modules]
 
             base_currency: Optional[str] = config.base_currency
             if config.leverages:
@@ -190,7 +187,6 @@ class BacktestNode:
                 modules=[ActorFactory.create(module) for module in (config.modules or [])],
                 frozen_account=config.frozen_account,
                 reject_stop_orders=config.reject_stop_orders,
-                modules=modules,
             )
 
         # Add instruments
@@ -263,7 +259,6 @@ class BacktestNode:
 
         streaming_engine = StreamingEngine(
             data_configs=data_configs,
-            read_num_rows=10_000,
             target_batch_size_bytes=batch_size_bytes,
         )
 
