@@ -30,11 +30,9 @@ from nautilus_trader.config.common import CacheDatabaseConfig
 from nautilus_trader.config.common import DataEngineConfig
 from nautilus_trader.config.common import ExecEngineConfig
 from nautilus_trader.config.common import ImportableActorConfig
-from nautilus_trader.config.common import ImportableModuleConfig
 from nautilus_trader.config.common import ImportableStatisticConfig
 from nautilus_trader.config.common import ImportableStrategyConfig
 from nautilus_trader.config.common import InstrumentProviderConfig
-from nautilus_trader.config.common import ModuleFactory
 from nautilus_trader.config.common import NautilusKernelConfig
 from nautilus_trader.config.common import OrderEmulatorConfig
 from nautilus_trader.config.common import RiskEngineConfig
@@ -65,11 +63,9 @@ __all__ = [
     "DataEngineConfig",
     "ExecEngineConfig",
     "ImportableActorConfig",
-    "ImportableModuleConfig",
     "ImportableStatisticConfig",
     "ImportableStrategyConfig",
     "InstrumentProviderConfig",
-    "ModuleFactory",
     "NautilusKernelConfig",
     "OrderEmulatorConfig",
     "RiskEngineConfig",

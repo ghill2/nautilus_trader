@@ -26,6 +26,7 @@ from nautilus_trader.config import CacheConfig
 from nautilus_trader.config import CacheDatabaseConfig
 from nautilus_trader.config import DataEngineConfig
 from nautilus_trader.config import ExecEngineConfig
+from nautilus_trader.config import ImportableStatisticConfig
 from nautilus_trader.config import RiskEngineConfig
 from nautilus_trader.config import StatisticFactory
 from nautilus_trader.config.error import InvalidConfiguration
@@ -160,10 +161,28 @@ cdef class BacktestEngine:
         )
 
         # Setup statistics
-        if self._config.statistics:
-            for config in self._config.statistics:
-                statistic = StatisticFactory.create(config)
-                self._kernel.portfolio.analyzer.register_statistic(statistic)
+        DEFAULT_STATISTICS = [
+            ImportableStatisticConfig(
+                statistic_path="pytower.stats.max_drawdown:MaxDrawdown",
+            ),
+            ImportableStatisticConfig(
+                statistic_path="pytower.stats.max_drawdown_percentage:MaxDrawdownPercentage",
+            ),
+            ImportableStatisticConfig(
+                statistic_path="pytower.stats.max_drawdown_return_annual:MaxDrawdownReturnAnnual",
+            ),
+            ImportableStatisticConfig(
+                statistic_path="pytower.stats.max_drawdown_return:MaxDrawdownReturn",
+            ),
+        ]
+
+        statistic_configs = self._config.statistics
+        if statistic_configs is None:
+            statistic_configs = []
+
+        for statistic_config in statistic_configs + DEFAULT_STATISTICS:
+            statistic = StatisticFactory.create(statistic_config)
+            self._kernel.portfolio.analyzer.register_statistic(statistic)
     @property
     def trader_id(self) -> TraderId:
         """
