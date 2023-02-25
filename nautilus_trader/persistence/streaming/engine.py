@@ -20,12 +20,15 @@ from collections.abc import Generator
 
 import fsspec
 import numpy as np
+import pandas as pd
 
 from nautilus_trader.config import BacktestDataConfig
 from nautilus_trader.core.data import Data
 from nautilus_trader.model.data import Bar
 from nautilus_trader.model.data import BarSpecification
 from nautilus_trader.model.identifiers import InstrumentId
+
+from nautilus_trader.core.datetime import unix_nanos_to_dt
 from nautilus_trader.persistence.funcs import parse_bytes
 from nautilus_trader.persistence.streaming.batching import generate_batches
 from nautilus_trader.persistence.streaming.batching import generate_batches_rust
@@ -108,15 +111,29 @@ class _BufferIterator:
 
     def _iterate_batches(self) -> Generator[list[Data], None, None]:
         while True:
+
             for buffer in self._buffers:
                 buffer.add_data()
 
             self._remove_completed()
 
+            # if sum(map(len, self._buffers)) == 0:
+            #   continue  # keep loading data, all buffers empty
+            # TODO fix hang on
+            """
+            start = str(pd.Timestamp("2021-02-01", tz="UTC"))
+            end = str(pd.Timestamp("2021-02-10", tz="UTC"))
+            """
             if len(self._buffers) == 0:
                 return  # Stop iterating
 
-            yield self._remove_front()
+            objs = self._remove_front()
+
+            print(
+                pd.Series([x.ts_event for x in objs]).apply(unix_nanos_to_dt)
+            )
+
+            yield objs
 
             self._remove_completed()
 
