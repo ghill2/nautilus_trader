@@ -24,7 +24,7 @@ cdef class Indicator:
     cdef public dict values
     cdef readonly LoggerAdapter log
     cdef readonly str name
-    cdef readonly object config
+    cdef readonly object warmup_config
 
     """The name of the indicator.\n\n:returns: `str`"""
     cdef readonly str id

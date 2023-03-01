@@ -46,7 +46,7 @@ cdef class Indicator:
         self.initialized = False
         self.values = {}
         self.log = log
-        self.config = warmup_config
+        self.warmup_config = warmup_config
 
     def __repr__(self) -> str:
         return f"{self.name}({self._params_str()})"

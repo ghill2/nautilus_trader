@@ -156,7 +156,7 @@ class WarmupTree(WarmupStart):
         _map = defaultdict(list)  # dict[BarType, list[Indicator]]
         for indicator in self._indicators:
 
-            bar_type = indicator.config.bar_type
+            bar_type = indicator.warmup_config.bar_type
 
             # INTERNAL bar types are warmed using EXTERNAL bar sources
             if bar_type.aggregation_source == AggregationSource.INTERNAL:
@@ -176,7 +176,7 @@ class WarmupTree(WarmupStart):
     @staticmethod
     def _configs_on_level(indicator: Indicator) -> list[list[WarmupConfig]]:
         return [
-            [i.config for i in indicators]
+            [i.warmup_config for i in indicators]
             for indicators in WarmupTree._indicators_on_level(indicator)
         ]
 
@@ -192,7 +192,7 @@ class WarmupTree(WarmupStart):
 
             children = []
             for indicator in indicators:
-                children += indicator.config.children
+                children += indicator.warmup_config.children
             indicators = children
 
             i += 1

@@ -53,7 +53,7 @@ class WarmupEngine:
         trees = []
         for indicator in self._indicators:
 
-            config = indicator.config
+            config = indicator.warmup_config
             if config is None:
                 continue
 
@@ -76,7 +76,7 @@ class WarmupEngine:
 
     def _request_bars(self) -> list[Bar]:
         """Requests the bars needed to satisfy the warmup ranges sorted by their BarTypes"""
-        bar_types = [indicator.config.bar_type for indicator in self._indicators]
+        bar_types = [indicator.warmup_config.bar_type for indicator in self._indicators]
         filter_expr = ds.field("bar_type").cast("string").isin([str(bt) for bt in bar_types])
         bars: pd.DataFrame = self._catalog.query(
             cls=Bar,
