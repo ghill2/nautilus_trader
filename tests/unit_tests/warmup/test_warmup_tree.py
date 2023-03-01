@@ -1,9 +1,6 @@
-import os
-
 import pandas as pd
 import pytest
 from nautilus_trader.core.datetime import as_utc_index
-from nautilus_trader.model.enums import AggregationSource
 
 from nautilus_trader.persistence.external.core import process_files
 
@@ -42,20 +39,11 @@ def load_warmup_bars_into_catalog(catalog: ParquetDataCatalog, bar_types: list[B
             bars = wrangler.process(data=df)
             yield from bars
 
-        import os
-
-        # file_path = TEST_DATA_DIR + "/" + test_data_filename(bar_type)
-        # assert os.path.exists(file_path)
-
         process_files(
             glob_path=data_filepath(bar_type).as_posix(),
             catalog=catalog,
             reader=ParquetReader(parser=bar_parser),
         )
-
-
-
-
 
 
 class TestWarmupTree:
