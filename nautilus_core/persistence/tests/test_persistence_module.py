@@ -21,8 +21,7 @@ from nautilus_trader.core.nautilus_pyo3.persistence import ParquetReaderType
 from nautilus_trader.core.nautilus_pyo3.persistence import ParquetType
 from nautilus_trader.core.nautilus_pyo3.persistence import ParquetWriter
 from nautilus_trader.core.nautilus_pyo3.persistence import PythonCatalog
-from nautilus_trader.model.data.tick import QuoteTick
-from nautilus_trader.model.data.tick import TradeTick
+from nautilus_trader.persistence.wranglers import list_from_capsule
 
 
 def test_python_catalog():
@@ -32,9 +31,8 @@ def test_python_catalog():
     result = session.to_query_result()
 
     total_count = 0
-    print("query result")
     for chunk in result:
-        tick_list = QuoteTick.list_from_capsule(chunk)
+        tick_list = list_from_capsule(chunk)
         total_count += len(tick_list)
 
     assert total_count == 9500
@@ -103,3 +101,7 @@ def test_trade_tick_round_trip():
     # test on last chunk tick i.e. 9500th record
     assert str(ticks[-1]) == "EUR/USD.SIM,1.2340,5.0000,BUYER,123456,0"
     assert str(buf_ticks[-1]) == str(ticks[-1])
+
+
+if __name__ == "__main__":
+    test_python_catalog()
