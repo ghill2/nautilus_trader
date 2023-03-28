@@ -19,7 +19,6 @@ import cython
 
 from libc.stdint cimport uint64_t
 
-
 @cython.auto_pickle(False)
 cdef class Data:
     """
