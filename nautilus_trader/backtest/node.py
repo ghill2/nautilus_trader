@@ -28,20 +28,20 @@ from nautilus_trader.config import BacktestRunConfig
 from nautilus_trader.config import BacktestVenueConfig
 from nautilus_trader.config import ModuleFactory
 from nautilus_trader.core.correctness import PyCondition
+from nautilus_trader.core.datetime import dt_to_unix_nanos
 from nautilus_trader.core.inspect import is_nautilus_class
+from nautilus_trader.core.nautilus_pyo3.persistence import ParquetType
+from nautilus_trader.core.nautilus_pyo3.persistence import PythonCatalog
 from nautilus_trader.model.currency import Currency
 from nautilus_trader.model.data import DataType
 from nautilus_trader.model.data import GenericData
 from nautilus_trader.model.enums import AccountType
 from nautilus_trader.model.enums import OmsType
 from nautilus_trader.model.enums import book_type_from_str
-from nautilus_trader.model.identifiers import ClientId
 from nautilus_trader.model.identifiers import InstrumentId
 from nautilus_trader.model.identifiers import Venue
 from nautilus_trader.model.objects import Money
-from nautilus_trader.persistence.streaming.engine import StreamingEngine
-from nautilus_trader.persistence.streaming.engine import extract_generic_data_client_ids
-from nautilus_trader.persistence.streaming.engine import groupby_datatype
+from nautilus_trader.persistence.wranglers import list_from_capsule
 
 
 class BacktestNode:
@@ -132,7 +132,6 @@ class BacktestNode:
                 engine_config=config.engine,
                 venue_configs=config.venues,
                 data_configs=config.data,
-                batch_size_bytes=config.batch_size_bytes,
             )
             results.append(result)
 
@@ -229,21 +228,12 @@ class BacktestNode:
             venue_configs=venue_configs,
             data_configs=data_configs,
         )
-
         # Run backtest
-        if batch_size_bytes is not None:
-            self._run_streaming(
-                run_config_id=run_config_id,
-                engine=engine,
-                data_configs=data_configs,
-                batch_size_bytes=batch_size_bytes,
-            )
-        else:
-            self._run_oneshot(
-                run_config_id=run_config_id,
-                engine=engine,
-                data_configs=data_configs,
-            )
+        self._run_streaming(
+            run_config_id=run_config_id,
+            engine=engine,
+            data_configs=data_configs,
+        )
 
         # Release data objects
         if not engine.trader.is_disposed:
@@ -256,29 +246,38 @@ class BacktestNode:
         run_config_id: str,
         engine: BacktestEngine,
         data_configs: list[BacktestDataConfig],
-        batch_size_bytes: int,
     ) -> None:
-        data_client_ids = extract_generic_data_client_ids(data_configs=data_configs)
+        session = PythonCatalog()
 
-        streaming_engine = StreamingEngine(
-            data_configs=data_configs,
-            read_num_rows=10_000,
-            target_batch_size_bytes=batch_size_bytes,
-        )
+        for config in data_configs:
+            start_nanos = dt_to_unix_nanos(pd.Timestamp(config.start_time))
+            end_nanos = dt_to_unix_nanos(pd.Timestamp(config.end_time))
+            from pytower.data.catalog import TowerCatalog
 
-        for batch in streaming_engine:
+            files = TowerCatalog(path=config.catalog_path).files(config=config)
+            assert len(files) > 0
+
+            for pfile in files:
+                print(f"ParquetFile: {str(pfile)}")
+                tablename = pfile.stem.replace("-", "_").lower()
+                sql_query = f"SELECT * FROM {tablename} WHERE ts_event >= {start_nanos} AND ts_event < {end_nanos};"
+                session.add_file_with_query(
+                    tablename,
+                    str(pfile),
+                    sql_query,
+                    ParquetType.QuoteTick,
+                )
+
+        result = session.to_query_result()
+        processed_count = 0
+        for chunk in result:
             engine.clear_data()
-
-            grouped = groupby_datatype(batch)
-            for data in grouped:
-                if data["type"] in data_client_ids:
-                    # Generic data - manually re-add client_id as it gets lost in the streaming join
-                    data.update({"client_id": ClientId(data_client_ids[data["type"]])})
-                    data["data"] = [
-                        GenericData(data_type=DataType(data["type"]), data=d) for d in data["data"]
-                    ]
-                self._load_engine_data(engine=engine, data=data)
+            quotes = list_from_capsule(chunk)
+            processed_count += len(quotes)
+            engine.add_data(data=quotes)
             engine.run(run_config_id=run_config_id, streaming=True)
+
+        assert processed_count > 0
 
         engine.end()
         engine.dispose()
