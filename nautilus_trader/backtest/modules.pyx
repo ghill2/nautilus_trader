@@ -107,10 +107,6 @@ cdef class FXRolloverInterestModule(SimulationModule):
     ----------
     config  : FXRolloverInterestConfig
     """
-
-    # def __init__(self, rate_data not None: pd.DataFrame, broker_markup = None):
-    #     # TODO
-    #     super().__init__()
     def __init__(self, config: FXRolloverInterestConfig):
         super().__init__(config)
 
@@ -120,19 +116,7 @@ cdef class FXRolloverInterestModule(SimulationModule):
         self._rollover_totals = {}
         self._day_number = 0
 
-        self._broker_markup = broker_markup
-
-    @classmethod
-    def from_file(cls, path: str):
-
-        cdef object rate_data
-
-        if path.endswith(".csv"):
-            rate_data = pd.read_csv(path)
-        else:
-            raise RuntimeError("Unsupported rate data file extension")
-
-        return cls(rate_data=rate_data)
+        self._broker_markup = config.broker_markup
 
     cpdef void process(self, uint64_t ts_now):
         """
