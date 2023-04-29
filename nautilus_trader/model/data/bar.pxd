@@ -18,6 +18,7 @@ from nautilus_trader.core.rust.model cimport Bar_t
 from nautilus_trader.core.rust.model cimport BarSpecification_t
 from nautilus_trader.core.rust.model cimport BarType_t
 from nautilus_trader.model.enums_c cimport BarAggregation
+from nautilus_trader.model.enums_c cimport PriceType
 
 
 cdef class BarSpecification:
@@ -63,6 +64,8 @@ cdef class BarType:
     cpdef bint is_externally_aggregated(self)
     cpdef bint is_internally_aggregated(self)
 
+    cpdef BarType with_spec(self, BarSpecification spec)
+    cpdef BarType with_price_type(self, PriceType price_type)
 
 cdef class Bar(Data):
     cdef Bar_t _mem

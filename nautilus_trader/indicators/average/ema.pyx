@@ -21,6 +21,10 @@ from nautilus_trader.model.data.tick cimport TradeTick
 from nautilus_trader.model.enums_c cimport PriceType
 from nautilus_trader.model.objects cimport Price
 
+from nautilus_trader.core.datetime import unix_nanos_to_dt
+
+from nautilus_trader.common.logging cimport LoggerAdapter
+
 
 cdef class ExponentialMovingAverage(MovingAverage):
     """
@@ -40,9 +44,9 @@ cdef class ExponentialMovingAverage(MovingAverage):
         If `period` is not positive (> 0).
     """
 
-    def __init__(self, int period, PriceType price_type=PriceType.LAST):
+    def __init__(self, int period, PriceType price_type=PriceType.LAST, str id = None, LoggerAdapter log = None):
         Condition.positive_int(period, "period")
-        super().__init__(period, params=[period], price_type=price_type)
+        super().__init__(period, params=["period"], price_type=price_type, id=id, log=log)
 
         self.alpha = 2.0 / (period + 1.0)
         self.value = 0

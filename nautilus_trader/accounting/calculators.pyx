@@ -196,22 +196,10 @@ cdef class RolloverInterestCalculator:
     """
 
     def __init__(self, data not None: pd.DataFrame):
-        self._rate_data = {
-            "AUD": data.loc[data["LOCATION"] == "AUS"],
-            "CAD": data.loc[data["LOCATION"] == "CAN"],
-            "CHF": data.loc[data["LOCATION"] == "CHE"],
-            "EUR": data.loc[data["LOCATION"] == "EA19"],
-            "USD": data.loc[data["LOCATION"] == "USA"],
-            "JPY": data.loc[data["LOCATION"] == "JPN"],
-            "NZD": data.loc[data["LOCATION"] == "NZL"],
-            "GBP": data.loc[data["LOCATION"] == "GBR"],
-            "RUB": data.loc[data["LOCATION"] == "RUS"],
-            "NOK": data.loc[data["LOCATION"] == "NOR"],
-            "CNY": data.loc[data["LOCATION"] == "CHN"],
-            "CNH": data.loc[data["LOCATION"] == "CHN"],
-            "MXN": data.loc[data["LOCATION"] == "MEX"],
-            "ZAR": data.loc[data["LOCATION"] == "ZAF"],
-        }
+        data.set_index("date", inplace=True)
+        self._rate_data = {}
+        for code in data.code.drop_duplicates():
+            self._rate_data[code] = data.loc[data.code == code]['value'].to_dict()
 
     cpdef object get_rate_data(self):
         """
@@ -257,17 +245,24 @@ cdef class RolloverInterestCalculator:
         cdef str base_currency = symbol[:3]
         cdef str quote_currency = symbol[-3:]
         cdef str time_monthly = f"{date.year}-{str(date.month).zfill(2)}"
-        cdef str time_quarter = f"{date.year}-Q{str(int(((date.month - 1) // 3) + 1)).zfill(2)}"
 
-        base_data = self._rate_data[base_currency].loc[self._rate_data[base_currency]['TIME'] == time_monthly]
-        if base_data.empty:
-            base_data = self._rate_data[base_currency].loc[self._rate_data[base_currency]['TIME'] == time_quarter]
 
-        quote_data = self._rate_data[quote_currency].loc[self._rate_data[quote_currency]['TIME'] == time_monthly]
-        if quote_data.empty:
-            quote_data = self._rate_data[quote_currency].loc[self._rate_data[quote_currency]['TIME'] == time_quarter]
+        cdef dict base_data = self._rate_data.get(base_currency)
+        cdef dict quote_data = self._rate_data.get(quote_currency)
 
-        if base_data.empty and quote_data.empty:
-            raise RuntimeError(f"cannot find rollover interest rate for {instrument_id} on {date}")  # pragma: no cover
+        if base_data is None: # pragma: no cover
+            raise RuntimeError(f"Rollover interest rate data does not exist for currency {base_currency}")
 
-        return Decimal(((<double>base_data['Value'] - <double>quote_data['Value']) / 365) / 100)
+        if quote_data is None:  # pragma: no cover
+            raise RuntimeError(f"Rollover interest rate data does not exist for currency {quote_currency}")
+
+        cdef object base_value = base_data.get(time_monthly)
+        cdef object quote_value = quote_data.get(time_monthly)
+
+        if base_value is None: # pragma: no cover
+            raise RuntimeError(f"Rollover interest rate NOT found for base currency {base_currency} on month {time_monthly}")
+
+        if quote_value is None:  # pragma: no cover
+            raise RuntimeError(f"Rollover interest rate NOT found for quote currency {quote_currency} on month {time_monthly}")
+
+        return <double>base_value, <double>quote_value

@@ -18,6 +18,8 @@ from typing import Any, Optional
 
 import pandas as pd
 
+from nautilus_trader.accounting.accounts.base import Account
+from nautilus_trader.backtest.engine import BacktestEngine
 from nautilus_trader.model.orders import Order
 from nautilus_trader.model.position import Position
 
@@ -127,7 +129,15 @@ class PortfolioStatistic:
             A JSON serializable primitive.
 
         """
-        ...  # Override in implementation
+        pass  # Override in implementation
+
+    def calculate_from_data(
+        self,
+        engine: BacktestEngine,
+        account: Account,
+        positions: list[Position],
+    ) -> Optional[Any]:
+        pass  # Override in implementation
 
     def _check_valid_returns(self, returns: pd.Series) -> bool:
         if returns is None or returns.empty or returns.isnull().all():
