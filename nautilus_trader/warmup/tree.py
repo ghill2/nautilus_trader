@@ -90,19 +90,20 @@ class WarmupConfig(WarmupStart):
         while start_date > stop_date:
             df = catalog.query(
                 cls=Bar,
-                filter_expr=filter_expr,
+                # filter_expr=filter_expr,
+                bar_spec=self.bar_type.spec,
                 start=start_date,
                 end=end_date,
                 as_nautilus=False,
                 instrument_ids=[str(self.bar_type.instrument_id)],
                 raise_on_empty=False,
                 clean_instrument_keys=True,
-                table_kwargs={"columns": "ts_event instrument_id".split()}
+                # table_kwargs={"columns": "ts_event instrument_id".split()}
             )
 
-            timestamps = pd.Index(df.ts_event, dtype=np.uint64)
-            if len(timestamps) >= self.count:
-                return unix_nanos_to_dt(timestamps[-self.count])
+            if len(df) >= self.count:
+                timestamp = df.reset_index().timestamp.iloc[-self.count]
+                return timestamp
 
             start_date -= warmup_length
 

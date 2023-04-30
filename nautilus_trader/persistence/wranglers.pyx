@@ -70,24 +70,6 @@ cdef inline list capsule_to_data_list(object capsule):
 def list_from_capsule(capsule) -> list[Data]:
     return capsule_to_data_list(capsule)
 
-# Safety: Do NOT deallocate the capsule here
-cdef inline list capsule_to_data_list(object capsule):
-    cdef CVec* data = <CVec*>PyCapsule_GetPointer(capsule, NULL)
-    cdef Data_t* ptr = <Data_t*>data.ptr
-    cdef list ticks = []
-
-    cdef uint64_t i
-    for i in range(0, data.len):
-        if ptr[i].tag == Data_t_Tag.TRADE:
-            ticks.append(TradeTick.from_mem_c(ptr[i].trade))
-        elif ptr[i].tag == Data_t_Tag.QUOTE:
-            ticks.append(QuoteTick.from_mem_c(ptr[i].quote))
-
-    return ticks
-
-def list_from_capsule(capsule) -> list[Data]:
-    return capsule_to_data_list(capsule)
-
 cdef class QuoteTickDataWrangler:
     """
     Provides a means of building lists of Nautilus `QuoteTick` objects.

@@ -145,7 +145,8 @@ class EMACross(Strategy):
         self.subscribe_bars(self.bar_type)
         self.subscribe_quote_ticks(self.instrument_id)
 
-        self.warmup()
+
+        # self.warmup()
 
 
 
