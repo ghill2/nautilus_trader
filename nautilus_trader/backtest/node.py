@@ -258,7 +258,7 @@ class BacktestNode:
 
             for pfile in files:
                 print(f"ParquetFile: {str(pfile)}")
-                tablename = pfile.stem.replace("-", "_").lower()
+                tablename = pfile.path.stem.replace("-", "_").lower()
                 sql_query = f"SELECT * FROM {tablename} WHERE ts_event >= {start_nanos} AND ts_event < {end_nanos};"
                 session.add_file_with_query(
                     tablename,
