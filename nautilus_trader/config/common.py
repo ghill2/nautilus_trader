@@ -438,7 +438,7 @@ class StrategyConfig(NautilusConfig, kw_only=True, frozen=True):
     external_order_claims: Optional[list[str]] = None
     warmup_engine_config: Optional[WarmupEngineConfig] = None
 
-
+    
 class ImportableStrategyConfig(NautilusConfig, frozen=True):
     """
     Configuration for a trading strategy instance.
@@ -487,7 +487,6 @@ class StrategyFactory:
         strategy_cls = resolve_path(config.strategy_path)
         config_cls = resolve_path(config.config_path)
         return strategy_cls(config=config_cls(**config.config))
-
 
 class ExecAlgorithmConfig(NautilusConfig, kw_only=True, frozen=True):
     """
