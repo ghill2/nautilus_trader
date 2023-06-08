@@ -145,16 +145,17 @@ cdef class BacktestEngine:
             component_name=type(self).__name__,
             logger=self._kernel.logger,
         )
-
-    def __del__(self) -> None:
-        if self._accumulator._0 != NULL:
-            time_event_accumulator_drop(self._accumulator)
-
+        
         # Setup statistics
         if self._config.statistics:
             for config in self._config.statistics:
                 statistic = StatisticFactory.create(config)
                 self._kernel.portfolio.analyzer.register_statistic(statistic)
+
+    def __del__(self) -> None:
+        if self._accumulator._0 != NULL:
+            time_event_accumulator_drop(self._accumulator)
+        
     @property
     def trader_id(self) -> TraderId:
         """

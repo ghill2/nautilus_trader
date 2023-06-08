@@ -250,6 +250,7 @@ class EMACross(Strategy):
             elif self.portfolio.is_net_short(self.instrument_id):
                 self.close_all_positions(self.instrument_id)
                 self.buy()
+                
         # SELL LOGIC
         elif self.fast_ema.value < self.slow_ema.value:
             if self.portfolio.is_flat(self.instrument_id):
