@@ -290,10 +290,10 @@ cdef class QuoteTick(Data):
     @staticmethod
     cdef QuoteTick from_mem_c(QuoteTick_t mem):
         cdef QuoteTick quote_tick = QuoteTick.__new__(QuoteTick)
-        quote_tick._mem = quote_tick_clone(&mem)
+        quote_tick._mem = mem #  quote_tick_clone()
+        print("SUCCESS")
         quote_tick.ts_event = mem.ts_event
         quote_tick.ts_init = mem.ts_init
-
         return quote_tick
 
     # Safety: Do NOT deallocate the capsule here
@@ -302,12 +302,13 @@ cdef class QuoteTick(Data):
     cdef inline list capsule_to_quote_tick_list(object capsule):
         cdef CVec* data = <CVec*>PyCapsule_GetPointer(capsule, NULL)
         cdef QuoteTick_t* ptr = <QuoteTick_t*>data.ptr
+        
         cdef list ticks = []
 
         cdef uint64_t i
         for i in range(0, data.len):
-            ticks.append(QuoteTick.from_mem_c(ptr[i]))
-
+            QuoteTick.from_mem_c(ptr[i])
+            
         return ticks
 
     @staticmethod
