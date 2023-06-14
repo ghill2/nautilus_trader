@@ -12,11 +12,11 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
-
-mod kmerge_batch;
+#![allow(warnings)]
+pub mod kmerge_batch;
 pub mod parquet;
 pub mod session;
-
+pub mod kmerge;
 use parquet::ParquetType;
 use pyo3::prelude::*;
 use session::{PythonCatalog, PythonQueryResult};

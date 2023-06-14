@@ -26,9 +26,13 @@ use nautilus_model::data::tick::{Data, QuoteTick, TradeTick};
 use pyo3::prelude::*;
 use pyo3::types::PyCapsule;
 use pyo3_asyncio::tokio::get_runtime;
-
+use datafusion::arrow::datatypes::SchemaRef;
+use datafusion::arrow::record_batch::RecordBatch;
 use crate::kmerge_batch::{KMerge, PeekElementBatchStream};
 use crate::parquet::{DecodeDataFromRecordBatch, ParquetType};
+use std::collections::HashMap;
+
+
 
 #[derive(Debug, Default)]
 pub struct TsInitComparator;

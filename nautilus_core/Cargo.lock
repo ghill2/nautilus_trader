@@ -1782,6 +1782,7 @@ dependencies = [
  "pyo3",
  "pyo3-asyncio",
  "rand",
+ "stream-kmerge",
  "tokio",
 ]
 
@@ -2639,6 +2640,16 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
+name = "stream-kmerge"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb40ee5776e0fd3aa2291b8bedb6e60bda2762cc282c496d01710443c94a5e2a"
+dependencies = [
+ "futures",
+ "pin-project-lite",
+]
 
 [[package]]
 name = "strsim"

@@ -23,6 +23,7 @@ compare = "0.1.0"
 datafusion = { version = "23.0.0", default-features = false, features = [ "regex_expressions", "unicode_expressions", "compression"] }
 futures = "0.3.28"
 pin-project-lite = "0.2.9"
+stream-kmerge = "0.1"
 
 [features]
 extension-module = ["pyo3/extension-module", "nautilus_core/extension-module", "nautilus_model/extension-module"]
