@@ -92,7 +92,6 @@ from nautilus_trader.model.position cimport Position
 from nautilus_trader.msgbus.bus cimport MessageBus
 
 from nautilus_trader.persistence.catalog import ParquetDataCatalog
-from nautilus_trader.warmup.engine import WarmupEngine
 
 cdef class Strategy(Actor):
     """
@@ -1468,18 +1467,3 @@ cdef class Strategy(Actor):
         if not self.log.is_bypassed:
             self.log.info(f"{CMD}{SENT} {command}.")
         self._msgbus.send(endpoint="ExecEngine.execute", msg=command)
-
-    def warmup(self):
-        config = self.config.warmup_engine_config
-        if config is None:
-            self.log.error("warmup was started without a WarmupEngineConfig. Add a WarmupEngineConfig to the StrategyConfig")
-
-        end_date = pd.Timestamp(config.end_date)
-
-        from pytower.data.catalog import TowerCatalog
-        catalog = TowerCatalog(config.catalog_path)
-
-        engine = WarmupEngine(indicators=self.registered_indicators, end_date=end_date, catalog=catalog)
-        engine.process()
-        self.log.info("Warmup completed.")
-
