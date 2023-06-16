@@ -1,5 +1,3 @@
-from nautilus_trader.warmup.tree import WarmupConfig
-
 4  # -------------------------------------------------------------------------------------------------
 #  Copyright (C) 2015-2022 Nautech Systems Pty Ltd. All rights reserved.
 #  https://nautechsystems.io
@@ -69,7 +67,7 @@ class EMACrossConfig(StrategyConfig, frozen=True):
         The order management system type for the strategy. This will determine
         how the `ExecutionEngine` handles position IDs (see docs).
     """
-
+    params: dict
     instrument_id: str
     bar_type: str
     trade_size: Decimal
@@ -77,6 +75,8 @@ class EMACrossConfig(StrategyConfig, frozen=True):
     slow_ema_period: int = 20
     close_positions_on_stop: bool = True
 
+class ExponentialMovingAverageFast(ExponentialMovingAverage): pass
+class ExponentialMovingAverageSlow(ExponentialMovingAverage): pass
 
 class EMACross(Strategy):
     """
@@ -114,16 +114,11 @@ class EMACross(Strategy):
             PriceType.BID: self.bar_type.with_price_type(PriceType.BID),
             PriceType.ASK: self.bar_type.with_price_type(PriceType.ASK),
         }
-        self.fast_ema = ExponentialMovingAverage(config.fast_ema_period, id="fast", log=self.log)
-        self.slow_ema = ExponentialMovingAverage(config.slow_ema_period, id="slow", log=self.log)
 
-        warmup_config = WarmupConfig(count=config.fast_ema_period, bar_type=self.bar_type)
-        self.fast_ema = ExponentialMovingAverage(config.fast_ema_period, id="fast", log=self.log, warmup_config=warmup_config)
+        self.fast_ema = ExponentialMovingAverageFast(config.fast_ema_period)
+        self.slow_ema = ExponentialMovingAverageSlow(config.slow_ema_period)
 
-        warmup_config = WarmupConfig(count=config.slow_ema_period, bar_type=self.bar_type)
-        self.slow_ema = ExponentialMovingAverage(config.slow_ema_period, id="slow", log=self.log, warmup_config=warmup_config)
-
-        self.instrument: Optional[Instrument] = None  # Initialized in on_start
+        self.instrument: Instrument = None
         self.i = 0
         self.close_positions_on_stop = config.close_positions_on_stop
         self.instrument: Instrument = None
@@ -131,8 +126,6 @@ class EMACross(Strategy):
         self._message_queue = Queue()
 
     def on_start(self):
-        self.msgbus.send(endpoint="DataActor.register_strategy", msg=self)
-
         """Actions to be performed on strategy start."""
         self.instrument = self.cache.instrument(self.instrument_id)
         if self.instrument is None:
@@ -145,17 +138,11 @@ class EMACross(Strategy):
         self.subscribe_bars(self.bar_type)
         self.subscribe_quote_ticks(self.instrument_id)
 
-
-        # self.warmup()
-
-
-
     def on_bar(self, bar: Bar):
         self.i += 1
         self.log.warning("Strategy processed")
 
         self.log.info(str(self.fast_ema) + repr(bar), LogColor.YELLOW)
-        self.msgbus.send(endpoint="DataActor.register_strategy", msg=self)
 
         # Check if indicators ready
         if not self.indicators_initialized():

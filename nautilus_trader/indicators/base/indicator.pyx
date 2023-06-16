@@ -12,9 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # -------------------------------------------------------------------------------------------------
-from typing import Optional
 
-from nautilus_trader.common.logging cimport LoggerAdapter
 from nautilus_trader.model.data.bar cimport Bar
 from nautilus_trader.model.data.tick cimport QuoteTick
 from nautilus_trader.model.data.tick cimport TradeTick
@@ -23,30 +21,21 @@ from nautilus_trader.model.data.tick cimport TradeTick
 cdef class Indicator:
     """
     The base class for all indicators.
-
     Parameters
     ----------
     params : list
         The initialization parameters for the indicator.
-
     Warnings
     --------
     This class should not be used directly, but through a concrete subclass.
     """
 
-    def __init__(self, list params not None, object warmup_config = None, str id = None, LoggerAdapter log = None):
+    def __init__(self, list params not None):
         self._params = params.copy()
 
-        if id is None:
-            self.name = type(self).__name__
-        else:
-            self.name = type(self).__name__ + "." + id
-
+        self.name = type(self).__name__
         self.has_inputs = False
         self.initialized = False
-        self.values = {}
-        self.log = log
-        self.warmup_config = warmup_config
 
     def __repr__(self) -> str:
         return f"{self.name}({self._params_str()})"
@@ -69,7 +58,6 @@ cdef class Indicator:
     cpdef void reset(self):
         """
         Reset the indicator.
-
         All stateful fields are reset to their initial value.
         """
         self._reset()
@@ -85,10 +73,3 @@ cdef class Indicator:
     cpdef void _reset(self):
         """Abstract method (implement in subclass)."""
         raise NotImplementedError("method must be implemented in the subclass")  # pragma: no cover
-
-    def get_warmup_value(self) -> Optional[int]:
-        """Return the user defined bar count needed to warmup the indicator"""
-        try:
-            return int(self.warmup_value)
-        except:
-            return None
