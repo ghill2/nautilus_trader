@@ -13,35 +13,8 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-mod implementations;
 
-use std::collections::HashMap;
 
-use datafusion::arrow::datatypes::SchemaRef;
-use datafusion::arrow::record_batch::RecordBatch;
-use nautilus_model::data::tick::Data;
-use pyo3::prelude::*;
+// pub mod reader;
 
-#[repr(C)]
-#[pyclass]
-#[derive(Debug, Clone, Copy)]
-pub enum ParquetType {
-    QuoteTick = 0,
-    TradeTick = 1,
-}
 
-#[repr(C)]
-#[pyclass]
-#[derive(Debug, Clone, Copy)]
-pub enum ParquetReaderType {
-    File = 0,
-    Buffer = 1,
-}
-
-pub trait DecodeDataFromRecordBatch
-where
-    Self: Sized + Into<Data>,
-{
-    fn decode_batch(metadata: &HashMap<String, String>, record_batch: RecordBatch) -> Vec<Data>;
-    fn get_schema(metadata: HashMap<String, String>) -> SchemaRef;
-}

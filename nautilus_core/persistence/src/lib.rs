@@ -21,7 +21,6 @@ use parquet::ParquetType;
 use pyo3::prelude::*;
 use session::{PythonCatalog, PythonQueryResult};
 
-use parquet::reader::ParquetReader; // legacy arrow2
 
 /// Loaded as nautilus_pyo3.persistence
 #[pymodule]
@@ -29,6 +28,5 @@ pub fn persistence(_: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<ParquetType>()?;
     m.add_class::<PythonCatalog>()?;
     m.add_class::<PythonQueryResult>()?;
-    m.add_class::<ParquetReader>()?; // legacy arrow2
     Ok(())
 }

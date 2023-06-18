@@ -7,6 +7,7 @@ members = [
     "model",
     "network",
     "persistence",
+    "persistence_g",
     "pyo3"
 ]
 
