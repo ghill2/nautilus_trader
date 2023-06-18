@@ -54,113 +54,61 @@ pub unsafe extern "C" fn parquet_reader_new(
     Box::into_raw(Box::new(reader)) as *mut c_void
 }
 
-#[repr(C)]
-pub struct Vec_QuoteTick {
-    ptr: *mut QuoteTick,
-    cap: usize,
-    len: usize,
+#[no_mangle]
+pub extern "C" fn quote_tick_clone(data: &QuoteTick) -> QuoteTick {
+    data.clone()
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn parquet_reader_next_chunk(
     reader: *mut c_void,
-) -> *mut Vec_QuoteTick {
-    // *mut
-    //////////////////////////////////////////////////////////////////////
-    let mut reader = Box::from_raw(reader as *mut read::FileReader<File>);
+) -> CVec {
+    let mut reader = Box::from_raw(reader as *mut read::FileReader::<File>);
     let chunk = reader.next();
-    
     if chunk.is_none() {
-        // return Box::into_raw(Box::new(Vec::<QuoteTick>::new()))
-        // return Vec::<QuoteTick>::new()
-        let mut vec = Vec_QuoteTick {
-            ptr: Vec::<QuoteTick>::new().as_mut_ptr(),
-            cap: 0,
-            len: 0,
-        };
-        return &mut vec as *mut Vec_QuoteTick;
+        let quotes = Vec::<QuoteTick>::with_capacity(0);
+        Box::into_raw(reader);  // Leak reader value back otherwise it will be dropped after this function
+        return CVec::from(quotes);
     }
-
-    let mut quotes = decode_quotes(reader.schema(), chunk.unwrap().unwrap());
-    // Box::into_raw(Box::new(quotes))
-    // Leak reader otherwise it will be dropped after this function
-    // // quotes.iter().map(|data| (*data).into()).collect()
+    let quotes = decode_quotes(reader.schema(), chunk.unwrap().expect("ERROR"));
+    Box::into_raw(reader);  // Leak reader value back otherwise it will be dropped after this function
+    CVec::from(quotes)
+    // .iter().map(|data| data.clone()).collect::<Vec<_>>()
     
-    // Box::into_raw(Box::new(quotes.clone()));
-    
-    let mut vec = Vec_QuoteTick {
-        ptr: quotes.as_mut_ptr(),
-        cap: quotes.capacity(),
-        len: quotes.len(),
-    };
-    &mut vec as *mut Vec_QuoteTick
 
-    // quotes
-
-    //////////////////////////////////////////////////////////////////////
-    // let mut vec: Vec<QuoteTick> = Vec::from_raw_parts(ptr as *mut QuoteTick, len, len);
-    // let mut vec: Vec<QuoteTick> = Vec::<QuoteTick>::with_capacity(1);
-    // let mut vec: Vec<QuoteTick> = Vec::<QuoteTick>::new();
-    // let tick = QuoteTick {
-    //     instrument_id: InstrumentId::from("ETH-PERP.FTX"),
-    //     bid: Price::new(10000.0, 4),
-    //     ask: Price::new(10001.0, 4),
-    //     bid_size: Quantity::new(1.0, 7),
-    //     ask_size: Quantity::new(1.0, 7),
-    //     ts_event: 25,
-    //     ts_init: 25,
-    // };
-    // vec.push(tick);
-
-    // // let static_ref: &'static mut [QuoteTick] = vec.clone().leak();
-    // // let vec_ = vec.iter().map(|data| (*data).into()).collect();
-    // // Box::into_raw(Box::new(vec));  // Leak vec back otherwise it will be dropped after this function
-    // vec
-    // .as_mut_ptr()
-    
-    //////////////////////////////////////////////////////////////////////
-    // Some(CVec::from(quotes))
-
-    // let mut reader = Box::from_raw(reader as *mut read::FileReader::<File>);
-    // let chunk = reader.next();
-    // Box::into_raw(reader);  // Leak reader value back otherwise it will be dropped after this function
     // chunk.map_or_else(CVec::empty, |data| data.into())
-
+    // }
+        
+    // if chunk.is_none() {
+    //     Box::into_raw(reader);  // Leak reader value back otherwise it will be dropped after this function
+    //     CVec::from(Vec::<QuoteTick>::new())
+    // } else {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn free_chunk(
-    data: *mut Vec_QuoteTick,
+pub unsafe extern "C" fn parquet_reader_drop_chunk(
+    chunk: CVec,
 ) {
-    // let Vec::<QuoteTick> = Box::from_raw(data);
-    let Vec_QuoteTick { ptr, cap, len } = *data;
-    // let {ptr, cap, len} = 
-    // let len: usize = data.len();
-    
-    let vec: Vec<QuoteTick> = unsafe { Vec::from_raw_parts(ptr, cap, len )};
-    drop(vec);
-    
-    // drop(*data)
+    let CVec { ptr, len, cap } = chunk;
+    let data: Vec<QuoteTick> = Vec::from_raw_parts(ptr as *mut QuoteTick, len, cap);
+    drop(data);
 }
 
-// #[no_mangle]
-// pub unsafe extern "C" fn index_chunk(data: Vec_QuoteTick, idx: usize) -> QuoteTick {
-//     let Vec_QuoteTick { ptr, cap, len } = data;
-//     let vec: Vec<QuoteTick> = unsafe { Vec::from_raw_parts(ptr, cap, len )};
-//     vec[idx].clone()
-// }
-
-
-
-
-
-
-
+/// # Safety
+/// - Assumes `reader` is a valid `*mut ParquetReader<Struct>` where the struct
+/// has a corresponding [ParquetType] enum.
+#[no_mangle]
+pub unsafe extern "C" fn parquet_reader_free(
+    reader: *mut c_void,
+) {
+    let mut reader = Box::from_raw(reader as *mut read::FileReader::<File>);
+    drop(reader);
+}
 
 fn decode_quotes(schema: &Schema, cols: Chunk<Box<dyn Array>>) -> Vec<QuoteTick> {
-    // let instrument_id =
-    //     InstrumentId::from(schema.metadata.get("instrument_id").unwrap().as_str());
-    let instrument_id = InstrumentId::from("EUR/USD.DUKA");
+    let instrument_id =
+        InstrumentId::from(schema.metadata.get("instrument_id").unwrap().as_str());
+    // let instrument_id = InstrumentId::from("EUR/USD.DUKA");
     let price_precision = schema
         .metadata
         .get("price_precision")
@@ -223,7 +171,43 @@ fn decode_quotes(schema: &Schema, cols: Chunk<Box<dyn Array>>) -> Vec<QuoteTick>
     values.collect()
 }
 
+
+
+//////////////////////////////////////////////////////////////////////
+    // let mut vec: Vec<QuoteTick> = Vec::from_raw_parts(ptr as *mut QuoteTick, len, len);
+    // let mut vec: Vec<QuoteTick> = Vec::<QuoteTick>::with_capacity(1);
+    // let mut vec: Vec<QuoteTick> = Vec::<QuoteTick>::new();
+    // let tick = QuoteTick {
+    //     instrument_id: InstrumentId::from("ETH-PERP.FTX"),
+    //     bid: Price::new(10000.0, 4),
+    //     ask: Price::new(10001.0, 4),
+    //     bid_size: Quantity::new(1.0, 7),
+    //     ask_size: Quantity::new(1.0, 7),
+    //     ts_event: 25,
+    //     ts_init: 25,
+    // };
+    // vec.push(tick);
+
+    // // let static_ref: &'static mut [QuoteTick] = vec.clone().leak();
+    // // let vec_ = vec.iter().map(|data| (*data).into()).collect();
+    // // Box::into_raw(Box::new(vec));  // Leak vec back otherwise it will be dropped after this function
+    // vec
+    // .as_mut_ptr()
+    
+    //////////////////////////////////////////////////////////////////////
+    // Some(CVec::from(quotes))
+
+
+// #[repr(C)]
+// pub struct Vec_QuoteTick {
+//     ptr: *mut QuoteTick,
+//     cap: usize,
+//     len: usize,
+// }
+
 // #[no_mangle]
-// pub extern "C" fn quote_tick_clone(data: &QuoteTick) -> QuoteTick {
-//     data.clone()
+// pub unsafe extern "C" fn index_chunk(data: Vec_QuoteTick, idx: usize) -> QuoteTick {
+//     let Vec_QuoteTick { ptr, cap, len } = data;
+//     let vec: Vec<QuoteTick> = unsafe { Vec::from_raw_parts(ptr, cap, len )};
+//     vec[idx].clone()
 // }

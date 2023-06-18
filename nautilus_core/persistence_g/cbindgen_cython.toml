@@ -15,9 +15,9 @@ header = '"../includes/persistence_g.h"'
 # "cpython.object" = [
 #     "PyObject"
 # ]
-# "nautilus_trader.core.rust.core" = [
-#     "CVec",
-# ]
+"nautilus_trader.core.rust.core" = [
+    "CVec",
+]
 "nautilus_trader.core.rust.model" = [
     "QuoteTick_t",
 ]
