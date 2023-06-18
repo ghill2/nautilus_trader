@@ -22,6 +22,10 @@ use datafusion::arrow::record_batch::RecordBatch;
 use nautilus_model::data::tick::Data;
 use pyo3::prelude::*;
 
+pub mod reader;
+// pub mod reader;
+// use reader_api::PythonParquetReader;
+
 #[repr(C)]
 #[pyclass]
 #[derive(Debug, Clone, Copy)]

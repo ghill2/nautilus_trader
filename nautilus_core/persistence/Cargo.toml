@@ -23,7 +23,8 @@ compare = "0.1.0"
 datafusion = { version = "23.0.0", default-features = false, features = [ "regex_expressions", "unicode_expressions", "compression"] }
 futures = "0.3.28"
 pin-project-lite = "0.2.9"
-
+# using arrow2 until memory leak fixed
+arrow2 = { version = "0.15.0", features = [ "io_parquet", "io_csv_read", "compute_comparison" ] }
 [features]
 extension-module = ["pyo3/extension-module", "nautilus_core/extension-module", "nautilus_model/extension-module"]
 default = []
