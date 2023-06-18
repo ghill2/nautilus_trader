@@ -80,28 +80,13 @@ def _generate_batches_rust(
     batch_size: int = 10_000,
 ) -> Generator[list[Union[QuoteTick, TradeTick]], None, None]:
     assert cls in (QuoteTick, TradeTick)
+    files = sorted(files, key=lambda x: Path(x).stem)
 
-    # TODO: Replace with new Rust datafusion backend
-    yield []
-    # files = sorted(files, key=lambda x: Path(x).stem)
-    # for file in files:
-    #     reader = ParquetReader(
-    #         file,
-    #         batch_size,
-    #         py_type_to_parquet_type(cls),
-    #         ParquetReaderType.File,
-    #     )
-    #     for capsule in reader:
-    #         # PyCapsule > List
-    #         if cls == QuoteTick:
-    #             objs = QuoteTick.list_from_capsule(capsule)
-    #         elif cls == TradeTick:
-    #             objs = TradeTick.list_from_capsule(capsule)
-    #         else:
-    #             raise RuntimeError(f"Data type {cls} unsupported for Rust.")
-    #
-    #         yield objs
-
+    from nautilus_trader.persistence.reader import ParquetReader
+    for file in files:
+        reader = ParquetReader(file, batch_size)
+        for chunk in reader:
+            yield chunk
 
 def generate_batches_rust(
     files: list[str],

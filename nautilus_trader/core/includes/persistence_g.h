@@ -5,14 +5,17 @@
 #include <stdint.h>
 #include <Python.h>
 
-typedef struct Vec_QuoteTick {
-    QuoteTick_t *ptr;
-    uintptr_t cap;
-    uintptr_t len;
-} Vec_QuoteTick;
-
 void *parquet_reader_new(const char *file_path, uintptr_t chunk_size);
 
-struct Vec_QuoteTick *parquet_reader_next_chunk(void *reader);
+QuoteTick_t quote_tick_clone(const QuoteTick_t *data);
 
-void free_chunk(struct Vec_QuoteTick *data);
+CVec parquet_reader_next_chunk(void *reader);
+
+void parquet_reader_drop_chunk(CVec chunk);
+
+/**
+ * # Safety
+ * - Assumes `reader` is a valid `*mut ParquetReader<Struct>` where the struct
+ * has a corresponding [ParquetType] enum.
+ */
+void parquet_reader_free(void *reader);

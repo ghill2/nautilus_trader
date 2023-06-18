@@ -194,34 +194,29 @@ class StreamingEngine(_BufferIterator):
         if config.data_type is Bar:
             assert config.bar_spec
 
-        files = config.catalog().get_files(
+        files = list(map(str, config.catalog().get_files(config)))
+        
+        assert files, f"No files found for {config}"
+        # if config.use_rust:
+        batches = generate_batches_rust(
+            files=files,
             cls=config.data_type,
-            instrument_id=config.instrument_id,
+            batch_size=config.batch_size,
             start_nanos=config.start_time_nanos,
             end_nanos=config.end_time_nanos,
-            bar_spec=BarSpecification.from_str(config.bar_spec) if config.bar_spec else None,
         )
-        assert files, f"No files found for {config}"
-        if config.use_rust:
-            batches = generate_batches_rust(
-                files=files,
-                cls=config.data_type,
-                batch_size=config.batch_size,
-                start_nanos=config.start_time_nanos,
-                end_nanos=config.end_time_nanos,
-            )
-        else:
-            batches = generate_batches(
-                files=files,
-                cls=config.data_type,
-                instrument_id=InstrumentId.from_str(config.instrument_id)
-                if config.instrument_id
-                else None,
-                fs=fsspec.filesystem(config.catalog_fs_protocol or "file"),
-                batch_size=config.batch_size,
-                start_nanos=config.start_time_nanos,
-                end_nanos=config.end_time_nanos,
-            )
+        # else:
+        #     batches = generate_batches(
+        #         files=files,
+        #         cls=config.data_type,
+        #         instrument_id=InstrumentId.from_str(config.instrument_id)
+        #         if config.instrument_id
+        #         else None,
+        #         fs=fsspec.filesystem(config.catalog_fs_protocol or "file"),
+        #         batch_size=config.batch_size,
+        #         start_nanos=config.start_time_nanos,
+        #         end_nanos=config.end_time_nanos,
+        #     )
 
         return _StreamingBuffer(batches=batches)
 
