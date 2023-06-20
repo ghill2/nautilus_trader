@@ -5,7 +5,7 @@ from nautilus_trader.core.correctness cimport Condition
 from nautilus_trader.core.string cimport pystr_to_cstr
 from nautilus_trader.model.data.tick cimport QuoteTick
 from nautilus_trader.core.rust.persistence_g cimport parquet_reader_new
-from nautilus_trader.core.rust.persistence_g cimport quote_tick_clone
+from nautilus_trader.core.rust.model cimport quote_tick_clone
 from nautilus_trader.core.rust.persistence_g cimport parquet_reader_next_chunk
 # from nautilus_trader.core.rust.persistence_g cimport Vec_QuoteTick
 # from nautilus_trader.core.rust.persistence_g cimport index_chunk

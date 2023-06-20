@@ -54,10 +54,10 @@ pub unsafe extern "C" fn parquet_reader_new(
     Box::into_raw(Box::new(reader)) as *mut c_void
 }
 
-#[no_mangle]
-pub extern "C" fn quote_tick_clone(data: &QuoteTick) -> QuoteTick {
-    data.clone()
-}
+// #[no_mangle]
+// pub extern "C" fn quote_tick_clone(data: &QuoteTick) -> QuoteTick {
+//     data.clone()
+// }
 
 #[no_mangle]
 pub unsafe extern "C" fn parquet_reader_next_chunk(
