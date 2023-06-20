@@ -63,20 +63,13 @@ class BacktestDataConfig(NautilusConfig, frozen=True):
     Represents the data configuration for one specific backtest run.
     """
 
-    catalog_path: str
     data_cls: str
-    catalog_fs_protocol: Optional[str] = None
-    catalog_fs_storage_options: Optional[dict] = None
     instrument_id: Optional[str] = None
     start_time: Optional[Union[str, int]] = None
     end_time: Optional[Union[str, int]] = None
-    filter_expr: Optional[str] = None
-    client_id: Optional[str] = None
-    metadata: Optional[dict] = None
     bar_spec: Optional[str] = None
     use_rust: Optional[bool] = True
-    batch_size: Optional[int] = 10_000
-
+    
     @property
     def data_type(self):
         if isinstance(self.data_cls, str):
@@ -85,25 +78,6 @@ class BacktestDataConfig(NautilusConfig, frozen=True):
             return getattr(mod, cls_name)
         else:
             return self.data_cls
-
-    @property
-    def query(self):
-        if self.data_cls is Bar and self.bar_spec:
-            bar_type = f"{self.instrument_id}-{self.bar_spec}-EXTERNAL"
-            filter_expr = f'field("bar_type") == "{bar_type}"'
-        else:
-            filter_expr = self.filter_expr
-
-        return dict(
-            cls=self.data_type,
-            instrument_ids=[self.instrument_id] if self.instrument_id else None,
-            start=self.start_time,
-            end=self.end_time,
-            filter_expr=parse_filters_expr(filter_expr),
-            as_nautilus=True,
-            metadata=self.metadata,
-            use_rust=self.use_rust,
-        )
 
     @property
     def start_time_nanos(self) -> int:
@@ -120,38 +94,10 @@ class BacktestDataConfig(NautilusConfig, frozen=True):
     def catalog(self):
         from pytower.data.catalog import TowerCatalog
         return TowerCatalog(path=self.catalog_path)
-
-    def load(
-        self,
-        start_time: Optional[pd.Timestamp] = None,
-        end_time: Optional[pd.Timestamp] = None,
-        as_nautilus: bool = True,
-    ):
-        query = self.query
-        query.update(
-            {
-                "start": start_time or query["start"],
-                "end": end_time or query["end"],
-                "as_nautilus": as_nautilus,
-            },
-        )
-
-        catalog = self.catalog()
-        instruments = catalog.instruments(
-            instrument_ids=[self.instrument_id] if self.instrument_id else None,
-            as_nautilus=True,
-        )
-        if not instruments:
-            return {"data": [], "instrument": None}
-        data = catalog.query(**query)
-        return {
-            "type": query["cls"],
-            "data": data,
-            "instrument": instruments[0] if self.instrument_id else None,
-            "client_id": ClientId(self.client_id) if self.client_id else None,
-        }
-
-
+    
+    def load(self):
+        self.catalog()
+    
 class BacktestEngineConfig(NautilusKernelConfig, frozen=True):
     """
     Configuration for ``BacktestEngine`` instances.
