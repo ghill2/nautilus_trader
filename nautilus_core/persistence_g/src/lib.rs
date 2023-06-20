@@ -15,16 +15,18 @@
 
 
 // /// Loaded as nautilus_pyo3.persistence_g
+// /// causes linker error on windows 11
 // use parquet::reader::ParquetReader; // legacy arrow2
 // #[pymodule]
 // pub fn persistence(_: Python<'_>, m: &PyModule) -> PyResult<()> {
 //     m.add_class::<ParquetReader>()?; // legacy arrow2
 //     Ok(())
 // }
+
 use std::ffi::{c_char, c_void};
 use nautilus_core::string::cstr_to_string;
 use std::fs::File;
-// use arrow2::io::parquet::read::FileReader;
+use arrow2::io::parquet::read::FileReader;
 use arrow2::io::parquet::read;
 use arrow2::{
     array::{Array, Int64Array, UInt64Array},
