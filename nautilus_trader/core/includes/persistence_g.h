@@ -7,8 +7,6 @@
 
 void *parquet_reader_new(const char *file_path, uintptr_t chunk_size);
 
-QuoteTick_t quote_tick_clone(const QuoteTick_t *data);
-
 CVec parquet_reader_next_chunk(void *reader);
 
 void parquet_reader_drop_chunk(CVec chunk);
