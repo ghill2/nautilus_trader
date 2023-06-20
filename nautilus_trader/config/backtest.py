@@ -62,14 +62,15 @@ class BacktestDataConfig(NautilusConfig, frozen=True):
     """
     Represents the data configuration for one specific backtest run.
     """
-
+    
+    catalog_path: str
     data_cls: str
     instrument_id: Optional[str] = None
     start_time: Optional[Union[str, int]] = None
     end_time: Optional[Union[str, int]] = None
     bar_spec: Optional[str] = None
     use_rust: Optional[bool] = True
-    
+
     @property
     def data_type(self):
         if isinstance(self.data_cls, str):
@@ -93,10 +94,10 @@ class BacktestDataConfig(NautilusConfig, frozen=True):
 
     def catalog(self):
         from pytower.data.catalog import TowerCatalog
-        return TowerCatalog(path=self.catalog_path)
+        return TowerCatalog()
     
     def load(self):
-        self.catalog()
+        self.catalog().query(self)
     
 class BacktestEngineConfig(NautilusKernelConfig, frozen=True):
     """
