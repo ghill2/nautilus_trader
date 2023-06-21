@@ -12,7 +12,4 @@ cdef extern from "../includes/persistence_g.h":
 
     void parquet_reader_drop_chunk(CVec chunk);
 
-    # # Safety
-    # - Assumes `reader` is a valid `*mut ParquetReader<Struct>` where the struct
-    # has a corresponding [ParquetType] enum.
     void parquet_reader_free(void *reader);
