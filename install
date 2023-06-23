@@ -1,0 +1,46 @@
+GPARENT="$(dirname "$(dirname "$(realpath "$(readlink -f "${BASH_SOURCE:-$0}" 2>/dev/null || echo "${BASH_SOURCE:-$0}")")")")"
+PARENT="$(dirname "$(realpath "$(readlink -f "${BASH_SOURCE:-$0}" 2>/dev/null || echo "${BASH_SOURCE:-$0}")")")"
+
+echo "Installing nautilus_trader..."
+
+deactivate > /dev/null 2>&1
+
+# DOES NOT activate environment
+# Does not build in git-bash
+# the __imp_NtReadFile symbol is not available or accessible within the Git Bash environment.
+# It is likely that the code or library you are trying to build relies on Windows-specific functionality that is not available in the Git Bash environment.
+cd $GPARENT/nautilus_trader && \
+    rm -rf "./.venv" && \
+    poetry install --with dev,test --all-extras
+    # source $GPARENT/nautilus_trader/.venv/Scripts/activate && \
+    # python ./build_.py
+    # && \
+    # exec "$SHELL"
+
+# cd $GPARENT/nautilus_trader && \
+#     rm -rf "./.venv" && \
+#     poetry install --with dev,test --all-extras
+
+# . source $GPARENT/nautilus_trader/.venv/Scripts/activate
+    # python ./build_.py;
+# echo $GPARENT/nautilus_trader/.venv/Scripts/activate
+
+
+# cd $GPARENT/nautilus_trader && \
+#     pip install $GPARENT/pytower/TA_Lib-0.4.24-cp310-cp310-win_amd64.whl && \
+#     pip install $GPARENT/pytower/requirements.txt
+
+exit 0
+# git clean?
+
+
+
+
+
+
+
+# install talib
+
+
+# install requirements
+
