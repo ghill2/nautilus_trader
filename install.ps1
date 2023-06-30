@@ -29,10 +29,6 @@ poetry env use "$NAUTILUS/.venv/Scripts/python.exe"
 # upgrade pip
 python -m pip install --upgrade pip
 
-# install build dependencies # TODO: read from pyproject using toml library
-pip install numpy>=1.24.3
-pip install Cython==3.0.0b2
-
 # install nautilus dependencies into the active virtual environment
 poetry export --with dev,test  --format requirements.txt --without-hashes `
     | ForEach-Object { pip install $_.Split(" ; ")[0] }
