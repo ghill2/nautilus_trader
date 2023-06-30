@@ -35,7 +35,7 @@ pip install Cython==3.0.0b2
 
 # install nautilus dependencies into the active virtual environment
 poetry export --with dev,test  --format requirements.txt --without-hashes `
-    | ForEach-Object { pip install $_ }
+    | ForEach-Object { pip install $_.Split(" ; ")[0] }
 
 # install pytower dependencies into the active virtual environment
 & pip install -r (Join-Path $PYTOWER "requirements.txt")
