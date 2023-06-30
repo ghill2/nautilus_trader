@@ -65,7 +65,7 @@ class BacktestDataConfig(NautilusConfig, frozen=True):
     """
     Represents the data configuration for one specific backtest run.
     """
-
+    catalog_path: str
     data_cls: str
     instrument_id: Optional[str] = None
     start_time: Optional[Union[str, int]] = None
