@@ -196,6 +196,6 @@ setup_kwargs = {
     'python_requires': '>=3.9,<3.12',
 }
 # from build import *
-# build()
+# build(**setup_kwargs)
 
 setup(**setup_kwargs)
