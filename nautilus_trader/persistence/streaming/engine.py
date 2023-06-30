@@ -209,7 +209,7 @@ class StreamingEngine(_BufferIterator):
             batches = generate_batches_rust(
                 files=files,
                 cls=config.data_type,
-                batch_size=500_000,
+                batch_size=50_000,
                 start_nanos=config.start_time_nanos,
                 end_nanos=config.end_time_nanos,
             )
@@ -221,7 +221,7 @@ class StreamingEngine(_BufferIterator):
                 if config.instrument_id
                 else None,
                 fs=fsspec.filesystem(config.catalog_fs_protocol or "file"),
-                batch_size=500_000,
+                batch_size=50_000,
                 start_nanos=config.start_time_nanos,
                 end_nanos=config.end_time_nanos,
             )
