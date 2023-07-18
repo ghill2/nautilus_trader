@@ -7,9 +7,10 @@ on:
     branches: [develop]
   # pull_request:
   # branches: [develop]
+
+
 jobs:
   publish-wheels:
-    needs: [tag-release]
     strategy:
       fail-fast: false
       matrix:
@@ -102,7 +103,7 @@ jobs:
         run: |
           poetry install
           poetry build --format wheel
-
+      #
       # # Upload release asset (UNIX)
       # - name: Set output (UNIX)
       #   id: vars-unix
