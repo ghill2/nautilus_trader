@@ -542,7 +542,6 @@ cdef class QuoteTick(Data):
     @staticmethod
     cdef dict to_raw_c(QuoteTick obj):
         return {
-            "instrument_id": InstrumentId.from_mem_c(obj._mem.instrument_id).to_str(),
             "bid": obj._mem.bid.raw,
             "ask": obj._mem.ask.raw,
             "bid_size": obj._mem.bid_size.raw,
