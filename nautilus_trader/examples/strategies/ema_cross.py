@@ -35,8 +35,9 @@ from nautilus_trader.model.instruments import Instrument
 from nautilus_trader.model.orderbook import OrderBook
 from nautilus_trader.model.orders import MarketOrder
 from nautilus_trader.trading.strategy import Strategy
-
-
+from nautilus_trader.core.datetime import unix_nanos_to_dt
+from nautilus_trader.model.enums import PriceType
+from nautilus_trader.common.queue import Queue
 # *** THIS IS A TEST STRATEGY WITH NO ALPHA ADVANTAGE WHATSOEVER. ***
 # *** IT IS NOT INTENDED TO BE USED TO TRADE LIVE WITH REAL MONEY. ***
 
@@ -121,7 +122,11 @@ class EMACross(Strategy):
         self.close_positions_on_stop = config.close_positions_on_stop
         self.instrument: Instrument = None
 
-    def on_start(self) -> None:
+        self._message_queue = Queue()
+
+    def on_start(self):
+        self.msgbus.send(endpoint="DataActor.register_strategy", msg=self)
+
         """Actions to be performed on strategy start."""
         self.instrument = self.cache.instrument(self.instrument_id)
         if self.instrument is None:
@@ -225,21 +230,12 @@ class EMACross(Strategy):
             The bar received.
 
         """
-        import numpy as np
-
-        if str(unix_nanos_to_dt(bar.ts_init)).startswith("2012-01-10 08:00:00"):
-            self.trading = float(bar.open)
-        else:
-            self.trading = np.nan
-
         bid_bar = self.cache.bar(self.bar_types[PriceType.BID], 0)
         ask_bar = self.cache.bar(self.bar_types[PriceType.ASK], 0)
 
         if bid_bar is None and ask_bar is None:
             self.log.info("bid_bar, ask_bar is None", color=LogColor.YELLOW)
             return
-
-        # self.log.info(f"{unix_nanos_to_dt(ask_bar.ts_init)} {ask_bar}", color=LogColor.YELLOW)
 
         self.i += 1
 
@@ -278,9 +274,8 @@ class EMACross(Strategy):
             instrument_id=self.instrument_id,
             order_side=OrderSide.BUY,
             quantity=self.instrument.make_qty(self.trade_size),
-            # time_in_force=TimeInForce.FOK,
         )
-
+        self._message_queue.put_nowait(order)
         self.submit_order(order)
 
     def sell(self) -> None:
@@ -291,9 +286,8 @@ class EMACross(Strategy):
             instrument_id=self.instrument_id,
             order_side=OrderSide.SELL,
             quantity=self.instrument.make_qty(self.trade_size),
-            # time_in_force=TimeInForce.FOK,
         )
-
+        # self._message_queue.put_nowait(order)
         self.submit_order(order)
 
     def on_data(self, data: Data) -> None:
