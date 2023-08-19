@@ -15,7 +15,7 @@
 
 import importlib
 import importlib.util
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import fsspec
 import msgspec
@@ -418,6 +418,9 @@ class ActorFactory:
         config_cls = resolve_path(config.config_path)
         return actor_cls(config=config_cls(**config.config))
 
+class WarmupEngineConfig(NautilusConfig):
+    catalog_path: str
+    end_date: Optional[Union[str, int]]
 
 class StrategyConfig(NautilusConfig, kw_only=True, frozen=True):
     """
@@ -443,6 +446,8 @@ class StrategyConfig(NautilusConfig, kw_only=True, frozen=True):
     order_id_tag: Optional[str] = None
     oms_type: Optional[str] = None
     external_order_claims: Optional[list[str]] = None
+    warmup_engine_config: Optional[WarmupEngineConfig] = None
+
 
 
 class ImportableStrategyConfig(NautilusConfig, frozen=True):

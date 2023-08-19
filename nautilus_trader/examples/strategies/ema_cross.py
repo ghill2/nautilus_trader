@@ -1,5 +1,7 @@
-# -------------------------------------------------------------------------------------------------
-#  Copyright (C) 2015-2023 Nautech Systems Pty Ltd. All rights reserved.
+from nautilus_trader.warmup.tree import WarmupConfig
+
+4  # -------------------------------------------------------------------------------------------------
+#  Copyright (C) 2015-2022 Nautech Systems Pty Ltd. All rights reserved.
 #  https://nautechsystems.io
 #
 #  Licensed under the GNU Lesser General Public License Version 3.0 (the "License");
@@ -16,6 +18,7 @@
 from decimal import Decimal
 
 from nautilus_trader.common.enums import LogColor
+from nautilus_trader.common.queue import Queue
 from nautilus_trader.config import StrategyConfig
 from nautilus_trader.core.correctness import PyCondition
 from nautilus_trader.core.data import Data
@@ -35,9 +38,8 @@ from nautilus_trader.model.instruments import Instrument
 from nautilus_trader.model.orderbook import OrderBook
 from nautilus_trader.model.orders import MarketOrder
 from nautilus_trader.trading.strategy import Strategy
-from nautilus_trader.core.datetime import unix_nanos_to_dt
-from nautilus_trader.model.enums import PriceType
-from nautilus_trader.common.queue import Queue
+
+
 # *** THIS IS A TEST STRATEGY WITH NO ALPHA ADVANTAGE WHATSOEVER. ***
 # *** IT IS NOT INTENDED TO BE USED TO TRADE LIVE WITH REAL MONEY. ***
 
@@ -110,12 +112,18 @@ class EMACross(Strategy):
         self.bar_type = BarType.from_str(config.bar_type)
         self.trade_size = Decimal(config.trade_size)
 
+        self.bar_types = {
+            PriceType.BID: self.bar_type.with_price_type(PriceType.BID),
+            PriceType.ASK: self.bar_type.with_price_type(PriceType.ASK),
+        }
         self.fast_ema = ExponentialMovingAverage(config.fast_ema_period, id="fast", log=self.log)
         self.slow_ema = ExponentialMovingAverage(config.slow_ema_period, id="slow", log=self.log)
 
-        self.bar_types = {}
-        self.bar_types[PriceType.BID] = self.bar_type.with_price_type(PriceType.BID)
-        self.bar_types[PriceType.ASK] = self.bar_type.with_price_type(PriceType.ASK)
+        warmup_config = WarmupConfig(count=config.fast_ema_period, bar_type=self.bar_type)
+        self.fast_ema = ExponentialMovingAverage(config.fast_ema_period, id="fast", log=self.log, warmup_config=warmup_config)
+
+        warmup_config = WarmupConfig(count=config.slow_ema_period, bar_type=self.bar_type)
+        self.slow_ema = ExponentialMovingAverage(config.slow_ema_period, id="slow", log=self.log, warmup_config=warmup_config)
 
         self.instrument: Optional[Instrument] = None  # Initialized in on_start
         self.i = 0
@@ -141,30 +149,28 @@ class EMACross(Strategy):
 
     def on_instrument(self, instrument: Instrument) -> None:
         """
-        Actions to be performed when the strategy is running and receives an instrument.
+        Actions to be performed when the strategy is running and receives an
+        instrument.
 
-        Parameters
-        ----------
-        instrument : Instrument
-            The instrument received.
 
         """
         # For debugging (must add a subscription)
         # self.log.info(repr(instrument), LogColor.CYAN)
+        pass
 
-    def on_order_book_deltas(self, deltas: OrderBookDeltas) -> None:
+    def on_order_book_delta(self, data: OrderBookData) -> None:
         """
-        Actions to be performed when the strategy is running and receives order book
-        deltas.
+        Actions to be performed when the strategy is running and receives order data.
 
         Parameters
         ----------
-        deltas : OrderBookDeltas
-            The order book deltas received.
+        data : OrderBookData
+            The order book data received.
 
         """
         # For debugging (must add a subscription)
-        # self.log.info(repr(deltas), LogColor.CYAN)
+        # self.log.info(repr(data), LogColor.CYAN)
+        pass
 
     def on_order_book(self, order_book: OrderBook) -> None:
         """
@@ -178,6 +184,7 @@ class EMACross(Strategy):
         """
         # For debugging (must add a subscription)
         # self.log.info(repr(order_book), LogColor.CYAN)
+        pass
 
     def on_ticker(self, ticker: Ticker) -> None:
         """
@@ -191,6 +198,7 @@ class EMACross(Strategy):
         """
         # For debugging (must add a subscription)
         # self.log.info(repr(ticker), LogColor.CYAN)
+        pass
 
     def on_quote_tick(self, tick: QuoteTick) -> None:
         """
@@ -204,6 +212,7 @@ class EMACross(Strategy):
         """
         # For debugging (must add a subscription)
         # self.log.info(repr(tick), LogColor.CYAN)
+        pass
 
     def on_trade_tick(self, tick: TradeTick) -> None:
         """
@@ -217,27 +226,10 @@ class EMACross(Strategy):
         """
         # For debugging (must add a subscription)
         # self.log.info(repr(tick), LogColor.CYAN)
+        pass
 
     def on_bar(self, bar: Bar) -> None:
         self.msgbus.send(endpoint="DataActor.register_strategy", msg=self)
-
-        """
-        Actions to be performed when the strategy is running and receives a bar.
-
-        Parameters
-        ----------
-        bar : Bar
-            The bar received.
-
-        """
-        bid_bar = self.cache.bar(self.bar_types[PriceType.BID], 0)
-        ask_bar = self.cache.bar(self.bar_types[PriceType.ASK], 0)
-
-        if bid_bar is None and ask_bar is None:
-            self.log.info("bid_bar, ask_bar is None", color=LogColor.YELLOW)
-            return
-
-        self.i += 1
 
         # Check if indicators ready
         if not self.indicators_initialized():

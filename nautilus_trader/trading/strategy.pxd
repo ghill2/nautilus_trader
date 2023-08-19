@@ -51,7 +51,7 @@ cdef class Strategy(Actor):
     cdef list _indicators
     cdef dict _indicators_for_quotes
     cdef dict _indicators_for_trades
-    cdef dict _indicators_for_bars
+    cdef public dict _indicators_for_bars
     cdef bint _manage_gtd_expiry
 
     cdef readonly PortfolioFacade portfolio

@@ -48,6 +48,8 @@ from nautilus_trader.config.common import StatisticFactory
 from nautilus_trader.config.common import StrategyConfig
 from nautilus_trader.config.common import StrategyFactory
 from nautilus_trader.config.common import StreamingConfig
+from nautilus_trader.config.common import WarmupEngineConfig
+from nautilus_trader.config.live import ImportableConfig
 from nautilus_trader.config.live import LiveDataClientConfig
 from nautilus_trader.config.live import LiveDataEngineConfig
 from nautilus_trader.config.live import LiveExecClientConfig
@@ -94,4 +96,5 @@ __all__ = [
     "LiveRiskEngineConfig",
     "RoutingConfig",
     "TradingNodeConfig",
+    "WarmupEngineConfig"
 ]
