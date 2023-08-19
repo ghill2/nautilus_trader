@@ -35,6 +35,7 @@ from nautilus_trader.model.data import Bar
 from nautilus_trader.model.identifiers import ClientId
 
 
+
 class BacktestVenueConfig(NautilusConfig, frozen=True):
     """
     Represents a venue configuration for one specific backtest engine.
@@ -120,13 +121,8 @@ class BacktestDataConfig(NautilusConfig, frozen=True):
         return maybe_dt_to_unix_nanos(pd.Timestamp(self.end_time))
 
     def catalog(self):
-        from nautilus_trader.persistence.catalog.parquet import ParquetDataCatalog
-
-        return ParquetDataCatalog(
-            path=self.catalog_path,
-            fs_protocol=self.catalog_fs_protocol,
-            fs_storage_options=self.catalog_fs_storage_options,
-        )
+        from pytower.data.catalog import TowerCatalog
+        return TowerCatalog(path=self.catalog_path)
 
     def load(
         self,

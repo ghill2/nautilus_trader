@@ -691,7 +691,36 @@ NAUTILUS_PARQUET_SCHEMA = {
     ),
 }
 
-
+NAUTILUS_PARQUET_SCHEMA_RUST = {
+    QuoteTick: pa.schema([
+        ("bid", pa.int64()),
+        ("ask", pa.int64()),
+        ("bid_size", pa.uint64()),
+        ("ask_size", pa.uint64()),
+        ("ts_event", pa.uint64()),
+        ("ts_init", pa.uint64()),
+    ]),
+    # Bar: pa.schema([
+    #     ("open", pa.int64()),
+    #     ("high", pa.int64()),
+    #     ("low", pa.uint64()),
+    #     ("close", pa.uint64()),
+    #     ("volume", pa.string(),
+    #     ("ts_event", pa.uint64()),
+    #     ("ts_init", pa.uint64()),
+    # ]),
+    # Bar: pa.schema(
+    #     {
+    #         "open": pa.string(),
+    #         "high": pa.string(),
+    #         "low": pa.string(),
+    #         "close": pa.string(),
+    #         "volume": pa.string(),
+    #         "ts_event": pa.uint64(),
+    #         "ts_init": pa.uint64(),
+    #     },
+    # )
+}
 # default schemas
 for cls, schema in NAUTILUS_PARQUET_SCHEMA.items():
     register_parquet(cls, schema=schema)

@@ -34,6 +34,8 @@ def resolve_path(path: str) -> type:
     return cls
 
 
+
+
 class NautilusConfig(msgspec.Struct, kw_only=True, frozen=True):
     """
     The base class for all Nautilus configuration objects.
@@ -106,6 +108,30 @@ class NautilusConfig(msgspec.Struct, kw_only=True, frozen=True):
 
         """
         return bool(msgspec.json.decode(self.json(), type=self.__class__))
+
+
+class ImportableStatisticConfig(NautilusConfig):
+    """
+    Configuration for ``StatisticConfig`` instances.
+    """
+
+    statistic_path: str
+
+
+class StatisticFactory:
+    """
+    Provides statistic creation from importable configurations.
+    """
+
+    @staticmethod
+    def create(config: ImportableStatisticConfig):
+        PyCondition.type(config, ImportableStatisticConfig, "config")
+        statistic_cls = resolve_path(config.statistic_path)
+        return statistic_cls()
+
+class WarmupEngineConfig(NautilusConfig):
+    catalog_path: str
+    end_date: Optional[Union[str, int]]
 
 
 class CacheConfig(NautilusConfig, frozen=True):
@@ -418,9 +444,6 @@ class ActorFactory:
         config_cls = resolve_path(config.config_path)
         return actor_cls(config=config_cls(**config.config))
 
-class WarmupEngineConfig(NautilusConfig):
-    catalog_path: str
-    end_date: Optional[Union[str, int]]
 
 class StrategyConfig(NautilusConfig, kw_only=True, frozen=True):
     """
@@ -447,7 +470,6 @@ class StrategyConfig(NautilusConfig, kw_only=True, frozen=True):
     oms_type: Optional[str] = None
     external_order_claims: Optional[list[str]] = None
     warmup_engine_config: Optional[WarmupEngineConfig] = None
-
 
 
 class ImportableStrategyConfig(NautilusConfig, frozen=True):
@@ -709,21 +731,3 @@ class ImportableConfig(NautilusConfig, frozen=True):
         return msgspec.json.decode(cfg, type=cls)
 
 
-class ImportableStatisticConfig(NautilusConfig):
-    """
-    Configuration for ``StatisticConfig`` instances.
-    """
-
-    statistic_path: str
-
-
-class StatisticFactory:
-    """
-    Provides statistic creation from importable configurations.
-    """
-
-    @staticmethod
-    def create(config: ImportableStatisticConfig):
-        PyCondition.type(config, ImportableStatisticConfig, "config")
-        statistic_cls = resolve_path(config.statistic_path)
-        return statistic_cls()

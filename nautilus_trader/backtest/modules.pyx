@@ -96,6 +96,7 @@ class FXRolloverInterestConfig(ActorConfig):
 
     """
     rate_data: pd.DataFrame
+    broker_markup: float = None
 
 
 cdef class FXRolloverInterestModule(SimulationModule):

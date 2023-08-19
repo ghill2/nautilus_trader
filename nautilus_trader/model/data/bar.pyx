@@ -471,6 +471,9 @@ cdef class BarSpecification:
         else:
             raise RuntimeError("Unable to parse aggregation to timedelta")
 
+    cpdef BarSpecification with_price_type(self, PriceType price_type):
+        return BarSpecification(self.step, self.aggregation, price_type)
+
 cdef class BarType:
     """
     Represents a bar type including the instrument ID, bar specification and

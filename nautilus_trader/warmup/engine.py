@@ -22,7 +22,7 @@ class WarmupEngine:
     ):
 
         PyCondition.list_type(indicators, Indicator, "indicators")
-        PyCondition.type(catalog, ParquetDataCatalog, "catalog")
+        # PyCondition.type(catalog, ParquetDataCatalog, "catalog")
         PyCondition.type(end_date, pd.Timestamp, "end_date")
 
         self._indicators = indicators
@@ -76,11 +76,12 @@ class WarmupEngine:
 
     def _request_bars(self) -> list[Bar]:
         """Requests the bars needed to satisfy the warmup ranges sorted by their BarTypes"""
+        # TODO: make this work load multiple bar_specs
         bar_types = [indicator.warmup_config.bar_type for indicator in self._indicators]
-        filter_expr = ds.field("bar_type").cast("string").isin([str(bt) for bt in bar_types])
+        # filter_expr = ds.field("bar_type").cast("string").isin([str(bt) for bt in bar_types])
         bars: pd.DataFrame = self._catalog.query(
             cls=Bar,
-            filter_expr=filter_expr,
+            # filter_expr=filter_expr,
             start=self.start_date,
             end=self._end_date - pd.Timedelta(milliseconds=1),  # exclusive range end
             instrument_ids=[str(bt.instrument_id) for bt in bar_types],

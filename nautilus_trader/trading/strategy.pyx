@@ -1496,7 +1496,9 @@ cdef class Strategy(Actor):
             self.log.error("warmup was started without a WarmupEngineConfig. Add a WarmupEngineConfig to the StrategyConfig")
 
         end_date = pd.Timestamp(config.end_date)
-        catalog = ParquetDataCatalog(config.catalog_path)
+
+        from pytower.data.catalog import TowerCatalog
+        catalog = TowerCatalog(config.catalog_path)
 
         engine = WarmupEngine(indicators=self.registered_indicators, end_date=end_date, catalog=catalog)
         engine.process()

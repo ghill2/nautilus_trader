@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pandas as pd
 from nautilus_trader.model.data.tick import QuoteTick
 from nautilus_trader.model.instruments.base import Instrument
@@ -72,6 +74,8 @@ def _write_parquet(table: pa.Table, metadata: dict, path: str) -> None:
 
     # Write the table
     schema = schema.with_metadata(metadata)
+
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
     with pq.ParquetWriter(path, schema) as writer:
         writer.write_table(table)
 
