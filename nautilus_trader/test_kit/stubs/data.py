@@ -457,7 +457,6 @@ class TestDataStubs:
         def parser(data):
             parsed = data
             if not isinstance(parsed, list):
-                # print(parsed)
                 return
             elif isinstance(parsed, list):
                 channel, updates = parsed

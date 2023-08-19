@@ -30,7 +30,6 @@ cdef class ParquetReader:
         while True:
             
             self._chunk = parquet_reader_next_chunk(reader=self._reader)
-            # print(self._chunk.cap)
             if self._chunk.len == 0:
                 parquet_reader_drop_chunk(self._chunk)
                 return # stop iterating

@@ -129,10 +129,6 @@ class _BufferIterator:
 
             objs = self._remove_front()
 
-            print(
-                pd.Series([x.ts_event for x in objs]).apply(unix_nanos_to_dt)
-            )
-
             yield objs
 
             self._remove_completed()
