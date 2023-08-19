@@ -50,6 +50,7 @@ from nautilus_trader.msgbus.bus cimport MessageBus
 
 
 cdef class Actor(Component):
+    cdef readonly int priority
     cdef object _executor
     cdef set _warning_events
     cdef dict _signal_classes

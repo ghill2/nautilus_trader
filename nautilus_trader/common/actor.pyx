@@ -1247,7 +1247,7 @@ cdef class Actor(Component):
             topic=f"data.quotes"
                   f".{instrument_id.venue}"
                   f".{instrument_id.symbol}",
-            handler=self.handle_quote_tick,
+            handler=self.handle_quote_tick
         )
 
         cdef Subscribe command = Subscribe(
@@ -1308,10 +1308,11 @@ cdef class Actor(Component):
         """
         Condition.not_none(bar_type, "bar_type")
         Condition.true(self.trader_id is not None, "The actor has not been registered")
-
+        print(self.config)
         self._msgbus.subscribe(
             topic=f"data.bars.{bar_type}",
             handler=self.handle_bar,
+            priority=self.priority
         )
 
         cdef Subscribe command = Subscribe(
