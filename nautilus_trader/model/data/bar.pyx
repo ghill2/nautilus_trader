@@ -49,9 +49,11 @@ from nautilus_trader.model.data.bar_aggregation cimport BarAggregation
 from nautilus_trader.model.enums_c cimport AggregationSource
 from nautilus_trader.model.enums_c cimport PriceType
 from nautilus_trader.model.enums_c cimport aggregation_source_from_str
+from nautilus_trader.model.enums_c cimport aggregation_source_to_str
 from nautilus_trader.model.enums_c cimport bar_aggregation_from_str
 from nautilus_trader.model.enums_c cimport bar_aggregation_to_str
 from nautilus_trader.model.enums_c cimport price_type_from_str
+from nautilus_trader.model.enums_c cimport price_type_to_str
 from nautilus_trader.model.identifiers cimport InstrumentId
 from nautilus_trader.model.identifiers cimport Symbol
 from nautilus_trader.model.identifiers cimport Venue
@@ -640,6 +642,17 @@ cdef class BarType:
         """
         return self.aggregation_source == AggregationSource.INTERNAL
 
+    cpdef BarType with_spec(self, BarSpecification spec):
+        return BarType(self.instrument_id, spec, self.aggregation_source)
+
+    cpdef BarType with_price_type(self, PriceType price_type):
+        return BarType.from_str(
+            f"{self.instrument_id}-"
+            f"{self.spec.step}-"
+            f"{bar_aggregation_to_str(self.spec.aggregation)}-"
+            f"{price_type_to_str(price_type)}-"
+            f"{aggregation_source_to_str(self.aggregation_source)}"
+        )
 
 cdef class Bar(Data):
     """

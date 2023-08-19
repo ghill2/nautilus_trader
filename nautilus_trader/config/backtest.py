@@ -26,6 +26,7 @@ from nautilus_trader.common import Environment
 from nautilus_trader.config.common import DataEngineConfig
 from nautilus_trader.config.common import ExecEngineConfig
 from nautilus_trader.config.common import ImportableConfig
+from nautilus_trader.config.common import ImportableStatisticConfig
 from nautilus_trader.config.common import NautilusConfig
 from nautilus_trader.config.common import NautilusKernelConfig
 from nautilus_trader.config.common import RiskEngineConfig
@@ -203,6 +204,7 @@ class BacktestEngineConfig(NautilusKernelConfig, frozen=True):
     risk_engine: RiskEngineConfig = RiskEngineConfig()
     exec_engine: ExecEngineConfig = ExecEngineConfig()
     run_analysis: bool = True
+    statistics: list[ImportableStatisticConfig] = None
 
 
 class BacktestRunConfig(NautilusConfig, frozen=True):
@@ -271,11 +273,23 @@ CUSTOM_ENCODINGS: dict[type, Callable] = {
 }
 
 
+def _encode_dataframe(x):
+    import pickle
+
+    return pickle.dumps(x)
+
+
+# CUSTOM_ENCODINGS["pd.DataFrame", _encode_dataframe]
+CUSTOM_ENCODINGS["DataFrame"] = _encode_dataframe
+
+
 def json_encoder(x):
     if isinstance(x, (str, Decimal)):
         return str(x)
     elif isinstance(x, type) and hasattr(x, "fully_qualified_name"):
         return x.fully_qualified_name()
+    elif isinstance(x, pd.DataFrame):
+        return x.__class__.__qualname__  # "DataFrame"
     elif type(x) in CUSTOM_ENCODINGS:
         func = CUSTOM_ENCODINGS[type(x)]
         return func(x)

@@ -120,6 +120,7 @@ cdef class Actor(Component):
 
         # Configuration
         self.config = config
+        self.priority = config.priority
 
         self.trader_id = None  # Initialized when registered
         self.msgbus = None     # Initialized when registered

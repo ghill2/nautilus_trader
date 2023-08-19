@@ -701,3 +701,23 @@ class ImportableConfig(NautilusConfig, frozen=True):
         cls = resolve_path(self.path)
         cfg = msgspec.json.encode(self.config)
         return msgspec.json.decode(cfg, type=cls)
+
+
+class ImportableStatisticConfig(NautilusConfig):
+    """
+    Configuration for ``StatisticConfig`` instances.
+    """
+
+    statistic_path: str
+
+
+class StatisticFactory:
+    """
+    Provides statistic creation from importable configurations.
+    """
+
+    @staticmethod
+    def create(config: ImportableStatisticConfig):
+        PyCondition.type(config, ImportableStatisticConfig, "config")
+        statistic_cls = resolve_path(config.statistic_path)
+        return statistic_cls()

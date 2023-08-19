@@ -28,6 +28,7 @@ from nautilus_trader.config import CacheDatabaseConfig
 from nautilus_trader.config import DataEngineConfig
 from nautilus_trader.config import ExecEngineConfig
 from nautilus_trader.config import RiskEngineConfig
+from nautilus_trader.config import StatisticFactory
 from nautilus_trader.config.error import InvalidConfiguration
 from nautilus_trader.system.kernel import NautilusKernel
 
@@ -149,6 +150,11 @@ cdef class BacktestEngine:
         if self._accumulator._0 != NULL:
             time_event_accumulator_drop(self._accumulator)
 
+        # Setup statistics
+        if self._config.statistics:
+            for config in self._config.statistics:
+                statistic = StatisticFactory.create(config)
+                self._kernel.portfolio.analyzer.register_statistic(statistic)
     @property
     def trader_id(self) -> TraderId:
         """
@@ -1274,6 +1280,10 @@ cdef class BacktestEngine:
                     if position.base_currency is not None:
                         venue_currencies.add(position.base_currency)
 
+            # G ADDED: use net_pnl in home currency for stat calculations
+            for p in exchange_positions:
+                p.realized_pnl = p.net_pnl
+
             # Calculate statistics
             self._kernel.portfolio.analyzer.calculate_statistics(account, venue_positions)
 
@@ -1297,6 +1307,10 @@ cdef class BacktestEngine:
             for stat in self._kernel.portfolio.analyzer.get_stats_general_formatted():
                 self._log.info(stat)
             self._log.info("\033[36m-----------------------------------------------------------------")
+
+            self._log.info(" Data Statistics")
+            for stat in self.kernel.portfolio.analyzer.get_stats_data_formatted(self, account, exchange_positions):
+                self._log.info(stat)
 
     def _add_data_client_if_not_exists(self, ClientId client_id) -> None:
         if client_id not in self._kernel.data_engine.registered_clients:

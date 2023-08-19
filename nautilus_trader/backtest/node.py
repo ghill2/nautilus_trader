@@ -26,6 +26,7 @@ from nautilus_trader.config import ActorFactory
 from nautilus_trader.config import BacktestDataConfig
 from nautilus_trader.config import BacktestRunConfig
 from nautilus_trader.config import BacktestVenueConfig
+from nautilus_trader.config import ModuleFactory
 from nautilus_trader.core.correctness import PyCondition
 from nautilus_trader.core.inspect import is_nautilus_class
 from nautilus_trader.model.currency import Currency
@@ -245,7 +246,8 @@ class BacktestNode:
             )
 
         # Release data objects
-        engine.dispose()
+        if not engine.trader.is_disposed:
+            engine.dispose()
 
         return engine.get_result()
 
@@ -260,11 +262,13 @@ class BacktestNode:
 
         streaming_engine = StreamingEngine(
             data_configs=data_configs,
+            read_num_rows=10_000,
             target_batch_size_bytes=batch_size_bytes,
         )
 
         for batch in streaming_engine:
             engine.clear_data()
+
             grouped = groupby_datatype(batch)
             for data in grouped:
                 if data["type"] in data_client_ids:

@@ -40,6 +40,7 @@ from nautilus_trader.execution.reports import ExecutionReport
 from libc.stdint cimport uint64_t
 
 from nautilus_trader.accounting.accounts.base cimport Account
+from nautilus_trader.backtest.exchange cimport SimulatedExchange
 from nautilus_trader.cache.cache cimport Cache
 from nautilus_trader.common.clock cimport Clock
 from nautilus_trader.common.component cimport Component
@@ -66,6 +67,7 @@ from nautilus_trader.model.data.tick cimport TradeTick
 from nautilus_trader.model.enums_c cimport ContingencyType
 from nautilus_trader.model.enums_c cimport OmsType
 from nautilus_trader.model.enums_c cimport PositionSide
+from nautilus_trader.model.enums_c cimport PriceType
 from nautilus_trader.model.enums_c cimport oms_type_to_str
 from nautilus_trader.model.events.order cimport OrderDenied
 from nautilus_trader.model.events.order cimport OrderEvent
@@ -1098,6 +1100,12 @@ cdef class ExecutionEngine(Component):
         self._cache.update_position(position)
 
         cdef PositionEvent event
+        cdef double xrate
+        cdef Account account
+        cdef Money commission
+        cdef double commission_total
+        cdef double rollover_total
+        cdef SimulatedExchange exchange
         if position.is_closed_c():
             event = PositionClosed.create_c(
                 position=position,
@@ -1105,6 +1113,54 @@ cdef class ExecutionEngine(Component):
                 event_id=UUID4(),
                 ts_init=self._clock.timestamp_ns(),
             )
+
+            # NOTE George added.
+            # Get account
+            account = self._cache.account(position.account_id)
+
+            # Convert gross_pnl to home currency
+            xrate = self._cache.get_xrate(
+                venue=instrument.id.venue,
+                from_currency=position.cost_currency,
+                to_currency=account.base_currency,
+                price_type=PriceType.BID if position.side == PositionSide.LONG else PriceType.ASK,
+            )
+            position.gross_pnl = Money(position.gross_pnl.as_f64_c() * xrate, account.base_currency)
+
+            # Convert commissions to home currency
+            for commission in position.commissions():
+                xrate = self._cache.get_xrate(
+                    venue=instrument.id.venue,
+                    from_currency=commission.currency,
+                    to_currency=account.base_currency,
+                    price_type=PriceType.BID if position.side == PositionSide.SHORT else PriceType.ASK,
+                )
+                # Convert to home currency
+                commission = Money(commission.as_f64_c() * xrate, account.base_currency)
+                position.commissions_home.append(commission)
+
+            # Calculate net_pnl in home currency
+            # NOTE rollover_total, commissions_home, gross_pnl are in home currency now
+            # net_pnl = (gross_pnl - comms) + swaps
+            commission_total = sum([float(x) for x in position.commissions_home])
+            rollover_total = sum([float(x) for x in position.rollover_amount])
+            position.net_pnl = Money(
+                                (position.gross_pnl.as_f64_c() - commission_total) + rollover_total,
+                                account.base_currency
+                            )
+
+            position.rollover_total = rollover_total
+
+            exchange = self._routing_map[instrument.id.venue]._exchange # make public: nautilus_trader.backtest.execution_client.Backtest._exchange
+            exchange.adjust_account(
+                Money(rollover_total, account.base_currency)
+            )
+
+            # Add account balance
+            position.balance_total = account.balance().total
+            position.balance_locked = account.balance().locked
+            position.balance_free = account.balance().free
+
         else:
             event = PositionChanged.create_c(
                 position=position,
@@ -1112,6 +1168,8 @@ cdef class ExecutionEngine(Component):
                 event_id=UUID4(),
                 ts_init=self._clock.timestamp_ns(),
             )
+
+
 
         self._msgbus.publish_c(
             topic=f"events.position.{event.strategy_id}",

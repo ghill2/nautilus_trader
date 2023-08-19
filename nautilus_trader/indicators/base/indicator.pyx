@@ -13,6 +13,7 @@
 #  limitations under the License.
 # -------------------------------------------------------------------------------------------------
 
+from nautilus_trader.common.logging cimport LoggerAdapter
 from nautilus_trader.model.data.bar cimport Bar
 from nautilus_trader.model.data.tick cimport QuoteTick
 from nautilus_trader.model.data.tick cimport TradeTick
@@ -32,12 +33,15 @@ cdef class Indicator:
     This class should not be used directly, but through a concrete subclass.
     """
 
-    def __init__(self, list params not None):
+    def __init__(self, list params not None, str id = None, LoggerAdapter log = None, int index = 0):
         self._params = params.copy()
 
         self.name = type(self).__name__
         self.has_inputs = False
         self.initialized = False
+        self.values = {}
+        self.index = index
+        self.log = log
 
     def __repr__(self) -> str:
         return f"{self.name}({self._params_str()})"

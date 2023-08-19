@@ -1,3 +1,5 @@
+/.envrc
+/.direnv
 *.c
 *.o
 *.so

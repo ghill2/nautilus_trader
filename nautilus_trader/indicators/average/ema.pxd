@@ -18,4 +18,5 @@ from nautilus_trader.indicators.average.moving_average cimport MovingAverage
 
 cdef class ExponentialMovingAverage(MovingAverage):
     cdef readonly double alpha
+
     """The moving average alpha value.\n\n:returns: `double`"""
