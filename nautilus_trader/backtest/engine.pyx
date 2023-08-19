@@ -1281,7 +1281,7 @@ cdef class BacktestEngine:
                         venue_currencies.add(position.base_currency)
 
             # G ADDED: use net_pnl in home currency for stat calculations
-            for p in exchange_positions:
+            for p in positions:
                 p.realized_pnl = p.net_pnl
 
             # Calculate statistics
@@ -1309,7 +1309,7 @@ cdef class BacktestEngine:
             self._log.info("\033[36m-----------------------------------------------------------------")
 
             self._log.info(" Data Statistics")
-            for stat in self.kernel.portfolio.analyzer.get_stats_data_formatted(self, account, exchange_positions):
+            for stat in self.kernel.portfolio.analyzer.get_stats_data_formatted(self, account, positions):
                 self._log.info(stat)
 
     def _add_data_client_if_not_exists(self, ClientId client_id) -> None:
