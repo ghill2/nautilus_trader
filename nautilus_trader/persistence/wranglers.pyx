@@ -53,29 +53,7 @@ cdef inline list capsule_to_data_list(object capsule):
     cdef CVec* data = <CVec*>PyCapsule_GetPointer(capsule, NULL)
     cdef Data_t* ptr = <Data_t*>data.ptr
     cdef list ticks = []
-
-    cdef uint64_t i
-    cdef QuoteTick quote_tick
-    cdef TradeTick trade_tick
-    for i in range(0, data.len):
-        if ptr[i].tag == Data_t_Tag.TRADE:
-            trade_tick = TradeTick.from_mem_c(ptr[i].trade)
-            ticks.append(trade_tick)
-        elif ptr[i].tag == Data_t_Tag.QUOTE:
-            quote_tick = QuoteTick.from_mem_c(ptr[i].quote)
-            ticks.append(quote_tick)
-
-    return ticks
-
-def list_from_capsule(capsule) -> list[Data]:
-    return capsule_to_data_list(capsule)
-
-# Safety: Do NOT deallocate the capsule here
-cdef inline list capsule_to_data_list(object capsule):
-    cdef CVec* data = <CVec*>PyCapsule_GetPointer(capsule, NULL)
-    cdef Data_t* ptr = <Data_t*>data.ptr
-    cdef list ticks = []
-
+    
     cdef uint64_t i
     for i in range(0, data.len):
         if ptr[i].tag == Data_t_Tag.TRADE:
