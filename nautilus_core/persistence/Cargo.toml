@@ -26,9 +26,11 @@ compare = "0.1.0"
 datafusion = { version = "28.0.0", default-features = false, features = ["compression", "regex_expressions", "unicode_expressions"] }
 pin-project-lite = "0.2.9"
 # using arrow2 until memory leak fixed
-arrow2 = { version = "0.15.0", features = [ "io_parquet", "io_csv_read", "compute_comparison" ] }
+# arrow2 = { version = "0.15.0", features = [ "io_parquet", "io_csv_read", "compute_comparison" ] }
+
 [features]
 extension-module = [
+<<<<<<< HEAD
   "pyo3/extension-module", 
   "nautilus-core/extension-module", 
   "nautilus-model/extension-module",
@@ -41,3 +43,14 @@ criterion.workspace = true
 [[bench]]
 name = "bench_persistence"
 harness = false
+=======
+    "pyo3/extension-module",
+    "nautilus_core/extension-module",
+    "nautilus_model/extension-module"]
+default = []
+
+
+
+
+
+>>>>>>> da8e52efa (Vec<QuoteTick>)

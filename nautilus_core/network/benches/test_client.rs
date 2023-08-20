@@ -15,11 +15,26 @@
 
 use std::collections::HashMap;
 
+<<<<<<< HEAD:nautilus_core/network/benches/test_client.rs
 use hyper::Method;
 use nautilus_network::http::HttpClient;
 
 const CONCURRENCY: usize = 256;
 const TOTAL: usize = 1_000_000;
+=======
+use datafusion::arrow::datatypes::SchemaRef;
+use datafusion::arrow::record_batch::RecordBatch;
+use nautilus_model::data::tick::Data;
+use pyo3::prelude::*;
+
+#[repr(C)]
+#[pyclass]
+#[derive(Debug, Clone, Copy)]
+pub enum ParquetType {
+    QuoteTick = 0,
+    TradeTick = 1,
+}
+>>>>>>> da8e52efa (Vec<QuoteTick>):nautilus_core/persistence/src/parquet/mod.rs
 
 #[tokio::main]
 async fn main() {
@@ -35,6 +50,7 @@ async fn main() {
             ));
         }
 
+<<<<<<< HEAD:nautilus_core/network/benches/test_client.rs
         let resp = futures::future::join_all(reqs.drain(0..)).await;
         assert!(resp.iter().all(|res| if let Ok(resp) = res {
             resp.status == 200
@@ -43,3 +59,12 @@ async fn main() {
         }));
     }
 }
+=======
+pub trait DecodeDataFromRecordBatch
+where
+    Self: Sized + Into<Data>,
+{
+    fn decode_batch(metadata: &HashMap<String, String>, record_batch: RecordBatch) -> Vec<Data>;
+    fn get_schema(metadata: HashMap<String, String>) -> SchemaRef;
+}
+>>>>>>> da8e52efa (Vec<QuoteTick>):nautilus_core/persistence/src/parquet/mod.rs

@@ -78,6 +78,7 @@ RUST_LIB_PATHS: list[Path] = [
     TARGET_DIR / f"{RUST_LIB_PFX}nautilus_core.{RUST_STATIC_LIB_EXT}",
     TARGET_DIR / f"{RUST_LIB_PFX}nautilus_model.{RUST_STATIC_LIB_EXT}",
     TARGET_DIR / f"{RUST_LIB_PFX}nautilus_persistence.{RUST_STATIC_LIB_EXT}",
+    TARGET_DIR / f"{RUST_LIB_PFX}nautilus_persistence_g.{RUST_STATIC_LIB_EXT}",
 ]
 RUST_LIBS: list[str] = [str(path) for path in RUST_LIB_PATHS]
 
@@ -322,8 +323,8 @@ def build() -> None:
             # Copy the build back into the source tree for development and wheel packaging
             _copy_build_dir_to_project(cmd)
 
-    if platform.system() in ("Linux", "Darwin"):
-        _strip_unneeded_symbols()
+    # if platform.system() in ("Linux", "Darwin"):
+    #     _strip_unneeded_symbols()
 
 
 if __name__ == "__main__":

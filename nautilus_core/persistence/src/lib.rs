@@ -19,10 +19,16 @@ mod kmerge_batch;
 pub mod wranglers;
 
 use pyo3::prelude::*;
+<<<<<<< HEAD
+=======
+use session::{PythonCatalog, PythonQueryResult};
+
+>>>>>>> da8e52efa (Vec<QuoteTick>)
 
 /// Loaded as nautilus_pyo3.persistence
 #[pymodule]
 pub fn persistence(_: Python<'_>, m: &PyModule) -> PyResult<()> {
+<<<<<<< HEAD
     m.add_class::<arrow::NautilusDataType>()?;
     m.add_class::<backend::session::DataBackendSession>()?;
     m.add_class::<backend::session::DataQueryResult>()?;
@@ -31,5 +37,10 @@ pub fn persistence(_: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<wranglers::delta::OrderBookDeltaDataWrangler>()?;
     m.add_class::<wranglers::quote::QuoteTickDataWrangler>()?;
     m.add_class::<wranglers::trade::TradeTickDataWrangler>()?;
+=======
+    m.add_class::<ParquetType>()?;
+    m.add_class::<PythonCatalog>()?;
+    m.add_class::<PythonQueryResult>()?;
+>>>>>>> da8e52efa (Vec<QuoteTick>)
     Ok(())
 }
