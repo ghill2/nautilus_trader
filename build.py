@@ -78,6 +78,7 @@ RUST_LIB_PATHS: list[Path] = [
     TARGET_DIR / f"{RUST_LIB_PFX}nautilus_core.{RUST_STATIC_LIB_EXT}",
     TARGET_DIR / f"{RUST_LIB_PFX}nautilus_model.{RUST_STATIC_LIB_EXT}",
     TARGET_DIR / f"{RUST_LIB_PFX}nautilus_persistence.{RUST_STATIC_LIB_EXT}",
+    TARGET_DIR / f"{RUST_LIB_PFX}nautilus_persistence_g.{RUST_STATIC_LIB_EXT}",
 ]
 RUST_LIBS: list[str] = [str(path) for path in RUST_LIB_PATHS]
 

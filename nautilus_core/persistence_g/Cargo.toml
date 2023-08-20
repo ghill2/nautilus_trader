@@ -1,0 +1,36 @@
+[package]
+name = "nautilus_persistence_g"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+
+[lib]
+name = "nautilus_persistence_g"
+crate-type = ["rlib", "staticlib", "cdylib"]
+
+[dependencies]
+nautilus-core = { path = "../core" }
+nautilus-model = { path = "../model" }
+chrono.workspace = true
+pyo3.workspace = true
+rand.workspace = true
+once_cell = "1.17.0"
+arrow2 = { version = "0.15.0", features = [
+    "io_parquet",
+    "io_csv_read",
+    "compute_comparison",
+    "io_parquet_compression"  # "Failed to read a compressed parquet file. Use the cargo feature \"io_parquet_compression\" to read compressed parquet files."
+    ] }
+
+[features]
+extension-module = [
+    "pyo3/extension-module",
+    "nautilus-core/extension-module",
+    "nautilus-model/extension-module",
+]
+default = []
+
+[build-dependencies]
+cbindgen.workspace = true
