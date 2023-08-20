@@ -88,7 +88,7 @@ from nautilus_trader.model.orders.trailing_stop_limit cimport TrailingStopLimitO
 from nautilus_trader.model.orders.trailing_stop_market cimport TrailingStopMarketOrder
 from nautilus_trader.model.position cimport Position
 from nautilus_trader.msgbus.bus cimport MessageBus
-
+from nautilus_trader.core.rust.model cimport QUANTITY_MAX
 
 cdef tuple ORDER_STATUS_UPSTREAM = (OrderStatus.INITIALIZED, OrderStatus.EMULATED, OrderStatus.RELEASED)
 
@@ -1533,7 +1533,8 @@ cdef class OrderMatchingEngine:
                 )
 
             if fill_qty._mem.raw == 0:
-                return  # Done
+                self._log.warning("Insufficient quantity for fill, using order quantity.")
+                fill_qty = order.quantity
 
             self.fill_order(
                 order=order,
