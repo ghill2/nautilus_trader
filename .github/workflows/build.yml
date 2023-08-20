@@ -7,9 +7,9 @@ on:
     branches: [develop]
   # pull_request:
   # branches: [develop]
-
 jobs:
-  build:
+  publish-wheels:
+    needs: [tag-release]
     strategy:
       fail-fast: false
       matrix:
@@ -19,8 +19,7 @@ jobs:
     name: build - Python ${{ matrix.python-version }} (${{ matrix.arch }} ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     env:
-      BUILD_MODE: debug
-      RUST_BACKTRACE: 1
+      BUILD_MODE: release
 
     steps:
       - name: Checkout repository
@@ -101,7 +100,57 @@ jobs:
       - name: Run tests (Windows)
         if: runner.os == 'Windows'
         run: |
-          poetry install --with test --all-extras
-          poetry run pytest --ignore=tests/performance_tests --new-first --failed-first
-        env:
-          PARALLEL_BUILD: false
+          poetry install
+          poetry build --format wheel
+
+      # # Upload release asset (UNIX)
+      # - name: Set output (UNIX)
+      #   id: vars-unix
+      #   if: (runner.os == 'Linux') || (runner.os == 'macOS')
+      #   run: |
+      #     echo "::set-output name=asset_path::$(find ./dist -mindepth 1 -print -quit)"
+      #     cd dist
+      #     echo "::set-output name=asset_name::$(printf '%s\0' * | awk 'BEGIN{RS="\0"} {print;  exit}')"
+      #
+      # - name: Upload release asset (UNIX)
+      #   id: upload-release-asset-unix
+      #   if: (runner.os == 'Linux') || (runner.os == 'macOS')
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #     ASSET_PATH: ${{ steps.vars-unix.outputs.asset_path }}
+      #     ASSET_NAME: ${{ steps.vars-unix.outputs.asset_name }}
+      #   with:
+      #     upload_url: ${{ needs.tag-release.outputs.upload_url }}
+      #     asset_path: ${{ env.ASSET_PATH }}
+      #     asset_name: ${{ env.ASSET_NAME }}
+      #     asset_content_type: application/wheel
+      #
+      # # Upload release asset (Windows)
+      # - name: Set output (Windows)
+      #   id: vars-windows
+      #   if: runner.os == 'Windows'
+      #   run: |
+      #     echo "::set-output name=asset_path::$(Get-ChildItem dist | Select-Object -ExpandProperty FullName)"
+      #     echo "::set-output name=asset_name::$(Get-ChildItem dist | Select-Object -ExpandProperty Name)"
+      #
+      # - name: Upload release asset (Windows)
+      #   id: upload-release-asset-windows
+      #   if: runner.os == 'Windows'
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #     ASSET_PATH: ${{ steps.vars-windows.outputs.asset_path }}
+      #     ASSET_NAME: ${{ steps.vars-windows.outputs.asset_name }}
+      #   with:
+      #     upload_url: ${{ needs.tag-release.outputs.upload_url }}
+      #     asset_path: ${{ env.ASSET_PATH }}
+      #     asset_name: ${{ env.ASSET_NAME }}
+      #     asset_content_type: application/wheel
+      #
+      # # Publish
+      # - name: Publish to production PyPI
+      #   env:
+      #     POETRY_HTTP_BASIC_PYPI_USERNAME: ${{ secrets.PYPI_USERNAME }}
+      #     POETRY_HTTP_BASIC_PYPI_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+      #   run: poetry publish
