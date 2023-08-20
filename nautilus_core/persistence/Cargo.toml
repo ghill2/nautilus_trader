@@ -30,9 +30,8 @@ pin-project-lite = "0.2.9"
 
 [features]
 extension-module = [
-<<<<<<< HEAD
-  "pyo3/extension-module", 
-  "nautilus-core/extension-module", 
+  "pyo3/extension-module",
+  "nautilus-core/extension-module",
   "nautilus-model/extension-module",
 ]
 default = []
@@ -43,14 +42,3 @@ criterion.workspace = true
 [[bench]]
 name = "bench_persistence"
 harness = false
-=======
-    "pyo3/extension-module",
-    "nautilus_core/extension-module",
-    "nautilus_model/extension-module"]
-default = []
-
-
-
-
-
->>>>>>> da8e52efa (Vec<QuoteTick>)

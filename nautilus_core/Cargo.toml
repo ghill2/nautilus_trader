@@ -9,7 +9,6 @@ members = [
     "network",
     "network/tokio-tungstenite",
     "persistence",
-    "persistence_g",
     "pyo3"
 ]
 
