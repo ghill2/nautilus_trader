@@ -115,16 +115,29 @@ impl DecodeFromRecordBatch for Bar {
     fn decode_batch(metadata: &HashMap<String, String>, record_batch: RecordBatch) -> Vec<Self> {
         // Parse and validate metadata
         let (bar_type, price_precision, size_precision) = parse_metadata(metadata);
+        
+        std::println!("Hello from Rust3!");
 
         // Extract field value arrays
         let cols = record_batch.columns();
+
+        // std::println!("{}", cols.schema);
+        
         let open_values = cols[0].as_any().downcast_ref::<Int64Array>().unwrap();
         let high_values = cols[1].as_any().downcast_ref::<Int64Array>().unwrap();
         let low_values = cols[2].as_any().downcast_ref::<Int64Array>().unwrap();
         let close_values = cols[3].as_any().downcast_ref::<Int64Array>().unwrap();
+
+        // std::println!("{}", cols.schema);
+        // cols[4].as_any().downcast_ref::<UInt64Array>();
         let volume_values = cols[4].as_any().downcast_ref::<UInt64Array>().unwrap();
+
+        // std::println!("{}", cols.schema);
+
         let ts_event_values = cols[5].as_any().downcast_ref::<UInt64Array>().unwrap();
         let ts_init_values = cols[6].as_any().downcast_ref::<UInt64Array>().unwrap();
+        
+        std::println!("Hello from Rust4!");
 
         // Construct iterator of values from arrays
         let values = open_values
@@ -147,6 +160,8 @@ impl DecodeFromRecordBatch for Bar {
                     ts_init: ts_init.unwrap(),
                 },
             );
+        
+        std::println!("Hello from Rust5!");
 
         values.collect()
     }

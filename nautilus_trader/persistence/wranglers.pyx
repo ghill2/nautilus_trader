@@ -52,18 +52,20 @@ from nautilus_trader.model.data.tick cimport TradeTick
 cdef inline list capsule_to_data_list(object capsule):
     cdef CVec* data = <CVec*>PyCapsule_GetPointer(capsule, NULL)
     cdef Data_t* ptr = <Data_t*>data.ptr
-    cdef list ticks = []
+    cdef list items = []
     
     cdef uint64_t i
     for i in range(0, data.len):
         if ptr[i].tag == Data_t_Tag.TRADE:
-            ticks.append(TradeTick.from_mem_c(ptr[i].trade))
+            items.append(TradeTick.from_mem_c(ptr[i].trade))
         elif ptr[i].tag == Data_t_Tag.QUOTE:
-            ticks.append(QuoteTick.from_mem_c(ptr[i].quote))
+            items.append(QuoteTick.from_mem_c(ptr[i].quote))
+        elif ptr[i].tag == Data_t_Tag.BAR:
+            items.append(Bar.from_mem_c(ptr[i].bar))
         elif ptr[i].tag == Data_t_Tag.DELTA:
-            ticks.append(OrderBookDelta.from_mem_c(ptr[i].delta))
-
-    return ticks
+            items.append(OrderBookDelta.from_mem_c(ptr[i].delta))
+        
+    return items
 
 
 def list_from_capsule(capsule) -> list[Data]:

@@ -16,7 +16,6 @@
 from decimal import Decimal
 
 from nautilus_trader.common.enums import LogColor
-from nautilus_trader.common.queue import Queue
 from nautilus_trader.config import StrategyConfig
 from nautilus_trader.core.correctness import PyCondition
 from nautilus_trader.core.data import Data
@@ -125,8 +124,6 @@ class EMACross(Strategy):
         self.close_positions_on_stop = config.close_positions_on_stop
         self.instrument: Instrument = None
 
-        self._message_queue = Queue()
-
     def on_start(self):
         """Actions to be performed on strategy start."""
         self.instrument = self.cache.instrument(self.instrument_id)
@@ -183,7 +180,6 @@ class EMACross(Strategy):
             order_side=OrderSide.BUY,
             quantity=self.instrument.make_qty(self.trade_size),
         )
-        self._message_queue.put_nowait(order)
         self.submit_order(order)
 
     def sell(self) -> None:
@@ -195,7 +191,6 @@ class EMACross(Strategy):
             order_side=OrderSide.SELL,
             quantity=self.instrument.make_qty(self.trade_size),
         )
-        # self._message_queue.put_nowait(order)
         self.submit_order(order)
 
     def on_data(self, data: Data) -> None:

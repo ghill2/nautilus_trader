@@ -691,6 +691,8 @@ cdef extern from "../includes/model.h":
     # Returns a [`Bar`] as a C string.
     const char *bar_to_cstr(const Bar_t *bar);
 
+    Bar_t bar_clone(const Bar_t *bar);
+
     OrderBookDelta_t orderbook_delta_new(InstrumentId_t instrument_id,
                                          BookAction action,
                                          BookOrder_t order,
@@ -742,6 +744,8 @@ cdef extern from "../includes/model.h":
 
     # Returns a [`QuoteTick`] as a C string pointer.
     const char *quote_tick_to_cstr(const QuoteTick_t *tick);
+
+    QuoteTick_t quote_tick_clone(const QuoteTick_t *tick);
 
     TradeTick_t trade_tick_new(InstrumentId_t instrument_id,
                                int64_t price_raw,

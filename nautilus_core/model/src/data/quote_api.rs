@@ -80,3 +80,8 @@ pub extern "C" fn quote_tick_hash(delta: &QuoteTick) -> u64 {
 pub extern "C" fn quote_tick_to_cstr(tick: &QuoteTick) -> *const c_char {
     str_to_cstr(&tick.to_string())
 }
+
+#[no_mangle]
+pub extern "C" fn quote_tick_clone(tick: &QuoteTick) -> QuoteTick {
+    tick.clone()
+}

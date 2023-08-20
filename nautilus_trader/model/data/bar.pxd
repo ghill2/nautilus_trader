@@ -21,6 +21,7 @@ from nautilus_trader.model.enums_c cimport BarAggregation
 from nautilus_trader.model.enums_c cimport PriceType
 from nautilus_trader.model.identifiers cimport Venue
 from nautilus_trader.model.enums_c cimport AggregationSource
+from nautilus_trader.core.rust.model cimport bar_clone
 
 cdef class BarSpecification:
     cdef BarSpecification_t _mem
@@ -73,6 +74,9 @@ cdef class BarType:
 
 cdef class Bar(Data):
     cdef Bar_t _mem
+    
+    @staticmethod
+    cdef Bar from_mem_c(Bar_t mem)
 
     cdef readonly bint is_revision
     """If this bar is a revision for a previous bar with the same `ts_event`.\n\n:returns: `bool`"""
@@ -86,3 +90,4 @@ cdef class Bar(Data):
     cdef dict to_dict_c(Bar obj)
 
     cpdef bint is_single_price(self)
+    

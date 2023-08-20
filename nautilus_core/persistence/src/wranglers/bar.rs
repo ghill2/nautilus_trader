@@ -62,6 +62,7 @@ impl BarDataWrangler {
     }
 
     fn process_record_batches_bytes(&self, _py: Python, data: &[u8]) -> PyResult<Vec<Bar>> {
+        std::println!("Hello from Rust1!");
         // Create a StreamReader (from Arrow IPC)
         let cursor = Cursor::new(data);
         let reader = match StreamReader::try_new(cursor, None) {
@@ -70,18 +71,19 @@ impl BarDataWrangler {
         };
 
         let mut bars = Vec::new();
-
+        std::println!("Hello from Rust2!");
         // Read the record batches
         for maybe_batch in reader {
             let record_batch = match maybe_batch {
                 Ok(record_batch) => record_batch,
                 Err(e) => return Err(PyValueError::new_err(e.to_string())),
             };
-
+            
             let batch_bars = Bar::decode_batch(&self.metadata, record_batch);
             bars.extend(batch_bars);
+            std::println!("Hello from Rust6!");
         }
-
+        std::println!("Hello from Rust7!");
         Ok(bars)
     }
 }

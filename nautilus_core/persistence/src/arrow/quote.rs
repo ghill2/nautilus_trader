@@ -141,7 +141,8 @@ impl DecodeFromRecordBatch for QuoteTick {
                     ts_init: ts_init.unwrap(),
                 },
             );
-
+        std::println!("{}", bid_size_values.values()[0]);
+        
         values.collect()
     }
 }

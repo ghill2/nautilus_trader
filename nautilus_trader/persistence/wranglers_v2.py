@@ -245,11 +245,11 @@ class QuoteTickDataWrangler:
             )
         else:
             df["ts_init"] = df["ts_event"] + ts_init_delta
-
+        
         # Reorder the columns and drop index column
         df = df[["bid_price", "ask_price", "bid_size", "ask_size", "ts_event", "ts_init"]]
         df = df.reset_index(drop=True)
-
+       
         table = pa.Table.from_pandas(df)
 
         return self.from_arrow(table)
@@ -388,7 +388,7 @@ class BarDataWrangler:
         self.instrument = instrument
         self.bar_type = bar_type
         self._inner = RustBarDataWrangler(
-            bar_type=bar_type.instrument_id.value,
+            bar_type=str(bar_type),
             price_precision=instrument.price_precision,
             size_precision=instrument.size_precision,
         )
@@ -428,7 +428,7 @@ class BarDataWrangler:
         Returns
         -------
         list[RustBar]
-            A list of PyO3 [pyclass] `TradeTick` objects.
+                A list of PyO3 [pyclass] `TradeTick` objects.
 
         """
         # Rename column
@@ -438,10 +438,12 @@ class BarDataWrangler:
         df["open"] = (df["open"] * 1e9).astype(pd.Int64Dtype())
         df["high"] = (df["high"] * 1e9).astype(pd.Int64Dtype())
         df["low"] = (df["low"] * 1e9).astype(pd.Int64Dtype())
-        df["clow"] = (df["close"] * 1e9).astype(pd.Int64Dtype())
+        df["close"] = (df["close"] * 1e9).astype(pd.Int64Dtype())
 
         if "volume" not in df.columns:
-            df["volume"] = pd.Series([default_volume * 1e9] * len(df), dtype=pd.UInt64Dtype())
+            df["volume"] = pd.Series([default_volume] * len(df), dtype=float)
+        
+        df["volume"] = (df["volume"] * 1e9).astype("uint64")
 
         # Process timestamps
         df["ts_event"] = (
@@ -464,7 +466,7 @@ class BarDataWrangler:
         # Reorder the columns and drop index column
         df = df[["open", "high", "low", "close", "volume", "ts_event", "ts_init"]]
         df = df.reset_index(drop=True)
-
+        
         table = pa.Table.from_pandas(df)
-
+        print(table)
         return self.from_arrow(table)

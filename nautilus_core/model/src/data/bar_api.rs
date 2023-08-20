@@ -200,3 +200,8 @@ pub extern "C" fn bar_hash(bar: &Bar) -> u64 {
 pub extern "C" fn bar_to_cstr(bar: &Bar) -> *const c_char {
     str_to_cstr(&bar.to_string())
 }
+
+#[no_mangle]
+pub extern "C" fn bar_clone(bar: &Bar) -> Bar {
+    bar.clone()
+}

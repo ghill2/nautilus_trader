@@ -1138,6 +1138,8 @@ uint64_t bar_hash(const struct Bar_t *bar);
  */
 const char *bar_to_cstr(const struct Bar_t *bar);
 
+struct Bar_t bar_clone(const struct Bar_t *bar);
+
 struct OrderBookDelta_t orderbook_delta_new(struct InstrumentId_t instrument_id,
                                             enum BookAction action,
                                             struct BookOrder_t order,
@@ -1195,6 +1197,8 @@ uint64_t quote_tick_hash(const struct QuoteTick_t *delta);
  * Returns a [`QuoteTick`] as a C string pointer.
  */
 const char *quote_tick_to_cstr(const struct QuoteTick_t *tick);
+
+struct QuoteTick_t quote_tick_clone(const struct QuoteTick_t *tick);
 
 struct TradeTick_t trade_tick_new(struct InstrumentId_t instrument_id,
                                   int64_t price_raw,
