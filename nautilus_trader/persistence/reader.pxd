@@ -1,12 +1,8 @@
-from nautilus_trader.core.rust.persistence_g cimport Vec_QuoteTick
+from nautilus_trader.core.rust.core cimport CVec
 
 cdef class ParquetReader:
     cdef void* _reader
-    cdef Vec_QuoteTick * _chunk
-    # cdef ParquetType _parquet_type
-    # cdef ParquetReaderType _reader_type
-    
-    # cdef CVec _chunk
+    cdef CVec _chunk
 
     # cdef void _drop_chunk(self) except *
 

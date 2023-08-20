@@ -85,6 +85,7 @@ def _generate_batches_rust(
     files = sorted(files, key=lambda x: Path(x).stem)
 
     assert cls in (QuoteTick, TradeTick)
+    files = sorted(files, key=lambda x: Path(x).stem)
 
     session = DataBackendSession(chunk_size=batch_size)
 
