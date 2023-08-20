@@ -32,7 +32,7 @@ from nautilus_trader.model.identifiers import InstrumentId
 from nautilus_trader.persistence.external.util import py_type_to_parquet_type
 from nautilus_trader.persistence.wranglers import list_from_capsule
 from nautilus_trader.serialization.arrow.serializer import ParquetSerializer
-
+from nautilus_trader.persistence.reader import ParquetReader
 
 def _generate_batches_within_time_range(
     batches: Generator[list[Data], None, None],
@@ -76,31 +76,18 @@ def _generate_batches_within_time_range(
 
         yield batch
 
-
 def _generate_batches_rust(
-    files: list[str],
-    cls: type,
-    batch_size: int = 10_000,
-) -> Generator[list[Union[QuoteTick, TradeTick]], None, None]:
-    files = sorted(files, key=lambda x: Path(x).stem)
-
-    assert cls in (QuoteTick, TradeTick)
-    files = sorted(files, key=lambda x: Path(x).stem)
-
-    session = DataBackendSession(chunk_size=batch_size)
-
-    for file in files:
-        session.add_file(
-            "data",
-            file,
-            py_type_to_parquet_type(cls),
-        )
-
-    result = session.to_query_result()
-
-    for chunk in result:
-        yield list_from_capsule(chunk)
-
+        files: list[str],
+        cls: type,
+        batch_size: int = 10_000,
+    ) -> Generator[list[QuoteTick], None, None]:
+        assert cls in (QuoteTick)
+        files = sorted(files, key=lambda x: Path(x).stem)
+        
+        for file in files:
+            reader = ParquetReader(file, batch_size)
+            for chunk in reader:
+                yield chunk
 
 def generate_batches_rust(
     files: list[str],
