@@ -20,12 +20,10 @@ install-just-deps:
 install-just-deps-all:
 	poetry install --with dev,test,docs --all-extras --no-root
 
-.PHONY: build
-build:
+build: nautilus_trader
 	BUILD_MODE=release poetry run python build.py
 
-.PHONY: build-debug
-build-debug:
+build-debug: nautilus_trader
 	BUILD_MODE=debug poetry run python build.py
 
 .PHONY: build-wheel
