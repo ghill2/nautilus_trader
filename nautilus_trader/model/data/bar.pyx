@@ -453,7 +453,7 @@ cdef class BarSpecification:
 
     def to_timedelta(self) -> pd.Timedelta or None:
         if not self.is_time_aggregated():
-            return None
+            raise RuntimeError("Unable to parse aggregation to timedelta")
         elif self.aggregation == BarAggregation.MILLISECOND:
             return pd.Timedelta(milliseconds=self.step)
         elif self.aggregation == BarAggregation.SECOND:
