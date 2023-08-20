@@ -105,8 +105,8 @@ cdef class Position:
         self.apply(fill)
 
         # Added
-        self.gross_pnl = Money(0, self.cost_currency) # set on fills
-        self.net_pnl = Money(0, self.cost_currency) # set on position close
+        self.gross_pnl = Money(0, self.settlement_currency) # set on fills
+        self.net_pnl = Money(0, self.settlement_currency) # set on position close
         self.commissions_home = []
 
         self.rollover_total = 0 # calculated on close (in home currency)
@@ -544,12 +544,12 @@ cdef class Position:
         if self.is_inverse:
             return Money(
                 self.quantity.as_f64_c() * self.multiplier.as_f64_c() * (1.0 / last.as_f64_c()),
-                self.base_currency,
+                self.settlement_currency,
             )
         else:
             return Money(
                 self.quantity.as_f64_c() * self.multiplier.as_f64_c() * last.as_f64_c(),
-                self.quote_currency,
+                self.settlement_currency,
             )
 
     cpdef Money calculate_pnl(
@@ -690,11 +690,11 @@ cdef class Position:
         if self.realized_pnl is None:
             self.realized_pnl = Money(realized_pnl, self.settlement_currency)
         else:
-            self.realized_pnl = Money(self.realized_pnl.as_f64_c() + realized_pnl, self.cost_currency)
+            self.realized_pnl = Money(self.realized_pnl.as_f64_c() + realized_pnl, self.base_currency)
 
         self.gross_pnl = Money(
             self._calculate_pnl(self.avg_px_open, fill.last_px.as_f64_c(), fill.last_qty.as_f64_c()),
-            self.cost_currency
+            self.base_currency
         )
 
         self._buy_qty.add_assign(last_qty_obj)
