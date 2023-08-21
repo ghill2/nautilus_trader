@@ -21,7 +21,7 @@ cdef class ParquetReader:
             raise FileNotFoundError(f"File not found at {file_path}")
         
         self._reader = parquet_reader_new(
-            file_path=pystr_to_cstr(file_path),
+            file_path=pystr_to_cstr(str(file_path)),
             chunk_size=chunk_size,
         )
         

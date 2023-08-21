@@ -190,13 +190,7 @@ class StreamingEngine(_BufferIterator):
         if config.data_type is Bar:
             assert config.bar_spec
 
-        files = config.catalog().get_files(
-            cls=config.data_type,
-            instrument_id=config.instrument_id,
-            start_nanos=config.start_time_nanos,
-            end_nanos=config.end_time_nanos,
-            bar_spec=BarSpecification.from_str(config.bar_spec) if config.bar_spec else None,
-        )
+        files = config.catalog().get_files(config)
 
         assert files, f"No files found for {config}"
         assert config.batch_size is not None
