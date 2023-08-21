@@ -93,7 +93,7 @@ cdef class Position:
     """The average close price.\n\n:returns: `double`"""
     cdef readonly double realized_return
     """The current realized return for the position.\n\n:returns: `double`"""
-    cdef public Money realized_pnl
+    cdef readonly Money realized_pnl
     """The current realized PnL for the position (including commissions).\n\n:returns: `Money` or ``None``"""
 
     cpdef str info(self)

@@ -90,7 +90,7 @@ from nautilus_trader.model.objects cimport Price
 from nautilus_trader.model.objects cimport Quantity
 from nautilus_trader.model.orders.base cimport Order
 from nautilus_trader.msgbus.bus cimport MessageBus
-
+from nautilus_trader.model.currencies import GBP
 
 cdef class ExecutionEngine(Component):
     """
@@ -1105,7 +1105,8 @@ cdef class ExecutionEngine(Component):
         cdef Money commission
         cdef double commission_total
         cdef double rollover_total
-        cdef SimulatedExchange exchange
+        cdef double gross_pnl
+        cdef double net_pnl
         if position.is_closed_c():
             event = PositionClosed.create_c(
                 position=position,
@@ -1113,53 +1114,64 @@ cdef class ExecutionEngine(Component):
                 event_id=UUID4(),
                 ts_init=self._clock.timestamp_ns(),
             )
-
+            
+            ########################################################################################
             # NOTE George added.
+            
             # Get account
             account = self._cache.account(position.account_id)
-
-            # Convert gross_pnl to home currency
-            xrate = self._cache.get_xrate(
-                venue=instrument.id.venue,
-                from_currency=position.cost_currency,
-                to_currency=account.base_currency,
-                price_type=PriceType.BID if position.side == PositionSide.LONG else PriceType.ASK,
-            )
-            position.gross_pnl = Money(position.gross_pnl.as_f64_c() * xrate, account.base_currency)
-
-            # Convert commissions to home currency
+            
+            # convert commissions to home currency
             for commission in position.commissions():
                 xrate = self._cache.get_xrate(
                     venue=instrument.id.venue,
                     from_currency=commission.currency,
-                    to_currency=account.base_currency,
+                    to_currency=GBP,
                     price_type=PriceType.BID if position.side == PositionSide.SHORT else PriceType.ASK,
                 )
                 # Convert to home currency
-                commission = Money(commission.as_f64_c() * xrate, account.base_currency)
+                commission = Money(commission.as_f64_c() * xrate, GBP)
                 position.commissions_home.append(commission)
-
-            # Calculate net_pnl in home currency
-            # NOTE rollover_total, commissions_home, gross_pnl are in home currency now
-            # net_pnl = (gross_pnl - comms) + swaps
+            
             commission_total = sum([float(x) for x in position.commissions_home])
             rollover_total = sum([float(x) for x in position.rollover_amount])
-            position.net_pnl = Money(
-                                (position.gross_pnl.as_f64_c() - commission_total) + rollover_total,
-                                account.base_currency
-                            )
+            
+            # get xrate for home currency conversions
+            xrate = self._cache.get_xrate(
+                venue=instrument.id.venue,
+                from_currency=position.settlement_currency,
+                to_currency=GBP,
+                price_type=PriceType.BID if position.side == PositionSide.LONG else PriceType.ASK,
+            )
 
+            # Calculate gross_pnl in home currency
+            # gross_pnl = position._calculate_pnl(
+            #                         avg_px_open=position.avg_px_open,
+            #                         avg_px_close=position.avg_px_close,
+            #                         quantity=position.quantity.as_f64_c(),
+            #                         )
+            # convert gross_pnl to home currency
+            position.gross_pnl = Money(position.gross_pnl.as_f64_c() * xrate, GBP)
+
+            # calculate net_pnl in home currency (net_pnl = (gross_pnl - comms) + swaps)
+            net_pnl = (position.gross_pnl - commission_total) + rollover_total
+            position.net_pnl = Money(net_pnl, GBP)
+
+            # add rollover
             position.rollover_total = rollover_total
 
             exchange = self._routing_map[instrument.id.venue]._exchange # make public: nautilus_trader.backtest.execution_client.Backtest._exchange
+
             exchange.adjust_account(
                 Money(rollover_total, account.base_currency)
             )
 
-            # Add account balance
+            # add account balance
             position.balance_total = account.balance().total
             position.balance_locked = account.balance().locked
             position.balance_free = account.balance().free
+
+            ########################################################################################
 
         else:
             event = PositionChanged.create_c(

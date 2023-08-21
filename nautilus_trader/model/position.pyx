@@ -690,11 +690,11 @@ cdef class Position:
         if self.realized_pnl is None:
             self.realized_pnl = Money(realized_pnl, self.settlement_currency)
         else:
-            self.realized_pnl = Money(self.realized_pnl.as_f64_c() + realized_pnl, self.base_currency)
+            self.realized_pnl = Money(self.realized_pnl.as_f64_c() + realized_pnl, self.settlement_currency)
 
         self.gross_pnl = Money(
-            self._calculate_pnl(self.avg_px_open, fill.last_px.as_f64_c(), fill.last_qty.as_f64_c()),
-            self.base_currency
+            self._calculate_pnl(self.avg_px_open, last_px, last_qty),
+            self.quote_currency,
         )
 
         self._buy_qty.add_assign(last_qty_obj)
@@ -725,8 +725,8 @@ cdef class Position:
             realized_pnl += self._calculate_pnl(self.avg_px_open, last_px, last_qty)
 
         self.gross_pnl = Money(
-            self._calculate_pnl(self.avg_px_open, fill.last_px.as_f64_c(), fill.last_qty.as_f64_c()),
-            self.cost_currency
+            self._calculate_pnl(self.avg_px_open, last_px, last_qty),
+            self.quote_currency,
         )
 
         if self.realized_pnl is None:
