@@ -281,11 +281,11 @@ class QuoteTickDataWrangler(WranglerBase):
             )
         else:
             df["ts_init"] = df["ts_event"] + ts_init_delta
-        
+
         # Reorder the columns and drop index column
         df = df[["bid_price", "ask_price", "bid_size", "ask_size", "ts_event", "ts_init"]]
         df = df.reset_index(drop=True)
-       
+
         table = pa.Table.from_pandas(df)
 
         return self.from_arrow(table)
@@ -473,7 +473,7 @@ class BarDataWrangler(WranglerBase):
         Returns
         -------
         list[RustBar]
-                A list of PyO3 [pyclass] `TradeTick` objects.
+            A list of PyO3 [pyclass] `TradeTick` objects.
 
         """
         # Rename column
@@ -483,12 +483,10 @@ class BarDataWrangler(WranglerBase):
         df["open"] = (df["open"] * 1e9).astype(pd.Int64Dtype())
         df["high"] = (df["high"] * 1e9).astype(pd.Int64Dtype())
         df["low"] = (df["low"] * 1e9).astype(pd.Int64Dtype())
-        df["close"] = (df["close"] * 1e9).astype(pd.Int64Dtype())
+        df["clow"] = (df["close"] * 1e9).astype(pd.Int64Dtype())
 
         if "volume" not in df.columns:
-            df["volume"] = pd.Series([default_volume] * len(df), dtype=float)
-        
-        df["volume"] = (df["volume"] * 1e9).astype("uint64")
+            df["volume"] = pd.Series([default_volume * 1e9] * len(df), dtype=pd.UInt64Dtype())
 
         # Process timestamps
         df["ts_event"] = (
@@ -511,7 +509,7 @@ class BarDataWrangler(WranglerBase):
         # Reorder the columns and drop index column
         df = df[["open", "high", "low", "close", "volume", "ts_event", "ts_init"]]
         df = df.reset_index(drop=True)
-        
+
         table = pa.Table.from_pandas(df)
-        print(table)
+
         return self.from_arrow(table)
