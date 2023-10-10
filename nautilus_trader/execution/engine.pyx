@@ -56,6 +56,7 @@ from nautilus_trader.core.rust.core cimport unix_timestamp_ms
 from nautilus_trader.core.uuid cimport UUID4
 from nautilus_trader.execution.algorithm cimport ExecAlgorithm
 from nautilus_trader.execution.client cimport ExecutionClient
+from nautilus_trader.execution.messages cimport BatchCancelOrders
 from nautilus_trader.execution.messages cimport CancelAllOrders
 from nautilus_trader.execution.messages cimport CancelOrder
 from nautilus_trader.execution.messages cimport ModifyOrder
@@ -751,6 +752,8 @@ cdef class ExecutionEngine(Component):
             self._handle_cancel_order(client, command)
         elif isinstance(command, CancelAllOrders):
             self._handle_cancel_all_orders(client, command)
+        elif isinstance(command, BatchCancelOrders):
+            self._handle_batch_cancel_orders(client, command)
         elif isinstance(command, QueryOrder):
             self._handle_query_order(client, command)
         else:
@@ -830,6 +833,9 @@ cdef class ExecutionEngine(Component):
 
     cpdef void _handle_cancel_all_orders(self, ExecutionClient client, CancelAllOrders command):
         client.cancel_all_orders(command)
+
+    cpdef void _handle_batch_cancel_orders(self, ExecutionClient client, BatchCancelOrders command):
+        client.batch_cancel_orders(command)
 
     cpdef void _handle_query_order(self, ExecutionClient client, QueryOrder command):
         client.query_order(command)
@@ -1055,7 +1061,7 @@ cdef class ExecutionEngine(Component):
                 if contingent_order is not None and contingent_order.position_id is None:
                     contingent_order.position_id = position.id
                     self._cache.add_position_id(
-                        order.position_id,
+                        position.id,
                         contingent_order.instrument_id.venue,
                         contingent_order.client_order_id,
                         contingent_order.strategy_id,

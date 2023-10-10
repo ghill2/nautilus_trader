@@ -20,9 +20,9 @@ from decimal import Decimal
 from inspect import iscoroutinefunction
 from typing import Callable, Optional, Union
 
-import pandas as pd
-
 # fmt: off
+import pandas as pd
+import pytz
 from ibapi import comm
 from ibapi import decoder
 from ibapi.account_summary_tags import AccountSummaryTags
@@ -49,6 +49,10 @@ from ibapi.utils import BadMessage
 from ibapi.utils import current_fn_name
 from ibapi.wrapper import EWrapper
 
+from nautilus_trader import PYPROJECT_PATH
+from nautilus_trader import get_package_version_from_toml
+from nautilus_trader import get_package_version_installed
+from nautilus_trader.adapters.interactive_brokers.client.common import AccountOrderRef
 from nautilus_trader.adapters.interactive_brokers.client.common import IBPosition
 from nautilus_trader.adapters.interactive_brokers.client.common import Requests
 from nautilus_trader.adapters.interactive_brokers.client.common import Subscriptions
@@ -78,6 +82,16 @@ from nautilus_trader.msgbus.bus import MessageBus
 
 # fmt: on
 
+# Check ibapi package versioning
+ibapi_package = "nautilus_ibapi"
+ibapi_version_specified = get_package_version_from_toml(PYPROJECT_PATH, ibapi_package, True)
+ibapi_version_installed = get_package_version_installed(ibapi_package)
+
+if ibapi_version_specified != ibapi_version_installed:
+    raise RuntimeError(
+        f"Expected `{ibapi_package}` version {ibapi_version_specified}, but found {ibapi_version_installed}",
+    )
+
 
 class InteractiveBrokersClient(Component, EWrapper):
     """
@@ -106,8 +120,6 @@ class InteractiveBrokersClient(Component, EWrapper):
         # Config
         self._loop = loop
         self._cache = cache
-        # self._clock = clock
-        # self._logger = logger
         self._contract_for_probe = instrument_id_to_ib_contract(
             InstrumentId.from_str("EUR/CHF.IDEALPRO"),
         )
@@ -132,7 +144,7 @@ class InteractiveBrokersClient(Component, EWrapper):
         self._bar_type_to_last_bar: dict[str, Union[BarData, None]] = {}
         self.registered_nautilus_clients: set = set()
         self._event_subscriptions: dict[str, Callable] = {}
-        self._order_id_to_order: dict[int, IBOrder] = {}
+        self._order_id_to_order_ref: dict[int, AccountOrderRef] = {}
 
         # Temporary caches
         self._exec_id_details: dict[
@@ -354,44 +366,38 @@ class InteractiveBrokersClient(Component, EWrapper):
             elif request := self.requests.get(req_id=req_id):
                 self._log.warning(f"{error_code}: {error_string}, {request}")
                 self._end_request(req_id, success=False)
-            elif req_id in self._order_id_to_order:
+            elif req_id in self._order_id_to_order_ref:
                 if error_code == 321:
                     # --> Error 321: Error validating request.-'bN' : cause - The API interface is currently in Read-Only mode.
-                    order = self._order_id_to_order.get(req_id, None)
-                    if order:
-                        name = f"orderStatus-{order.account}"
+                    order_ref = self._order_id_to_order_ref.get(req_id, None)
+                    if order_ref:
+                        name = f"orderStatus-{order_ref.account}"
                         if handler := self._event_subscriptions.get(name, None):
                             handler(
-                                order_ref=self._order_id_to_order[req_id].orderRef.rsplit(":", 1)[
-                                    0
-                                ],
+                                order_ref=self._order_id_to_order_ref[req_id].order_id,
                                 order_status="Rejected",
                                 reason=error_string,
                             )
                 elif error_code in [201, 203]:
                     # --> Warning 201 req_id= Order rejected - reason
                     # --> Warning 203 The security <security> is not available or allowed for this account.
-                    order = self._order_id_to_order.get(req_id, None)
-                    if order:
-                        name = f"orderStatus-{order.account}"
+                    order_ref = self._order_id_to_order_ref.get(req_id, None)
+                    if order_ref:
+                        name = f"orderStatus-{order_ref.account}"
                         if handler := self._event_subscriptions.get(name, None):
                             handler(
-                                order_ref=self._order_id_to_order[req_id].orderRef.rsplit(":", 1)[
-                                    0
-                                ],
+                                order_ref=self._order_id_to_order_ref[req_id].order_id,
                                 order_status="Rejected",
                                 reason=error_string,
                             )
                 elif error_code == 202:
                     # --> Warning 202 req_id= Order Canceled - reason
-                    order = self._order_id_to_order.get(req_id, None)
-                    if order:
-                        name = f"orderStatus-{order.account}"
+                    order_ref = self._order_id_to_order_ref.get(req_id, None)
+                    if order_ref:
+                        name = f"orderStatus-{order_ref.account}"
                         if handler := self._event_subscriptions.get(name, None):
                             handler(
-                                order_ref=self._order_id_to_order[req_id].orderRef.rsplit(":", 1)[
-                                    0
-                                ],
+                                order_ref=self._order_id_to_order_ref[req_id].order_id,
                                 order_status="Cancelled",
                                 reason=error_string,
                             )
@@ -735,7 +741,8 @@ class InteractiveBrokersClient(Component, EWrapper):
 
         instrument_id = InstrumentId.from_str(subscription.name[0])
         instrument = self._cache.instrument(instrument_id)
-        ts_event = pd.Timestamp.fromtimestamp(time, "UTC").value
+        ts_event = pd.Timestamp.fromtimestamp(time, tz=pytz.utc).value
+
         quote_tick = QuoteTick(
             instrument_id=instrument_id,
             bid_price=instrument.make_price(bid_price),
@@ -743,11 +750,9 @@ class InteractiveBrokersClient(Component, EWrapper):
             bid_size=instrument.make_qty(bid_size),
             ask_size=instrument.make_qty(ask_size),
             ts_event=ts_event,
-            ts_init=max(
-                self._clock.timestamp_ns(),
-                ts_event,
-            ),  # fix for failed invariant: `ts_event` > `ts_init`
+            ts_init=max(self._clock.timestamp_ns(), ts_event),  # `ts_event` <= `ts_init`
         )
+
         self._handle_data(quote_tick)
 
     def tickByTickAllLast(  # : Override the EWrapper
@@ -771,7 +776,8 @@ class InteractiveBrokersClient(Component, EWrapper):
 
         instrument_id = InstrumentId.from_str(subscription.name[0])
         instrument = self._cache.instrument(instrument_id)
-        ts_event = pd.Timestamp.fromtimestamp(time, "UTC").value
+        ts_event = pd.Timestamp.fromtimestamp(time, tz=pytz.utc).value
+
         trade_tick = TradeTick(
             instrument_id=instrument_id,
             price=instrument.make_price(price),
@@ -779,17 +785,18 @@ class InteractiveBrokersClient(Component, EWrapper):
             aggressor_side=AggressorSide.NO_AGGRESSOR,
             trade_id=generate_trade_id(ts_event=ts_event, price=price, size=size),
             ts_event=ts_event,
-            ts_init=max(
-                self._clock.timestamp_ns(),
-                ts_event,
-            ),  # fix for failed invariant: `ts_event` > `ts_init`
+            ts_init=max(self._clock.timestamp_ns(), ts_event),  # `ts_event` <= `ts_init`
         )
+
         self._handle_data(trade_tick)
 
     # -- Options -----------------------------------------------------------------------------------------
     # -- Orders ------------------------------------------------------------------------------------------
     def place_order(self, order: IBOrder):
-        self._order_id_to_order[order.orderId] = order
+        self._order_id_to_order_ref[order.orderId] = AccountOrderRef(
+            account=order.account,
+            order_id=order.orderRef.rsplit(":", 1)[0],
+        )
         order.orderRef = f"{order.orderRef}:{order.orderId}"
         self._client.placeOrder(order.orderId, order.contract, order)
 
@@ -821,6 +828,20 @@ class InteractiveBrokersClient(Component, EWrapper):
             order.order_state = order_state
             order.orderRef = order.orderRef.rsplit(":", 1)[0]
             request.result.append(order)
+            # Validate and add reverse mapping, if not exists
+            if order_ref := self._order_id_to_order_ref.get(order.orderId):
+                if not (
+                    order_ref.account == order.account and order_ref.order_id == order.orderRef
+                ):
+                    self._log.warning(
+                        f"Discrepancy found in order, expected {order_ref}, "
+                        f"was (account={order.account}, order_id={order.orderRef}",
+                    )
+            else:
+                self._order_id_to_order_ref[order.orderId] = AccountOrderRef(
+                    account=order.account,
+                    order_id=order.orderRef,
+                )
             return
 
         # Handle event based response
@@ -852,12 +873,12 @@ class InteractiveBrokersClient(Component, EWrapper):
         mkt_cap_price: float,
     ):
         self.logAnswer(current_fn_name(), vars())
-        order = self._order_id_to_order.get(order_id, None)
-        if order:
-            name = f"orderStatus-{order.account}"
+        order_ref = self._order_id_to_order_ref.get(order_id, None)
+        if order_ref:
+            name = f"orderStatus-{order_ref.account}"
             if handler := self._event_subscriptions.get(name, None):
                 handler(
-                    order_ref=self._order_id_to_order[order_id].orderRef.rsplit(":", 1)[0],
+                    order_ref=self._order_id_to_order_ref[order_id].order_id,
                     order_status=status,
                 )
 
@@ -1103,23 +1124,26 @@ class InteractiveBrokersClient(Component, EWrapper):
     def historicalData(self, req_id: int, bar: BarData):  # : Override the EWrapper
         self.logAnswer(current_fn_name(), vars())
         if request := self.requests.get(req_id=req_id):
-            is_request = True
+            bar_type = BarType.from_str(request.name)
+            bar = self._ib_bar_to_nautilus_bar(
+                bar_type=bar_type,
+                bar=bar,
+                ts_init=self._ib_bar_to_ts_init(bar, bar_type),
+            )
+            if bar:
+                request.result.append(bar)
         elif request := self.subscriptions.get(req_id=req_id):
-            is_request = False
+            bar = self._process_bar_data(
+                bar_type_str=request.name,
+                bar=bar,
+                handle_revised_bars=False,
+                historical=True,
+            )
+            if bar:
+                self._handle_data(bar)
         else:
             self._log.debug(f"Received {bar=} on {req_id=}")
             return
-
-        bar = self._process_bar_data(
-            bar_type_str=request.name,
-            bar=bar,
-            handle_revised_bars=False,
-            historical=True,
-        )
-        if bar and is_request:
-            request.result.append(bar)
-        elif bar:
-            self._handle_data(bar)
 
     def historicalDataEnd(self, req_id: int, start: str, end: str):  # : Override the EWrapper
         self.logAnswer(current_fn_name(), vars())
@@ -1225,15 +1249,36 @@ class InteractiveBrokersClient(Component, EWrapper):
                 return None  # Wait for bar to close
 
             if historical:
-                ts_init = (
-                    pd.Timestamp.fromtimestamp(int(bar.date), "UTC").value
-                    + pd.Timedelta(bar_type.spec.timedelta).value
-                )
+                ts_init = self._ib_bar_to_ts_init(bar, bar_type)
                 if ts_init >= self._clock.timestamp_ns():
                     return None  # The bar is incomplete
 
         # Process the bar
+        bar = self._ib_bar_to_nautilus_bar(
+            bar_type=bar_type,
+            bar=bar,
+            ts_init=ts_init,
+            is_revision=not is_new_bar,
+        )
+        return bar
+
+    @staticmethod
+    def _ib_bar_to_ts_init(bar: BarData, bar_type: BarType) -> int:
+        ts_init = (
+            pd.Timestamp.fromtimestamp(int(bar.date), tz=pytz.utc).value
+            + pd.Timedelta(bar_type.spec.timedelta).value
+        )
+        return ts_init
+
+    def _ib_bar_to_nautilus_bar(
+        self,
+        bar_type: BarType,
+        bar: BarData,
+        ts_init: int,
+        is_revision: bool = False,
+    ) -> Bar:
         instrument = self._cache.instrument(bar_type.instrument_id)
+
         bar = Bar(
             bar_type=bar_type,
             open=instrument.make_price(bar.open),
@@ -1241,10 +1286,11 @@ class InteractiveBrokersClient(Component, EWrapper):
             low=instrument.make_price(bar.low),
             close=instrument.make_price(bar.close),
             volume=instrument.make_qty(0 if bar.volume == -1 else bar.volume),
-            ts_event=pd.Timestamp.fromtimestamp(int(bar.date), "UTC").value,
+            ts_event=pd.Timestamp.fromtimestamp(int(bar.date), tz=pytz.utc).value,
             ts_init=ts_init,
-            is_revision=not is_new_bar,
+            is_revision=is_revision,
         )
+
         return bar
 
     async def get_historical_ticks(
@@ -1285,18 +1331,20 @@ class InteractiveBrokersClient(Component, EWrapper):
         if request := self.requests.get(req_id=req_id):
             instrument_id = InstrumentId.from_str(request.name[0])
             instrument = self._cache.instrument(instrument_id)
+
             for tick in ticks:
-                ts_event = pd.Timestamp.fromtimestamp(tick.time, "UTC").value
+                ts_event = pd.Timestamp.fromtimestamp(tick.time, tz=pytz.utc).value
                 quote_tick = QuoteTick(
                     instrument_id=instrument_id,
                     bid_price=instrument.make_price(tick.priceBid),
                     ask_price=instrument.make_price(tick.priceAsk),
-                    bid_size=instrument.make_qty(tick.sizeBid),
-                    ask_size=instrument.make_qty(tick.sizeAsk),
+                    bid_size=instrument.make_price(tick.sizeBid),
+                    ask_size=instrument.make_price(tick.sizeAsk),
                     ts_event=ts_event,
                     ts_init=ts_event,
                 )
                 request.result.append(quote_tick)
+
             self._end_request(req_id)
 
     def historicalTicksLast(self, req_id: int, ticks: list, done: bool):
@@ -1311,8 +1359,9 @@ class InteractiveBrokersClient(Component, EWrapper):
         if request := self.requests.get(req_id=req_id):
             instrument_id = InstrumentId.from_str(request.name[0])
             instrument = self._cache.instrument(instrument_id)
+
             for tick in ticks:
-                ts_event = pd.Timestamp.fromtimestamp(tick.time, "UTC").value
+                ts_event = pd.Timestamp.fromtimestamp(tick.time, tz=pytz.utc).value
                 trade_tick = TradeTick(
                     instrument_id=instrument_id,
                     price=instrument.make_price(tick.price),
@@ -1384,6 +1433,7 @@ class InteractiveBrokersClient(Component, EWrapper):
             return
         bar_type = BarType.from_str(subscription.name)
         instrument = self._cache.instrument(bar_type.instrument_id)
+
         bar = Bar(
             bar_type=bar_type,
             open=instrument.make_price(open_),
@@ -1391,10 +1441,11 @@ class InteractiveBrokersClient(Component, EWrapper):
             low=instrument.make_price(low),
             close=instrument.make_price(close),
             volume=instrument.make_qty(0 if volume == -1 else volume),
-            ts_event=pd.Timestamp.fromtimestamp(time, "UTC").value,
+            ts_event=pd.Timestamp.fromtimestamp(time, tz=pytz.utc).value,
             ts_init=self._clock.timestamp_ns(),
             is_revision=False,
         )
+
         self._handle_data(bar)
 
     # -- Fundamental Data --------------------------------------------------------------------------------

@@ -13,10 +13,6 @@
 //  limitations under the License.
 // -------------------------------------------------------------------------------------------------
 
-#![recursion_limit = "256"]
-#[macro_use]
-extern crate lazy_static;
-
 use pyo3::{prelude::*, PyResult, Python};
 
 pub mod currencies;
@@ -44,8 +40,28 @@ pub fn model(_: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<data::trade::TradeTick>()?;
     m.add_class::<enums::AccountType>()?;
     m.add_class::<enums::AggregationSource>()?;
+    m.add_class::<enums::AggressorSide>()?;
+    m.add_class::<enums::AssetClass>()?;
+    m.add_class::<enums::AssetType>()?;
     m.add_class::<enums::BarAggregation>()?;
+    m.add_class::<enums::BookAction>()?;
+    m.add_class::<enums::BookType>()?;
+    m.add_class::<enums::ContingencyType>()?;
+    m.add_class::<enums::CurrencyType>()?;
+    m.add_class::<enums::InstrumentCloseType>()?;
+    m.add_class::<enums::LiquiditySide>()?;
+    m.add_class::<enums::MarketStatus>()?;
+    m.add_class::<enums::OmsType>()?;
+    m.add_class::<enums::OptionKind>()?;
+    m.add_class::<enums::OrderSide>()?;
+    m.add_class::<enums::OrderStatus>()?;
+    m.add_class::<enums::OrderType>()?;
+    m.add_class::<enums::PositionSide>()?;
     m.add_class::<enums::PriceType>()?;
+    m.add_class::<enums::TimeInForce>()?;
+    m.add_class::<enums::TradingState>()?;
+    m.add_class::<enums::TrailingOffsetType>()?;
+    m.add_class::<enums::TriggerType>()?;
     m.add_class::<identifiers::account_id::AccountId>()?;
     m.add_class::<identifiers::client_id::ClientId>()?;
     m.add_class::<identifiers::client_order_id::ClientOrderId>()?;
@@ -60,6 +76,14 @@ pub fn model(_: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<identifiers::trader_id::TraderId>()?;
     m.add_class::<identifiers::venue::Venue>()?;
     m.add_class::<identifiers::venue_order_id::VenueOrderId>()?;
+    m.add_class::<orders::limit::LimitOrder>()?;
+    m.add_class::<orders::limit_if_touched::LimitIfTouchedOrder>()?;
+    m.add_class::<orders::market::MarketOrder>()?;
+    m.add_class::<orders::market_to_limit::MarketToLimitOrder>()?;
+    m.add_class::<orders::stop_limit::StopLimitOrder>()?;
+    m.add_class::<orders::stop_market::StopMarketOrder>()?;
+    m.add_class::<orders::trailing_stop_limit::TrailingStopLimitOrder>()?;
+    m.add_class::<orders::trailing_stop_market::TrailingStopMarketOrder>()?;
     m.add_class::<types::currency::Currency>()?;
     m.add_class::<types::money::Money>()?;
     m.add_class::<types::price::Price>()?;

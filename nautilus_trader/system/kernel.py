@@ -49,11 +49,15 @@ from nautilus_trader.config import LiveRiskEngineConfig
 from nautilus_trader.config import RiskEngineConfig
 from nautilus_trader.config import StrategyFactory
 from nautilus_trader.config import StreamingConfig
+from nautilus_trader.config.common import ControllerFactory
 from nautilus_trader.config.common import ExecAlgorithmFactory
 from nautilus_trader.config.common import LoggingConfig
 from nautilus_trader.config.common import NautilusKernelConfig
+from nautilus_trader.config.common import TracingConfig
 from nautilus_trader.core.correctness import PyCondition
 from nautilus_trader.core.datetime import nanos_to_millis
+from nautilus_trader.core.nautilus_pyo3 import LogGuard
+from nautilus_trader.core.nautilus_pyo3 import set_global_log_collector
 from nautilus_trader.core.uuid import UUID4
 from nautilus_trader.data.engine import DataEngine
 from nautilus_trader.execution.algorithm import ExecAlgorithm
@@ -66,11 +70,12 @@ from nautilus_trader.live.risk_engine import LiveRiskEngine
 from nautilus_trader.model.identifiers import TraderId
 from nautilus_trader.msgbus.bus import MessageBus
 from nautilus_trader.persistence.catalog.parquet import ParquetDataCatalog
-from nautilus_trader.persistence.streaming.writer import StreamingFeatherWriter
+from nautilus_trader.persistence.writer import StreamingFeatherWriter
 from nautilus_trader.portfolio.base import PortfolioFacade
 from nautilus_trader.portfolio.portfolio import Portfolio
 from nautilus_trader.risk.engine import RiskEngine
 from nautilus_trader.serialization.msgpack.serializer import MsgPackSerializer
+from nautilus_trader.trading.controller import Controller
 from nautilus_trader.trading.strategy import Strategy
 from nautilus_trader.trading.trader import Trader
 
@@ -142,6 +147,15 @@ class NautilusKernel:
             raise NotImplementedError(  # pragma: no cover (design-time error)
                 f"environment {self._environment} not recognized",  # pragma: no cover (design-time error)
             )
+
+        # Set the global tracing collector
+        # This should only be set once for the whole duration of the application
+        tracing: TracingConfig = config.tracing or TracingConfig()
+        self._log_guard: LogGuard = set_global_log_collector(
+            tracing.stdout_level,
+            tracing.stderr_level,
+            tracing.file_level,
+        )
 
         logging: LoggingConfig = config.logging or LoggingConfig()
 
@@ -301,7 +315,7 @@ class NautilusKernel:
             cache=self._cache,
             clock=self._clock,
             logger=self._logger,
-            config=None,  # No configuration for now
+            config=config.emulator,
         )
 
         ########################################################################
@@ -318,10 +332,27 @@ class NautilusKernel:
             clock=self._clock,
             logger=self._logger,
             loop=self._loop,
+            config={
+                "has_controller": self._config.controller is not None,
+            },
         )
 
         if self._load_state:
             self._trader.load()
+
+        # Add controller
+        self._controller: Controller | None = None
+        if self._config.controller:
+            self._controller = ControllerFactory.create(
+                config=self._config.controller,
+                trader=self._trader,
+            )
+            self._controller.register_base(
+                cache=self._cache,
+                msgbus=self._msgbus,
+                clock=self._clock,
+                logger=self._logger,
+            )
 
         # Setup stream writer
         self._writer: StreamingFeatherWriter | None = None
@@ -360,7 +391,7 @@ class NautilusKernel:
         self.log.info(f"Initialized in {build_time_ms}ms.")
 
     def __del__(self) -> None:
-        if hasattr(self, "_writer") and self._writer and not self._writer.closed:
+        if hasattr(self, "_writer") and self._writer and not self._writer.is_closed:
             self._writer.close()
 
     def _setup_loop(self) -> None:
@@ -388,7 +419,7 @@ class NautilusKernel:
 
     def _setup_streaming(self, config: StreamingConfig) -> None:
         # Setup persistence
-        path = f"{config.catalog_path}/{self._environment.value}/{self.instance_id}.feather"
+        path = f"{config.catalog_path}/{self._environment.value}/{self.instance_id}"
         self._writer = StreamingFeatherWriter(
             path=path,
             fs_protocol=config.fs_protocol,
@@ -704,6 +735,9 @@ class NautilusKernel:
         self._initialize_portfolio()
         self._trader.start()
 
+        if self._controller:
+            self._controller.start()
+
     async def start_async(self) -> None:
         """
         Start the Nautilus system kernel in an asynchronous context with an event loop.
@@ -737,11 +771,17 @@ class NautilusKernel:
 
         self._trader.start()
 
+        if self._controller:
+            self._controller.start()
+
     async def stop(self) -> None:
         """
         Stop the Nautilus system kernel.
         """
         self.log.info("STOPPING...")
+
+        if self._controller:
+            self._controller.stop()
 
         if self._trader.is_running:
             self._trader.stop()

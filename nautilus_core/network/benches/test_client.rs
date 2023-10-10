@@ -17,7 +17,7 @@ use std::collections::HashMap;
 
 <<<<<<< HEAD:nautilus_core/network/benches/test_client.rs
 use hyper::Method;
-use nautilus_network::http::HttpClient;
+use nautilus_network::http::InnerHttpClient;
 
 const CONCURRENCY: usize = 256;
 const TOTAL: usize = 1_000_000;
@@ -38,7 +38,7 @@ pub enum ParquetType {
 
 #[tokio::main]
 async fn main() {
-    let client = HttpClient::py_new(Vec::new());
+    let client = InnerHttpClient::default();
     let mut reqs = Vec::new();
     for _ in 0..(TOTAL / CONCURRENCY) {
         for _ in 0..CONCURRENCY {

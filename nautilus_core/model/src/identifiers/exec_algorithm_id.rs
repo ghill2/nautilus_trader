@@ -14,30 +14,34 @@
 // -------------------------------------------------------------------------------------------------
 
 use std::{
-    ffi::{c_char, CStr},
+    ffi::c_char,
     fmt::{Debug, Display, Formatter},
     hash::Hash,
 };
 
-use nautilus_core::correctness;
-use pyo3::prelude::*;
+use anyhow::Result;
+use nautilus_core::{correctness::check_valid_string, string::cstr_to_str};
 use ustr::Ustr;
 
+/// Represents a valid execution algorithm ID.
 #[repr(C)]
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[pyclass]
+#[cfg_attr(
+    feature = "python",
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
+)]
 pub struct ExecAlgorithmId {
+    /// The execution algorithm ID value.
     pub value: Ustr,
 }
 
 impl ExecAlgorithmId {
-    #[must_use]
-    pub fn new(s: &str) -> Self {
-        correctness::valid_string(s, "`ExecAlgorithmId` value");
+    pub fn new(s: &str) -> Result<Self> {
+        check_valid_string(s, "`ExecAlgorithmId` value")?;
 
-        Self {
+        Ok(Self {
             value: Ustr::from(s),
-        }
+        })
     }
 }
 
@@ -53,6 +57,12 @@ impl Display for ExecAlgorithmId {
     }
 }
 
+impl From<&str> for ExecAlgorithmId {
+    fn from(input: &str) -> Self {
+        Self::new(input).unwrap()
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // C API
 ////////////////////////////////////////////////////////////////////////////////
@@ -61,15 +71,31 @@ impl Display for ExecAlgorithmId {
 /// # Safety
 ///
 /// - Assumes `ptr` is a valid C string pointer.
+#[cfg(feature = "ffi")]
 #[no_mangle]
 pub unsafe extern "C" fn exec_algorithm_id_new(ptr: *const c_char) -> ExecAlgorithmId {
-    assert!(!ptr.is_null(), "`ptr` was NULL");
-    ExecAlgorithmId::new(CStr::from_ptr(ptr).to_str().expect("CStr::from_ptr failed"))
+    ExecAlgorithmId::from(cstr_to_str(ptr))
 }
 
+#[cfg(feature = "ffi")]
 #[no_mangle]
 pub extern "C" fn exec_algorithm_id_hash(id: &ExecAlgorithmId) -> u64 {
     id.value.precomputed_hash()
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Stubs
+////////////////////////////////////////////////////////////////////////////////
+#[cfg(test)]
+pub mod stubs {
+    use rstest::fixture;
+
+    use super::ExecAlgorithmId;
+
+    #[fixture]
+    pub fn exec_algorithm_id() -> ExecAlgorithmId {
+        ExecAlgorithmId::from("001")
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -77,12 +103,13 @@ pub extern "C" fn exec_algorithm_id_hash(id: &ExecAlgorithmId) -> u64 {
 ////////////////////////////////////////////////////////////////////////////////
 #[cfg(test)]
 mod tests {
-    use super::ExecAlgorithmId;
+    use rstest::rstest;
 
-    #[test]
-    fn test_string_reprs() {
-        let id = ExecAlgorithmId::new("001");
-        assert_eq!(id.to_string(), "001");
-        assert_eq!(format!("{id}"), "001");
+    use super::{stubs::*, ExecAlgorithmId};
+
+    #[rstest]
+    fn test_string_reprs(exec_algorithm_id: ExecAlgorithmId) {
+        assert_eq!(exec_algorithm_id.to_string(), "001");
+        assert_eq!(format!("{exec_algorithm_id}"), "001");
     }
 }

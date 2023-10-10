@@ -4,7 +4,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=off \
     PIP_DISABLE_PIP_VERSION_CHECK=on \
     PIP_DEFAULT_TIMEOUT=100 \
-    POETRY_VERSION=1.5.1 \
+    POETRY_VERSION=1.6.1 \
     POETRY_HOME="/opt/poetry" \
     POETRY_VIRTUALENVS_CREATE=false \
     POETRY_NO_INTERACTION=1 \
@@ -36,7 +36,7 @@ COPY nautilus_trader ./nautilus_trader
 COPY README.md ./
 RUN poetry install --only main --all-extras
 RUN poetry build -f wheel
-RUN python -m pip install ./dist/*whl --force
+RUN python -m pip install ./dist/*whl --force --no-deps
 RUN find /usr/local/lib/python3.11/site-packages -name "*.pyc" -exec rm -f {} \;
 
 # Final application image

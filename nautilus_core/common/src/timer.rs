@@ -16,19 +16,32 @@
 use std::{
     cmp::Ordering,
     fmt::{Display, Formatter},
+    str::FromStr,
 };
 
+use anyhow::Result;
 use nautilus_core::{
-    correctness,
+    correctness::check_valid_string,
+    python::to_pyvalue_err,
     time::{TimedeltaNanos, UnixNanos},
     uuid::UUID4,
 };
-use pyo3::ffi;
+use pyo3::{
+    basic::CompareOp,
+    ffi,
+    prelude::*,
+    types::{PyLong, PyString, PyTuple},
+    IntoPy, Py, PyAny, PyObject, PyResult, Python, ToPyObject,
+};
 use ustr::Ustr;
 
 #[repr(C)]
 #[derive(Clone, Debug)]
 #[allow(clippy::redundant_allocation)] // C ABI compatibility
+#[cfg_attr(
+    feature = "python",
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.common")
+)]
 /// Represents a time event occurring at the event timestamp.
 pub struct TimeEvent {
     /// The event name.
@@ -42,16 +55,20 @@ pub struct TimeEvent {
 }
 
 impl TimeEvent {
-    #[must_use]
-    pub fn new(name: String, event_id: UUID4, ts_event: UnixNanos, ts_init: UnixNanos) -> Self {
-        correctness::valid_string(&name, "`TimeEvent` name");
+    pub fn new(
+        name: &str,
+        event_id: UUID4,
+        ts_event: UnixNanos,
+        ts_init: UnixNanos,
+    ) -> Result<Self> {
+        check_valid_string(name, "`TimeEvent` name")?;
 
-        TimeEvent {
-            name: Ustr::from(&name),
+        Ok(Self {
+            name: Ustr::from(name),
             event_id,
             ts_event,
             ts_init,
-        }
+        })
     }
 }
 
@@ -68,6 +85,95 @@ impl Display for TimeEvent {
 impl PartialEq for TimeEvent {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name && self.ts_event == other.ts_event
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Python API
+////////////////////////////////////////////////////////////////////////////////
+#[cfg(feature = "python")]
+#[pymethods]
+impl TimeEvent {
+    #[new]
+    fn py_new(
+        name: &str,
+        event_id: UUID4,
+        ts_event: UnixNanos,
+        ts_init: UnixNanos,
+    ) -> PyResult<Self> {
+        Self::new(name, event_id, ts_event, ts_init).map_err(to_pyvalue_err)
+    }
+
+    fn __setstate__(&mut self, py: Python, state: PyObject) -> PyResult<()> {
+        let tuple: (&PyString, &PyString, &PyLong, &PyLong) = state.extract(py)?;
+
+        self.name = Ustr::from(tuple.0.extract()?);
+        self.event_id = UUID4::from_str(tuple.1.extract()?).map_err(to_pyvalue_err)?;
+        self.ts_event = tuple.2.extract()?;
+        self.ts_init = tuple.3.extract()?;
+
+        Ok(())
+    }
+
+    fn __getstate__(&self, py: Python) -> PyResult<PyObject> {
+        Ok((
+            self.name.to_string(),
+            self.event_id.to_string(),
+            self.ts_event,
+            self.ts_init,
+        )
+            .to_object(py))
+    }
+
+    fn __reduce__(&self, py: Python) -> PyResult<PyObject> {
+        let safe_constructor = py.get_type::<Self>().getattr("_safe_constructor")?;
+        let state = self.__getstate__(py)?;
+        Ok((safe_constructor, PyTuple::empty(py), state).to_object(py))
+    }
+
+    #[staticmethod]
+    fn _safe_constructor() -> PyResult<Self> {
+        Ok(Self::new("NULL", UUID4::new(), 0, 0).unwrap()) // Safe default
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp, py: Python<'_>) -> Py<PyAny> {
+        match op {
+            CompareOp::Eq => self.eq(other).into_py(py),
+            CompareOp::Ne => self.ne(other).into_py(py),
+            _ => py.NotImplemented(),
+        }
+    }
+
+    fn __str__(&self) -> String {
+        self.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{}('{}')", stringify!(UUID4), self)
+    }
+
+    #[getter]
+    #[pyo3(name = "name")]
+    fn py_name(&self) -> String {
+        self.name.to_string()
+    }
+
+    #[getter]
+    #[pyo3(name = "event_id")]
+    fn py_event_id(&self) -> UUID4 {
+        self.event_id
+    }
+
+    #[getter]
+    #[pyo3(name = "ts_event")]
+    fn py_ts_event(&self) -> UnixNanos {
+        self.ts_event
+    }
+
+    #[getter]
+    #[pyo3(name = "ts_init")]
+    fn py_ts_init(&self) -> UnixNanos {
+        self.ts_init
     }
 }
 
@@ -113,6 +219,7 @@ pub trait Timer {
     fn cancel(&mut self);
 }
 
+#[cfg(feature = "ffi")]
 #[no_mangle]
 pub extern "C" fn dummy(v: TimeEventHandler) -> TimeEventHandler {
     v
@@ -136,9 +243,9 @@ impl TestTimer {
         start_time_ns: UnixNanos,
         stop_time_ns: Option<UnixNanos>,
     ) -> Self {
-        correctness::valid_string(&name, "`TestTimer` name");
+        check_valid_string(&name, "`TestTimer` name").unwrap();
 
-        TestTimer {
+        Self {
             name,
             interval_ns,
             start_time_ns,
@@ -148,6 +255,7 @@ impl TestTimer {
         }
     }
 
+    #[must_use]
     pub fn pop_event(&self, event_id: UUID4, ts_init: UnixNanos) -> TimeEvent {
         TimeEvent {
             name: Ustr::from(&self.name),
@@ -158,7 +266,7 @@ impl TestTimer {
     }
 
     /// Advance the test timer forward to the given time, generating a sequence
-    /// of events. A [TimeEvent] is appended for each time a next event is
+    /// of events. A [`TimeEvent`] is appended for each time a next event is
     /// <= the given `to_time_ns`.
     pub fn advance(&mut self, to_time_ns: UnixNanos) -> impl Iterator<Item = TimeEvent> + '_ {
         let advances =
@@ -208,9 +316,11 @@ impl Iterator for TestTimer {
 ////////////////////////////////////////////////////////////////////////////////
 #[cfg(test)]
 mod tests {
+    use rstest::*;
+
     use super::{TestTimer, TimeEvent};
 
-    #[test]
+    #[rstest]
     fn test_pop_event() {
         let name = String::from("test_timer");
         let mut timer = TestTimer::new(name, 0, 1, None);
@@ -221,7 +331,7 @@ mod tests {
         assert!(timer.next().is_none());
     }
 
-    #[test]
+    #[rstest]
     fn test_advance_within_next_time_ns() {
         let name = String::from("test_timer");
         let mut timer = TestTimer::new(name, 5, 0, None);
@@ -230,10 +340,10 @@ mod tests {
         let _: Vec<TimeEvent> = timer.advance(3).collect();
         assert_eq!(timer.advance(4).count(), 0);
         assert_eq!(timer.next_time_ns, 5);
-        assert!(!timer.is_expired)
+        assert!(!timer.is_expired);
     }
 
-    #[test]
+    #[rstest]
     fn test_advance_up_to_next_time_ns() {
         let name = String::from("test_timer");
         let mut timer = TestTimer::new(name, 1, 0, None);
@@ -241,7 +351,7 @@ mod tests {
         assert!(!timer.is_expired);
     }
 
-    #[test]
+    #[rstest]
     fn test_advance_up_to_next_time_ns_with_stop_time() {
         let name = String::from("test_timer");
         let mut timer = TestTimer::new(name, 1, 0, Some(2));
@@ -249,7 +359,7 @@ mod tests {
         assert!(timer.is_expired);
     }
 
-    #[test]
+    #[rstest]
     fn test_advance_beyond_next_time_ns() {
         let name = String::from("test_timer");
         let mut timer = TestTimer::new(name, 1, 0, Some(5));
@@ -257,7 +367,7 @@ mod tests {
         assert!(timer.is_expired);
     }
 
-    #[test]
+    #[rstest]
     fn test_advance_beyond_stop_time() {
         let name = String::from("test_timer");
         let mut timer = TestTimer::new(name, 1, 0, Some(5));

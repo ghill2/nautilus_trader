@@ -48,6 +48,8 @@ cdef class OrderEmulator(Actor):
     cdef set _subscribed_strategies
     cdef set _monitored_positions
 
+    cdef readonly bint debug
+    """If debug mode is active (will provide extra debug logging).\n\n:returns: `bool`"""
     cdef readonly int command_count
     """The total count of commands received by the emulator.\n\n:returns: `int`"""
     cdef readonly int event_count
@@ -61,18 +63,8 @@ cdef class OrderEmulator(Actor):
     cdef void _handle_cancel_order(self, CancelOrder command)
     cdef void _handle_cancel_all_orders(self, CancelAllOrders command)
 
-    cdef void _check_monitoring(self, StrategyId strategy_id, PositionId position_id)
-    cdef void _create_new_submit_order(self, Order order, PositionId position_id, ClientId client_id)
-    cdef void _cancel_order(self, MatchingCore matching_core, Order order)
-
-# -- EVENT HANDLERS -------------------------------------------------------------------------------
-
-    cdef void _handle_position_event(self, PositionEvent event)
-    cdef void _handle_order_rejected(self, OrderRejected rejected)
-    cdef void _handle_order_canceled(self, OrderCanceled canceled)
-    cdef void _handle_order_expired(self, OrderExpired expired)
-    cdef void _handle_order_updated(self, OrderUpdated updated)
-    cdef void _handle_order_filled(self, OrderFilled filled)
+    cpdef void _check_monitoring(self, StrategyId strategy_id, PositionId position_id)
+    cpdef void _cancel_order(self, Order order)
 
 # -------------------------------------------------------------------------------------------------
 

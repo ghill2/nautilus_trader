@@ -14,30 +14,34 @@
 // -------------------------------------------------------------------------------------------------
 
 use std::{
-    ffi::{c_char, CStr},
+    ffi::c_char,
     fmt::{Debug, Display, Formatter},
     hash::Hash,
 };
 
-use nautilus_core::correctness;
-use pyo3::prelude::*;
+use anyhow::Result;
+use nautilus_core::{correctness::check_valid_string, string::cstr_to_str};
 use ustr::Ustr;
 
+/// Represents a valid component ID.
 #[repr(C)]
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[pyclass]
+#[cfg_attr(
+    feature = "python",
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
+)]
 pub struct ComponentId {
+    /// The component ID value.
     pub value: Ustr,
 }
 
 impl ComponentId {
-    #[must_use]
-    pub fn new(s: &str) -> Self {
-        correctness::valid_string(s, "`ComponentId` value");
+    pub fn new(s: &str) -> Result<Self> {
+        check_valid_string(s, "`ComponentId` value")?;
 
-        Self {
+        Ok(Self {
             value: Ustr::from(s),
-        }
+        })
     }
 }
 
@@ -53,6 +57,12 @@ impl Display for ComponentId {
     }
 }
 
+impl From<&str> for ComponentId {
+    fn from(input: &str) -> Self {
+        Self::new(input).unwrap()
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // C API
 ////////////////////////////////////////////////////////////////////////////////
@@ -61,15 +71,31 @@ impl Display for ComponentId {
 /// # Safety
 ///
 /// - Assumes `ptr` is a valid C string pointer.
+#[cfg(feature = "ffi")]
 #[no_mangle]
 pub unsafe extern "C" fn component_id_new(ptr: *const c_char) -> ComponentId {
-    assert!(!ptr.is_null(), "`ptr` was NULL");
-    ComponentId::new(CStr::from_ptr(ptr).to_str().expect("CStr::from_ptr failed"))
+    ComponentId::from(cstr_to_str(ptr))
 }
 
+#[cfg(feature = "ffi")]
 #[no_mangle]
 pub extern "C" fn component_id_hash(id: &ComponentId) -> u64 {
     id.value.precomputed_hash()
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Stubs
+////////////////////////////////////////////////////////////////////////////////
+#[cfg(test)]
+pub mod stubs {
+    use rstest::fixture;
+
+    use crate::identifiers::component_id::ComponentId;
+
+    #[fixture]
+    pub fn component_risk_engine() -> ComponentId {
+        ComponentId::from("RiskEngine")
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -77,12 +103,13 @@ pub extern "C" fn component_id_hash(id: &ComponentId) -> u64 {
 ////////////////////////////////////////////////////////////////////////////////
 #[cfg(test)]
 mod tests {
-    use super::ComponentId;
+    use rstest::rstest;
 
-    #[test]
-    fn test_string_reprs() {
-        let id = ComponentId::new("RiskEngine");
-        assert_eq!(id.to_string(), "RiskEngine");
-        assert_eq!(format!("{id}"), "RiskEngine");
+    use super::{stubs::*, ComponentId};
+
+    #[rstest]
+    fn test_string_reprs(component_risk_engine: ComponentId) {
+        assert_eq!(component_risk_engine.to_string(), "RiskEngine");
+        assert_eq!(format!("{component_risk_engine}"), "RiskEngine");
     }
 }

@@ -14,29 +14,46 @@
 // -------------------------------------------------------------------------------------------------
 
 use std::{
-    ffi::{c_char, CStr},
+    ffi::c_char,
     fmt::{Debug, Display, Formatter},
     hash::Hash,
 };
 
-use nautilus_core::correctness;
-use pyo3::prelude::*;
+use anyhow::Result;
+use nautilus_core::{correctness::check_valid_string, string::cstr_to_str};
 use ustr::Ustr;
 
+/// Represents a valid trade match ID (assigned by a trading venue).
+///
+/// Can correspond to the `TradeID <1003> field` of the FIX protocol.
+///
+/// The unique ID assigned to the trade entity once it is received or matched by
+/// the exchange or central counterparty.
 #[repr(C)]
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[pyclass]
+#[cfg_attr(
+    feature = "python",
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
+)]
 pub struct TradeId {
+    /// The trade match ID value.
     pub value: Ustr,
 }
 
 impl TradeId {
-    #[must_use]
-    pub fn new(s: &str) -> Self {
-        correctness::valid_string(s, "`TradeId` value");
+    pub fn new(s: &str) -> Result<Self> {
+        check_valid_string(s, "`TradeId` value")?;
 
-        Self {
+        Ok(Self {
             value: Ustr::from(s),
+        })
+    }
+}
+
+impl Default for TradeId {
+    fn default() -> Self {
+        Self {
+            value: Ustr::from("1"),
         }
     }
 }
@@ -53,11 +70,9 @@ impl Display for TradeId {
     }
 }
 
-#[pymethods]
-impl TradeId {
-    #[getter]
-    fn value(&self) -> String {
-        self.value.to_string()
+impl From<&str> for TradeId {
+    fn from(input: &str) -> Self {
+        Self::new(input).unwrap()
     }
 }
 
@@ -69,15 +84,31 @@ impl TradeId {
 /// # Safety
 ///
 /// - Assumes `ptr` is a valid C string pointer.
+#[cfg(feature = "ffi")]
 #[no_mangle]
 pub unsafe extern "C" fn trade_id_new(ptr: *const c_char) -> TradeId {
-    assert!(!ptr.is_null(), "`ptr` was NULL");
-    TradeId::new(CStr::from_ptr(ptr).to_str().expect("CStr::from_ptr failed"))
+    TradeId::from(cstr_to_str(ptr))
 }
 
+#[cfg(feature = "ffi")]
 #[no_mangle]
 pub extern "C" fn trade_id_hash(id: &TradeId) -> u64 {
     id.value.precomputed_hash()
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Stubs
+////////////////////////////////////////////////////////////////////////////////
+#[cfg(test)]
+pub mod stubs {
+    use rstest::fixture;
+
+    use crate::identifiers::trade_id::TradeId;
+
+    #[fixture]
+    pub fn test_trade_id() -> TradeId {
+        TradeId::from("1234567890")
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -85,12 +116,13 @@ pub extern "C" fn trade_id_hash(id: &TradeId) -> u64 {
 ////////////////////////////////////////////////////////////////////////////////
 #[cfg(test)]
 mod tests {
-    use super::TradeId;
+    use rstest::rstest;
 
-    #[test]
-    fn test_string_reprs() {
-        let trade_id = TradeId::new("1234567890");
-        assert_eq!(trade_id.to_string(), "1234567890");
-        assert_eq!(format!("{trade_id}"), "1234567890");
+    use super::{stubs::*, TradeId};
+
+    #[rstest]
+    fn test_string_reprs(test_trade_id: TradeId) {
+        assert_eq!(test_trade_id.to_string(), "1234567890");
+        assert_eq!(format!("{test_trade_id}"), "1234567890");
     }
 }

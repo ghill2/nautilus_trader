@@ -38,7 +38,7 @@ from nautilus_trader.core.rust.model cimport level_drop
 from nautilus_trader.core.rust.model cimport level_exposure
 from nautilus_trader.core.rust.model cimport level_orders
 from nautilus_trader.core.rust.model cimport level_price
-from nautilus_trader.core.rust.model cimport level_volume
+from nautilus_trader.core.rust.model cimport level_size
 from nautilus_trader.core.rust.model cimport orderbook_add
 from nautilus_trader.core.rust.model cimport orderbook_apply_delta
 from nautilus_trader.core.rust.model cimport orderbook_asks
@@ -55,6 +55,7 @@ from nautilus_trader.core.rust.model cimport orderbook_clear_bids
 from nautilus_trader.core.rust.model cimport orderbook_count
 from nautilus_trader.core.rust.model cimport orderbook_delete
 from nautilus_trader.core.rust.model cimport orderbook_get_avg_px_for_quantity
+from nautilus_trader.core.rust.model cimport orderbook_get_quantity_for_price
 from nautilus_trader.core.rust.model cimport orderbook_has_ask
 from nautilus_trader.core.rust.model cimport orderbook_has_bid
 from nautilus_trader.core.rust.model cimport orderbook_instrument_id
@@ -117,6 +118,8 @@ cdef class OrderBook(Data):
         return (
             self.instrument_id.value,
             self.book_type.value,
+            self.ts_last,
+            self.sequence,
             pickle.dumps(orders),
         )
 
@@ -126,12 +129,13 @@ cdef class OrderBook(Data):
             instrument_id._mem,
             state[1],
         )
-
-        cdef list orders = pickle.loads(state[2])
+        cdef int64_t ts_last = state[2]
+        cdef int64_t sequence = state[3]
+        cdef list orders = pickle.loads(state[4])
 
         cdef int64_t i
         for i in range(len(orders)):
-            self.add(orders[i], 0, 0)
+            self.add(orders[i], ts_last, sequence)
 
     @property
     def instrument_id(self) -> InstrumentId:
@@ -373,8 +377,7 @@ cdef class OrderBook(Data):
         for i in range(raw_levels_vec.len):
             levels.append(Level.from_mem_c(raw_levels[i]))
 
-        # TODO(chris): Reimplement to avoid segfaults
-        # vec_levels_drop(raw_levels_vec)
+        vec_levels_drop(raw_levels_vec)
 
         return levels
 
@@ -398,8 +401,7 @@ cdef class OrderBook(Data):
         for i in range(raw_levels_vec.len):
             levels.append(Level.from_mem_c(raw_levels[i]))
 
-        # TODO(chris): Reimplement to avoid segfaults
-        # vec_levels_drop(raw_levels_vec)
+        vec_levels_drop(raw_levels_vec)
 
         return levels
 
@@ -518,6 +520,33 @@ cdef class OrderBook(Data):
 
         return orderbook_get_avg_px_for_quantity(&self._mem, quantity._mem, order_side)
 
+    cpdef double get_quantity_for_price(self, Price price, OrderSide order_side):
+        """
+        Return the current total quantity for the given `price` based on the current state
+        of the order book.
+
+        Parameters
+        ----------
+        price : Price
+            The quantity for the calculation.
+        order_side : OrderSide
+            The order side for the calculation.
+
+        Returns
+        -------
+        double
+
+        Raises
+        ------
+        ValueError
+            If `order_side` is equal to ``NO_ORDER_SIDE``
+
+        """
+        Condition.not_none(price, "price")
+        Condition.not_equal(order_side, OrderSide.NO_ORDER_SIDE, "order_side", "NO_ORDER_SIDE")
+
+        return orderbook_get_quantity_for_price(&self._mem, price._mem, order_side)
+
     cpdef list simulate_fills(self, Order order, uint8_t price_prec, bint is_aggressive):
         """
         Simulate filling the book with the given order.
@@ -548,12 +577,12 @@ cdef class OrderBook(Data):
         )
 
         cdef CVec raw_fills_vec = orderbook_simulate_fills(&self._mem, submit_order)
-        cdef tuple[Price_t, Quantity_t]* raw_fills = <tuple[Price_t, Quantity_t]*>raw_fills_vec.ptr
+        cdef (Price_t, Quantity_t)* raw_fills = <(Price_t, Quantity_t)*>raw_fills_vec.ptr
         cdef list fills = []
 
         cdef:
             uint64_t i
-            tuple[Price_t, Quantity_t] raw_fill
+            (Price_t, Quantity_t) raw_fill
             Price fill_price
             Quantity fill_size
         for i in range(raw_fills_vec.len):
@@ -592,12 +621,12 @@ cdef class OrderBook(Data):
 
     cpdef str pprint(self, int num_levels=3):
         """
-        Print the order book in a clear format.
+        Return a string representation of the order book in a human-readable table format.
 
         Parameters
         ----------
         num_levels : int
-            The number of levels to print.
+            The number of levels to include.
 
         Returns
         -------
@@ -689,16 +718,16 @@ cdef class Level:
 
         return book_orders
 
-    cpdef double volume(self):
+    cpdef double size(self):
         """
-        Return the volume at this level.
+        Return the size at this level.
 
         Returns
         -------
         double
 
         """
-        return level_volume(&self._mem)
+        return level_size(&self._mem)
 
     cpdef double exposure(self):
         """

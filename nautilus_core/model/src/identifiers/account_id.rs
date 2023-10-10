@@ -14,31 +14,44 @@
 // -------------------------------------------------------------------------------------------------
 
 use std::{
-    ffi::{c_char, CStr},
+    ffi::c_char,
     fmt::{Debug, Display, Formatter},
     hash::Hash,
 };
 
-use nautilus_core::correctness;
-use pyo3::prelude::*;
+use anyhow::Result;
+use nautilus_core::{
+    correctness::{check_string_contains, check_valid_string},
+    string::cstr_to_str,
+};
 use ustr::Ustr;
 
+/// Represents a valid account ID.
+///
+/// Must be correctly formatted with two valid strings either side of a hyphen '-'.
+/// It is expected an account ID is the name of the issuer with an account number
+/// separated by a hyphen.
+///
+/// Example: "IB-D02851908".
 #[repr(C)]
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[pyclass]
+#[cfg_attr(
+    feature = "python",
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
+)]
 pub struct AccountId {
+    /// The account ID value.
     pub value: Ustr,
 }
 
 impl AccountId {
-    #[must_use]
-    pub fn new(s: &str) -> Self {
-        correctness::valid_string(s, "`AccountId` value");
-        correctness::string_contains(s, "-", "`TraderId` value");
+    pub fn new(s: &str) -> Result<Self> {
+        check_valid_string(s, "`accountid` value")?;
+        check_string_contains(s, "-", "`traderid` value")?;
 
-        Self {
+        Ok(Self {
             value: Ustr::from(s),
-        }
+        })
     }
 }
 
@@ -62,6 +75,12 @@ impl Display for AccountId {
     }
 }
 
+impl From<&str> for AccountId {
+    fn from(input: &str) -> Self {
+        Self::new(input).unwrap()
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // C API
 ////////////////////////////////////////////////////////////////////////////////
@@ -70,15 +89,36 @@ impl Display for AccountId {
 /// # Safety
 ///
 /// - Assumes `ptr` is a valid C string pointer.
+#[cfg(feature = "ffi")]
 #[no_mangle]
 pub unsafe extern "C" fn account_id_new(ptr: *const c_char) -> AccountId {
-    assert!(!ptr.is_null(), "`ptr` was NULL");
-    AccountId::new(CStr::from_ptr(ptr).to_str().expect("CStr::from_ptr failed"))
+    AccountId::from(cstr_to_str(ptr))
 }
 
+#[cfg(feature = "ffi")]
 #[no_mangle]
 pub extern "C" fn account_id_hash(id: &AccountId) -> u64 {
     id.value.precomputed_hash()
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Stubs
+////////////////////////////////////////////////////////////////////////////////
+#[cfg(test)]
+pub mod stubs {
+    use rstest::fixture;
+
+    use super::*;
+
+    #[fixture]
+    pub fn account_id() -> AccountId {
+        AccountId::from("SIM-001")
+    }
+
+    #[fixture]
+    pub fn account_ib() -> AccountId {
+        AccountId::from("IB-1234567890")
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -86,39 +126,40 @@ pub extern "C" fn account_id_hash(id: &AccountId) -> u64 {
 ////////////////////////////////////////////////////////////////////////////////
 #[cfg(test)]
 mod tests {
-    use std::ffi::CString;
+    use std::ffi::{CStr, CString};
 
-    use super::*;
+    use rstest::rstest;
 
-    #[test]
+    use super::{stubs::*, *};
+
+    #[rstest]
     fn test_account_id_new_invalid_string() {
         let s = "";
-        let result = std::panic::catch_unwind(|| AccountId::new(s));
+        let result = AccountId::new(s);
         assert!(result.is_err());
     }
 
-    #[test]
+    #[rstest]
     fn test_account_id_new_missing_hyphen() {
         let s = "123456789";
-        let result = std::panic::catch_unwind(|| AccountId::new(s));
+        let result = AccountId::new(s);
         assert!(result.is_err());
     }
 
-    #[test]
+    #[rstest]
     fn test_account_id_fmt() {
         let s = "IB-U123456789";
-        let account_id = AccountId::new(s);
+        let account_id = AccountId::new(s).unwrap();
         let formatted = format!("{account_id}");
         assert_eq!(formatted, s);
     }
 
-    #[test]
-    fn test_string_reprs() {
-        let id = AccountId::new("IB-1234567890");
-        assert_eq!(id.to_string(), "IB-1234567890");
+    #[rstest]
+    fn test_string_reprs(account_ib: AccountId) {
+        assert_eq!(account_ib.to_string(), "IB-1234567890");
     }
 
-    #[test]
+    #[rstest]
     fn test_account_id_round_trip() {
         let s = "IB-U123456789";
         let c_string = CString::new(s).unwrap();
@@ -129,7 +170,7 @@ mod tests {
         assert_eq!(account_id, account_id_2);
     }
 
-    #[test]
+    #[rstest]
     fn test_account_id_to_cstr_and_back() {
         let s = "IB-U123456789";
         let c_string = CString::new(s).unwrap();
@@ -140,7 +181,7 @@ mod tests {
         assert_eq!(c_str.to_str().unwrap(), s);
     }
 
-    #[test]
+    #[rstest]
     fn test_account_id_hash_c() {
         let s1 = "IB-U123456789";
         let c_string1 = CString::new(s1).unwrap();

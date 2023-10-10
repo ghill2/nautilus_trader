@@ -58,7 +58,7 @@ impl Default for TimeEventAccumulator {
 ////////////////////////////////////////////////////////////////////////////////
 // C API
 ////////////////////////////////////////////////////////////////////////////////
-
+#[cfg(feature = "ffi")]
 #[repr(C)]
 pub struct TimeEventAccumulatorAPI(Box<TimeEventAccumulator>);
 
@@ -109,10 +109,11 @@ mod tests {
     use nautilus_common::timer::TimeEvent;
     use nautilus_core::uuid::UUID4;
     use pyo3::{types::PyList, AsPyPointer, Py, Python};
+    use rstest::*;
 
     use super::*;
 
-    #[test]
+    #[rstest]
     fn test_accumulator_drain_sorted() {
         pyo3::prepare_freethreaded_python();
 
@@ -122,9 +123,9 @@ mod tests {
 
             let mut accumulator = TimeEventAccumulator::new();
 
-            let time_event1 = TimeEvent::new(String::from("TEST_EVENT_1"), UUID4::new(), 100, 100);
-            let time_event2 = TimeEvent::new(String::from("TEST_EVENT_2"), UUID4::new(), 300, 300);
-            let time_event3 = TimeEvent::new(String::from("TEST_EVENT_3"), UUID4::new(), 200, 200);
+            let time_event1 = TimeEvent::new("TEST_EVENT_1", UUID4::new(), 100, 100).unwrap();
+            let time_event2 = TimeEvent::new("TEST_EVENT_2", UUID4::new(), 300, 300).unwrap();
+            let time_event3 = TimeEvent::new("TEST_EVENT_3", UUID4::new(), 200, 200).unwrap();
 
             // Note: as_ptr returns a borrowed pointer. It is valid as long
             // as the object is in scope. In this case `callback_ptr` is valid

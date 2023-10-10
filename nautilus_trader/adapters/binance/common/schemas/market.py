@@ -339,7 +339,8 @@ class BinanceDataMsgWrapper(msgspec.Struct):
     Provides a wrapper for data WebSocket messages from `Binance`.
     """
 
-    stream: str
+    stream: Optional[str] = None
+    id: Optional[int] = None
 
 
 class BinanceOrderBookDelta(msgspec.Struct, array_like=True):
@@ -372,8 +373,8 @@ class BinanceOrderBookDelta(msgspec.Struct, array_like=True):
             order=order,
             ts_event=ts_event,
             ts_init=ts_init,
-            sequence=update_id,
             flags=0,
+            sequence=update_id,
         )
 
 

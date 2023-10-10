@@ -13,7 +13,7 @@
 #  limitations under the License.
 # -------------------------------------------------------------------------------------------------
 
-from typing import Literal, Optional
+from typing import Optional
 
 from betfair_parser.endpoints import ENDPOINTS
 from betfair_parser.spec.accounts.operations import GetAccountDetails
@@ -34,9 +34,6 @@ from betfair_parser.spec.betting.orders import ListClearedOrders
 from betfair_parser.spec.betting.orders import ListCurrentOrders
 from betfair_parser.spec.betting.orders import PlaceOrders
 from betfair_parser.spec.betting.orders import ReplaceOrders
-from betfair_parser.spec.betting.orders import _CancelOrdersParams
-from betfair_parser.spec.betting.orders import _PlaceOrdersParams
-from betfair_parser.spec.betting.orders import _ReplaceOrdersParams
 from betfair_parser.spec.betting.type_definitions import CancelExecutionReport
 from betfair_parser.spec.betting.type_definitions import ClearedOrderSummary
 from betfair_parser.spec.betting.type_definitions import ClearedOrderSummaryReport
@@ -65,6 +62,7 @@ from betfair_parser.spec.navigation import Navigation
 from nautilus_trader.common.logging import Logger
 from nautilus_trader.common.logging import LoggerAdapter
 from nautilus_trader.core.nautilus_pyo3.network import HttpClient
+from nautilus_trader.core.nautilus_pyo3.network import HttpMethod
 from nautilus_trader.core.nautilus_pyo3.network import HttpResponse
 from nautilus_trader.core.rust.common import LogColor
 
@@ -92,7 +90,7 @@ class BetfairHttpClient:
         self._log = LoggerAdapter(type(self).__name__, logger)
         self.reset_headers()
 
-    async def _request(self, method: Literal["GET", "POST"], request: Request) -> HttpResponse:
+    async def _request(self, method: HttpMethod, request: Request) -> HttpResponse:
         url = ENDPOINTS.url_for_request(request)
         headers = self._headers
         body = request.body()
@@ -107,11 +105,11 @@ class BetfairHttpClient:
         return response
 
     async def _post(self, request: Request) -> Request.return_type:
-        response: HttpResponse = await self._request("POST", request)
+        response: HttpResponse = await self._request(HttpMethod.POST, request)
         return request.parse_response(response.body, raise_errors=True)
 
     async def _get(self, request: Request) -> Request.return_type:
-        response: HttpResponse = await self._request("GET", request)
+        response: HttpResponse = await self._request(HttpMethod.GET, request)
         return request.parse_response(response.body, raise_errors=True)
 
     @property
@@ -148,7 +146,7 @@ class BetfairHttpClient:
     async def disconnect(self):
         self._log.info("Disconnecting..")
         self.reset_headers()
-        self._log.info("Disconnected.")
+        self._log.info("Disconnected.", color=LogColor.GREEN)
 
     async def keep_alive(self):
         """
@@ -194,14 +192,14 @@ class BetfairHttpClient:
     async def get_account_funds(self, wallet: Optional[str] = None) -> AccountFundsResponse:
         return await self._post(request=GetAccountFunds.with_params(wallet=wallet))
 
-    async def place_orders(self, params: _PlaceOrdersParams) -> PlaceExecutionReport:
-        return await self._post(PlaceOrders(params=params))
+    async def place_orders(self, request: PlaceOrders) -> PlaceExecutionReport:
+        return await self._post(request)
 
-    async def replace_orders(self, params: _ReplaceOrdersParams) -> ReplaceExecutionReport:
-        return await self._post(ReplaceOrders(params=params))
+    async def replace_orders(self, request: ReplaceOrders) -> ReplaceExecutionReport:
+        return await self._post(request)
 
-    async def cancel_orders(self, params: _CancelOrdersParams) -> CancelExecutionReport:
-        return await self._post(CancelOrders(params=params))
+    async def cancel_orders(self, request: CancelOrders) -> CancelExecutionReport:
+        return await self._post(request)
 
     async def list_current_orders(
         self,

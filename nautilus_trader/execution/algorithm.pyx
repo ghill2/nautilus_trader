@@ -44,10 +44,27 @@ from nautilus_trader.model.enums_c cimport ContingencyType
 from nautilus_trader.model.enums_c cimport OrderStatus
 from nautilus_trader.model.enums_c cimport TimeInForce
 from nautilus_trader.model.enums_c cimport TriggerType
+from nautilus_trader.model.events.order cimport OrderAccepted
+from nautilus_trader.model.events.order cimport OrderCanceled
+from nautilus_trader.model.events.order cimport OrderCancelRejected
+from nautilus_trader.model.events.order cimport OrderDenied
+from nautilus_trader.model.events.order cimport OrderEmulated
 from nautilus_trader.model.events.order cimport OrderEvent
+from nautilus_trader.model.events.order cimport OrderExpired
+from nautilus_trader.model.events.order cimport OrderFilled
+from nautilus_trader.model.events.order cimport OrderInitialized
+from nautilus_trader.model.events.order cimport OrderModifyRejected
 from nautilus_trader.model.events.order cimport OrderPendingCancel
 from nautilus_trader.model.events.order cimport OrderPendingUpdate
+from nautilus_trader.model.events.order cimport OrderRejected
+from nautilus_trader.model.events.order cimport OrderReleased
+from nautilus_trader.model.events.order cimport OrderSubmitted
+from nautilus_trader.model.events.order cimport OrderTriggered
 from nautilus_trader.model.events.order cimport OrderUpdated
+from nautilus_trader.model.events.position cimport PositionChanged
+from nautilus_trader.model.events.position cimport PositionClosed
+from nautilus_trader.model.events.position cimport PositionEvent
+from nautilus_trader.model.events.position cimport PositionOpened
 from nautilus_trader.model.identifiers cimport ClientId
 from nautilus_trader.model.identifiers cimport ClientOrderId
 from nautilus_trader.model.identifiers cimport ExecAlgorithmId
@@ -193,13 +210,12 @@ cdef class ExecAlgorithm(Actor):
         return ClientOrderId(f"{primary.client_order_id.to_str()}-E{spawn_sequence}")
 
     cdef void _reduce_primary_order(self, Order primary, Quantity spawn_qty):
-        cdef uint8_t size_precision = primary.quantity._mem.precision
-        cdef uint64_t new_raw = primary.quantity._mem.raw - spawn_qty._mem.raw
-        if new_raw <= 0:
-            self._log.error("Cannot reduce primary order to non-positive quantity.")
-            return
+        Condition.true(primary.quantity >= spawn_qty, "Spawn order quantity was greater than or equal to primary order")
 
-        cdef Quantity new_qty = Quantity.from_raw_c(new_raw, size_precision)
+        cdef Quantity new_qty = Quantity.from_raw_c(
+            primary.quantity._mem.raw - spawn_qty._mem.raw,
+            primary.quantity._mem.precision,
+        )
 
         # Generate event
         cdef uint64_t ts_now = self._clock.timestamp_ns()
@@ -236,11 +252,10 @@ cdef class ExecAlgorithm(Actor):
         Raises
         ------
         ValueError
-            If `command.exec_algorithm_id` is not equal to `self.id`
+            If `command.exec_algorithm_id` is not equal to `self.id`.
 
         """
         Condition.not_none(command, "command")
-        Condition.equal(command.exec_algorithm_id, self.id, "command.exec_algorithm_id", "self.id")
 
         self._log.debug(f"{RECV}{CMD} {command}.", LogColor.MAGENTA)
 
@@ -251,6 +266,8 @@ cdef class ExecAlgorithm(Actor):
             self._handle_submit_order(command)
         elif isinstance(command, SubmitOrderList):
             self._handle_submit_order_list(command)
+        elif isinstance(command, CancelOrder):
+            self._handle_cancel_order(command)
         else:
             self._log.error(f"Cannot handle command: unrecognized {command}.")
 
@@ -258,42 +275,140 @@ cdef class ExecAlgorithm(Actor):
             return  # Already subscribed
 
         self._log.info(f"Subscribing to {command.strategy_id} order events.", LogColor.BLUE)
-        self._msgbus.subscribe(topic=f"events.order.{command.strategy_id.to_str()}", handler=self._handle_order_event)
+        self._msgbus.subscribe(topic=f"events.order.{command.strategy_id.to_str()}", handler=self._handle_event)
+        self._msgbus.subscribe(topic=f"events.position.{command.strategy_id.to_str()}", handler=self._handle_event)
         self._subscribed_strategies.add(command.strategy_id)
 
-    cdef _handle_submit_order(self, SubmitOrder command):
+    cdef void _handle_submit_order(self, SubmitOrder command):
+        Condition.equal(command.exec_algorithm_id, self.id, "command.exec_algorithm_id", "self.id")
         try:
             self.on_order(command.order)
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             self.log.exception(f"Error on handling {repr(command.order)}", e)
             raise
 
-    cdef _handle_submit_order_list(self, SubmitOrderList command):
+    cdef void _handle_submit_order_list(self, SubmitOrderList command):
+        Condition.equal(command.exec_algorithm_id, self.id, "command.exec_algorithm_id", "self.id")
         cdef Order order
         for order in command.order_list.orders:
             if order.exec_algorithm_id is not None:
                 Condition.equal(order.exec_algorithm_id, self.id, "order.exec_algorithm_id", "self.id")
         try:
             self.on_order_list(command.order_list)
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             self.log.exception(f"Error on handling {repr(command.order_list)}", e)
             raise
 
+    cdef void _handle_cancel_order(self, CancelOrder command):
+        cdef Order order = self.cache.order(command.client_order_id)
+        if order is None:  # pragma: no cover (design-time error)
+            self._log.error(
+                f"Cannot cancel order: {repr(command.client_order_id)} not found.",
+            )
+            return
+
+        if self.cache.is_order_pending_cancel_local(command.client_order_id):
+            return  # Already pending cancel locally
+
+        if order.is_closed_c():
+            self._log.warning(f"Order already canceled for {command}.")
+            return
+
+        # Generate event
+        cdef OrderCanceled event = self._generate_order_canceled(order)
+
+        try:
+            order.apply(event)
+        except InvalidStateTrigger as e:  # pragma: no cover
+            self._log.warning(f"InvalidStateTrigger: {e}, did not apply {event}")
+            return
+
+        self.cache.update_order(order)
+
+        # Publish canceled event
+        self._msgbus.publish_c(
+            topic=f"events.order.{order.strategy_id.to_str()}",
+            msg=event,
+        )
+
 # -- EVENT HANDLERS -------------------------------------------------------------------------------
 
-    cdef void _handle_order_event(self, OrderEvent event):
-        cdef Order order = self.cache.order(event.client_order_id)
-        if order is None:
-            return
-        if order.exec_algorithm_id is None or order.exec_algorithm_id != self.id:
-            return  # Not for this algorithm
+    cdef void _handle_event(self, Event event):
+        cdef Order order
+
+        if isinstance(event, OrderEvent):
+            order = self.cache.order(event.client_order_id)
+            if order is None:
+                return
+            if order.exec_algorithm_id is None or order.exec_algorithm_id != self.id:
+                return  # Not for this algorithm
 
         if self._fsm.state != ComponentState.RUNNING:
             return
 
         try:
-            self.on_order_event(event)
-        except Exception as e:
+            # Send to specific event handler
+            if isinstance(event, OrderInitialized):
+                self.on_order_initialized(event)
+                self.on_order_event(event)
+            elif isinstance(event, OrderDenied):
+                self.on_order_denied(event)
+                self.on_order_event(event)
+            elif isinstance(event, OrderEmulated):
+                self.on_order_emulated(event)
+                self.on_order_event(event)
+            elif isinstance(event, OrderReleased):
+                self.on_order_released(event)
+                self.on_order_event(event)
+            elif isinstance(event, OrderSubmitted):
+                self.on_order_submitted(event)
+                self.on_order_event(event)
+            elif isinstance(event, OrderRejected):
+                self.on_order_rejected(event)
+                self.on_order_event(event)
+            elif isinstance(event, OrderAccepted):
+                self.on_order_accepted(event)
+                self.on_order_event(event)
+            elif isinstance(event, OrderCanceled):
+                self.on_order_canceled(event)
+                self.on_order_event(event)
+            elif isinstance(event, OrderExpired):
+                self.on_order_expired(event)
+                self.on_order_event(event)
+            elif isinstance(event, OrderTriggered):
+                self.on_order_triggered(event)
+                self.on_order_event(event)
+            elif isinstance(event, OrderPendingUpdate):
+                self.on_order_pending_update(event)
+                self.on_order_event(event)
+            elif isinstance(event, OrderPendingCancel):
+                self.on_order_pending_cancel(event)
+                self.on_order_event(event)
+            elif isinstance(event, OrderModifyRejected):
+                self.on_order_modify_rejected(event)
+                self.on_order_event(event)
+            elif isinstance(event, OrderCancelRejected):
+                self.on_order_cancel_rejected(event)
+                self.on_order_event(event)
+            elif isinstance(event, OrderUpdated):
+                self.on_order_updated(event)
+                self.on_order_event(event)
+            elif isinstance(event, OrderFilled):
+                self.on_order_filled(event)
+                self.on_order_event(event)
+            elif isinstance(event, PositionOpened):
+                self.on_position_opened(event)
+                self.on_position_event(event)
+            elif isinstance(event, PositionChanged):
+                self.on_position_changed(event)
+                self.on_position_event(event)
+            elif isinstance(event, PositionClosed):
+                self.on_position_closed(event)
+                self.on_position_event(event)
+
+            # Always send to general event handler
+            self.on_event(event)
+        except Exception as e:  # pragma: no cover
             self.log.exception(f"Error on handling {repr(event)}", e)
             raise
 
@@ -336,7 +451,7 @@ cdef class ExecAlgorithm(Actor):
         Parameters
         ----------
         event : OrderEvent
-            The order event to be handled.
+            The event received.
 
         Warnings
         --------
@@ -344,6 +459,327 @@ cdef class ExecAlgorithm(Actor):
 
         """
         # Optionally override in subclass
+
+    cpdef void on_order_initialized(self, OrderInitialized event):
+        """
+        Actions to be performed when running and receives an order initialized event.
+
+        Parameters
+        ----------
+        event : OrderInitialized
+            The event received.
+
+        Warnings
+        --------
+        System method (not intended to be called by user code).
+
+        """
+        # Optionally override in subclass
+
+    cpdef void on_order_denied(self, OrderDenied event):
+        """
+        Actions to be performed when running and receives an order denied event.
+
+        Parameters
+        ----------
+        event : OrderDenied
+            The event received.
+
+        Warnings
+        --------
+        System method (not intended to be called by user code).
+
+        """
+        # Optionally override in subclass
+
+    cpdef void on_order_emulated(self, OrderEmulated event):
+        """
+        Actions to be performed when running and receives an order initialized event.
+
+        Parameters
+        ----------
+        event : OrderEmulated
+            The event received.
+
+        Warnings
+        --------
+        System method (not intended to be called by user code).
+
+        """
+        # Optionally override in subclass
+
+    cpdef void on_order_released(self, OrderReleased event):
+        """
+        Actions to be performed when running and receives an order released event.
+
+        Parameters
+        ----------
+        event : OrderReleased
+            The event received.
+
+        Warnings
+        --------
+        System method (not intended to be called by user code).
+
+        """
+        # Optionally override in subclass
+
+    cpdef void on_order_submitted(self, OrderSubmitted event):
+        """
+        Actions to be performed when running and receives an order submitted event.
+
+        Parameters
+        ----------
+        event : OrderSubmitted
+            The event received.
+
+        Warnings
+        --------
+        System method (not intended to be called by user code).
+
+        """
+        # Optionally override in subclass
+
+    cpdef void on_order_rejected(self, OrderRejected event):
+        """
+        Actions to be performed when running and receives an order rejected event.
+
+        Parameters
+        ----------
+        event : OrderRejected
+            The event received.
+
+        Warnings
+        --------
+        System method (not intended to be called by user code).
+
+        """
+        # Optionally override in subclass
+
+    cpdef void on_order_accepted(self, OrderAccepted event):
+        """
+        Actions to be performed when running and receives an order accepted event.
+
+        Parameters
+        ----------
+        event : OrderAccepted
+            The event received.
+
+        Warnings
+        --------
+        System method (not intended to be called by user code).
+
+        """
+        # Optionally override in subclass
+
+    cpdef void on_order_canceled(self, OrderCanceled event):
+        """
+        Actions to be performed when running and receives an order canceled event.
+
+        Parameters
+        ----------
+        event : OrderCanceled
+            The event received.
+
+        Warnings
+        --------
+        System method (not intended to be called by user code).
+
+        """
+        # Optionally override in subclass
+
+    cpdef void on_order_expired(self, OrderExpired event):
+        """
+        Actions to be performed when running and receives an order expired event.
+
+        Parameters
+        ----------
+        event : OrderExpired
+            The event received.
+
+        Warnings
+        --------
+        System method (not intended to be called by user code).
+
+        """
+        # Optionally override in subclass
+
+    cpdef void on_order_triggered(self, OrderTriggered event):
+        """
+        Actions to be performed when running and receives an order triggered event.
+
+        Parameters
+        ----------
+        event : OrderTriggered
+            The event received.
+
+        Warnings
+        --------
+        System method (not intended to be called by user code).
+
+        """
+        # Optionally override in subclass
+
+    cpdef void on_order_pending_update(self, OrderPendingUpdate event):
+        """
+        Actions to be performed when running and receives an order pending update event.
+
+        Parameters
+        ----------
+        event : OrderPendingUpdate
+            The event received.
+
+        Warnings
+        --------
+        System method (not intended to be called by user code).
+
+        """
+        # Optionally override in subclass
+
+    cpdef void on_order_pending_cancel(self, OrderPendingCancel event):
+        """
+        Actions to be performed when running and receives an order pending cancel event.
+
+        Parameters
+        ----------
+        event : OrderPendingCancel
+            The event received.
+
+        Warnings
+        --------
+        System method (not intended to be called by user code).
+
+        """
+        # Optionally override in subclass
+
+    cpdef void on_order_modify_rejected(self, OrderModifyRejected event):
+        """
+        Actions to be performed when running and receives an order modify rejected event.
+
+        Parameters
+        ----------
+        event : OrderModifyRejected
+            The event received.
+
+        Warnings
+        --------
+        System method (not intended to be called by user code).
+
+        """
+        # Optionally override in subclass
+
+    cpdef void on_order_cancel_rejected(self, OrderCancelRejected event):
+        """
+        Actions to be performed when running and receives an order cancel rejected event.
+
+        Parameters
+        ----------
+        event : OrderCancelRejected
+            The event received.
+
+        Warnings
+        --------
+        System method (not intended to be called by user code).
+
+        """
+        # Optionally override in subclass
+
+    cpdef void on_order_updated(self, OrderUpdated event):
+        """
+        Actions to be performed when running and receives an order updated event.
+
+        Parameters
+        ----------
+        event : OrderUpdated
+            The event received.
+
+        Warnings
+        --------
+        System method (not intended to be called by user code).
+
+        """
+        # Optionally override in subclass
+
+    cpdef void on_order_filled(self, OrderFilled event):
+        """
+        Actions to be performed when running and receives an order filled event.
+
+        Parameters
+        ----------
+        event : OrderFilled
+            The event received.
+
+        Warnings
+        --------
+        System method (not intended to be called by user code).
+
+        """
+        # Optionally override in subclass
+
+    cpdef void on_position_event(self, PositionEvent event):
+        """
+        Actions to be performed when running and receives a position event.
+
+        Parameters
+        ----------
+        event : PositionEvent
+            The event received.
+
+        Warnings
+        --------
+        System method (not intended to be called by user code).
+
+        """
+        # Optionally override in subclass
+
+    cpdef void on_position_opened(self, PositionOpened event):
+        """
+        Actions to be performed when running and receives a position opened event.
+
+        Parameters
+        ----------
+        event : PositionOpened
+            The event received.
+
+        Warnings
+        --------
+        System method (not intended to be called by user code).
+
+        """
+        # Optionally override in subclass
+
+    cpdef void on_position_changed(self, PositionChanged event):
+        """
+        Actions to be performed when running and receives a position changed event.
+
+        Parameters
+        ----------
+        event : PositionChanged
+            The event received.
+
+        Warnings
+        --------
+        System method (not intended to be called by user code).
+
+        """
+        # Optionally override in subclass
+
+    cpdef void on_position_closed(self, PositionClosed event):
+        """
+        Actions to be performed when running and receives a position closed event.
+
+        Parameters
+        ----------
+        event : PositionClosed
+            The event received.
+
+        Warnings
+        --------
+        System method (not intended to be called by user code).
+
+        """
+        # Optionally override in subclass
+
 
 # -- TRADING COMMANDS -----------------------------------------------------------------------------
 
@@ -625,7 +1061,7 @@ cdef class ExecAlgorithm(Actor):
         Condition.not_none(order, "order")
         Condition.equal(order.emulation_trigger, TriggerType.NO_TRIGGER, "order.emulation_trigger", "NO_TRIGGER")
         Condition.true(
-            order.status in (OrderStatus.INITIALIZED, OrderStatus.RELEASED),
+            order.status_c() in (OrderStatus.INITIALIZED, OrderStatus.RELEASED),
             "order",
             "order status was not either ``INITIALIZED`` or ``RELEASED``",
         )
@@ -785,13 +1221,13 @@ cdef class ExecAlgorithm(Actor):
             return  # Cannot send command
 
         cdef OrderPendingUpdate event
-        if order.status != OrderStatus.INITIALIZED and not order.is_emulated_c():
+        if not order.is_active_local_c():
             # Generate and apply event
             event = self._generate_order_pending_update(order)
             try:
                 order.apply(event)
                 self.cache.update_order(order)
-            except InvalidStateTrigger as e:
+            except InvalidStateTrigger as e:  # pragma: no cover
                 self._log.warning(f"InvalidStateTrigger: {e}, did not apply {event}")
                 return
 
@@ -862,7 +1298,7 @@ cdef class ExecAlgorithm(Actor):
         Condition.true(self.trader_id is not None, "The strategy has not been registered")
         Condition.not_none(order, "order")
         Condition.true(
-            order.status in (OrderStatus.INITIALIZED, OrderStatus.RELEASED),
+            order.status_c() in (OrderStatus.INITIALIZED, OrderStatus.RELEASED),
             "order",
             "order status was not either ``INITIALIZED`` or ``RELEASED``",
         )
@@ -929,7 +1365,7 @@ cdef class ExecAlgorithm(Actor):
         Cancel the given order with optional routing instructions.
 
         A `CancelOrder` command will be created and then sent to **either** the
-        `OrderEmulator` or the `RiskEngine` (depending on whether the order is emulated).
+        `OrderEmulator` or the `ExecutionEngine` (depending on whether the order is emulated).
 
         Logs an error if no `VenueOrderId` has been assigned to the order.
 
@@ -952,13 +1388,13 @@ cdef class ExecAlgorithm(Actor):
             return  # Cannot send command
 
         cdef OrderPendingCancel event
-        if order.status not in (OrderStatus.INITIALIZED, OrderStatus.RELEASED) and not order.is_emulated_c():
+        if not order.is_active_local_c():
             # Generate and apply event
             event = self._generate_order_pending_cancel(order)
             try:
                 order.apply(event)
                 self.cache.update_order(order)
-            except InvalidStateTrigger as e:
+            except InvalidStateTrigger as e:  # pragma: no cover
                 self._log.warning(f"InvalidStateTrigger: {e}, did not apply {event}")
                 return
 
@@ -982,7 +1418,7 @@ cdef class ExecAlgorithm(Actor):
         if order.is_emulated_c() or order.status_c() == OrderStatus.RELEASED:
             self._send_emulator_command(command)
         else:
-            self._send_risk_command(command)
+            self._send_exec_command(command)
 
 # -- EVENTS ---------------------------------------------------------------------------------------
 
@@ -1014,6 +1450,20 @@ cdef class ExecAlgorithm(Actor):
             ts_init=ts_now,
         )
 
+    cdef OrderCanceled _generate_order_canceled(self, Order order):
+        cdef uint64_t ts_now = self._clock.timestamp_ns()
+        return OrderCanceled(
+            trader_id=order.trader_id,
+            strategy_id=order.strategy_id,
+            instrument_id=order.instrument_id,
+            client_order_id=order.client_order_id,
+            venue_order_id=order.venue_order_id,
+            account_id=order.account_id,
+            event_id=UUID4(),
+            ts_event=ts_now,
+            ts_init=ts_now,
+        )
+
 # -- EGRESS ---------------------------------------------------------------------------------------
 
     cdef void _send_emulator_command(self, TradingCommand command):
@@ -1025,3 +1475,8 @@ cdef class ExecAlgorithm(Actor):
         if not self.log.is_bypassed:
             self.log.info(f"{CMD}{SENT} {command}.")
         self._msgbus.send(endpoint="RiskEngine.execute", msg=command)
+
+    cdef void _send_exec_command(self, TradingCommand command):
+        if not self.log.is_bypassed:
+            self.log.info(f"{CMD}{SENT} {command}.")
+        self._msgbus.send(endpoint="ExecEngine.execute", msg=command)

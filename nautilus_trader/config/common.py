@@ -314,7 +314,15 @@ class ExecEngineConfig(NautilusConfig, frozen=True):
 class OrderEmulatorConfig(NautilusConfig, frozen=True):
     """
     Configuration for ``OrderEmulator`` instances.
+
+    Parameters
+    ----------
+    debug : bool, default False
+        If debug mode is active (will provide extra debug logging).
+
     """
+
+    debug: bool = False
 
 
 class StreamingConfig(NautilusConfig, frozen=True):
@@ -462,6 +470,9 @@ class StrategyConfig(NautilusConfig, kw_only=True, frozen=True):
     external_order_claims : list[str], optional
         The external order claim instrument IDs.
         External orders for matching instrument IDs will be associated with (claimed by) the strategy.
+    manage_gtd_expiry : bool, default False
+        If all order GTD time in force expirations should be managed by the strategy.
+        If True then will ensure open orders have their GTD timers re-activated on start.
 
     """
 
@@ -469,7 +480,7 @@ class StrategyConfig(NautilusConfig, kw_only=True, frozen=True):
     order_id_tag: Optional[str] = None
     oms_type: Optional[str] = None
     external_order_claims: Optional[list[str]] = None
-    warmup_engine_config: Optional[WarmupEngineConfig] = None
+    manage_gtd_expiry: bool = False
 
     
 class ImportableStrategyConfig(NautilusConfig, frozen=True):
@@ -521,6 +532,56 @@ class StrategyFactory:
         strategy_cls = resolve_path(config.strategy_path)
         config_cls = resolve_path(config.config_path)
         return strategy_cls(config=config_cls(**config.config))
+
+
+class ImportableControllerConfig(NautilusConfig, frozen=True):
+    """
+    Configuration for a controller instance.
+
+    Parameters
+    ----------
+    controller_path : str
+        The fully qualified name of the controller class.
+    config_path : str
+        The fully qualified name of the config class.
+    config : dict[str, Any]
+        The controller configuration.
+
+    """
+
+    controller_path: str
+    config_path: str
+    config: dict
+
+
+class ControllerConfig(NautilusConfig, kw_only=True, frozen=True):
+    """
+    The base model for all trading strategy configurations.
+    """
+
+
+class ControllerFactory:
+    """
+    Provides controller creation from importable configurations.
+    """
+
+    @staticmethod
+    def create(
+        config: ImportableControllerConfig,
+        trader,
+    ):
+        from nautilus_trader.trading.trader import Trader
+
+        PyCondition.type(trader, Trader, "trader")
+
+        controller_cls = resolve_path(config.controller_path)
+        config_cls = resolve_path(config.config_path)
+        config = config_cls(**config.config)
+        return controller_cls(
+            config=config,
+            trader=trader,
+        )
+
 
 class ExecAlgorithmConfig(NautilusConfig, kw_only=True, frozen=True):
     """
@@ -588,6 +649,35 @@ class ExecAlgorithmFactory:
         return exec_algorithm_cls(config=config_cls(**config.config))
 
 
+class TracingConfig(NautilusConfig, frozen=True):
+    """
+    Configuration for standard output and file logging for Rust tracing statements for a
+    ``NautilusKernel`` instance.
+
+    Parameters
+    ----------
+    stdout_level : str, optional
+        The minimum log level to write to stdout. Possible options are "debug",
+        "info", "warn", "error". Setting it None means no logs are written to
+        stdout.
+    stderr_level : str, optional
+        The minimum log level to write to stderr. Possible options are "debug",
+        "info", "warn", "error". Setting it None means no logs are written to
+        stderr.
+    file_config : tuple[str, str, str], optional
+        The minimum log level to write to log file. Possible options are "debug",
+        "info", "warn", "error". Setting it None means no logs are written to
+        the log file.
+        The second str is the prefix name of the log file and the third str is
+        the name of the directory.
+
+    """
+
+    stdout_level: Optional[str] = None
+    stderr_level: Optional[str] = None
+    file_level: Optional[tuple[str, str, str]] = None
+
+
 class LoggingConfig(NautilusConfig, frozen=True):
     """
     Configuration for standard output and file logging for a ``NautilusKernel``
@@ -646,6 +736,8 @@ class NautilusKernelConfig(NautilusConfig, frozen=True):
         The live risk engine configuration.
     exec_engine : ExecEngineConfig, optional
         The live execution engine configuration.
+    emulator : OrderEmulatorConfig, optional
+        The order emulator configuration.
     streaming : StreamingConfig, optional
         The configuration for streaming to feather files.
     catalog : DataCatalogConfig, optional
@@ -654,6 +746,10 @@ class NautilusKernelConfig(NautilusConfig, frozen=True):
         The actor configurations for the kernel.
     strategies : list[ImportableStrategyConfig]
         The strategy configurations for the kernel.
+    exec_algorithms : list[ImportableExecAlgorithmConfig]
+        The execution algorithm configurations for the kernel.
+    controller : ImportableControllerConfig, optional
+        The trader controller for the kernel.
     load_state : bool, default True
         If trading strategy state should be loaded from the database on start.
     save_state : bool, default True
@@ -681,15 +777,18 @@ class NautilusKernelConfig(NautilusConfig, frozen=True):
     data_engine: Optional[DataEngineConfig] = None
     risk_engine: Optional[RiskEngineConfig] = None
     exec_engine: Optional[ExecEngineConfig] = None
+    emulator: Optional[OrderEmulatorConfig] = None
     streaming: Optional[StreamingConfig] = None
     catalog: Optional[DataCatalogConfig] = None
     actors: list[ImportableActorConfig] = []
     strategies: list[ImportableStrategyConfig] = []
     exec_algorithms: list[ImportableExecAlgorithmConfig] = []
+    controller: Optional[ImportableControllerConfig] = None
     load_state: bool = False
     save_state: bool = False
     loop_debug: bool = False
     logging: Optional[LoggingConfig] = None
+    tracing: Optional[TracingConfig] = None
     timeout_connection: PositiveFloat = 10.0
     timeout_reconciliation: PositiveFloat = 10.0
     timeout_portfolio: PositiveFloat = 10.0

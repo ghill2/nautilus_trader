@@ -17,13 +17,29 @@ use std::{ffi::c_char, fmt::Debug, str::FromStr};
 
 use nautilus_core::string::{cstr_to_string, str_to_cstr};
 use serde::{Deserialize, Serialize};
-use strum::{Display, EnumString, FromRepr};
+use strum::{Display, EnumIter, EnumString, FromRepr};
 
 /// The state of a component within the system.
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, FromRepr, EnumString, Display)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    FromRepr,
+    EnumIter,
+    EnumString,
+    Serialize,
+    Deserialize,
+)]
 #[strum(ascii_case_insensitive)]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
+#[allow(non_camel_case_types)]
 pub enum ComponentState {
     /// When a component is instantiated, but not yet ready to fulfill its specification.
     PreInitialized = 0,
@@ -57,9 +73,25 @@ pub enum ComponentState {
 
 /// A trigger condition for a component within the system.
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, FromRepr, EnumString, Display)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    FromRepr,
+    EnumIter,
+    EnumString,
+    Serialize,
+    Deserialize,
+)]
 #[strum(ascii_case_insensitive)]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
+#[allow(non_camel_case_types)]
 pub enum ComponentTrigger {
     /// A trigger for the component to initialize.
     Initialize = 1,
@@ -100,16 +132,19 @@ pub enum ComponentTrigger {
     Clone,
     Debug,
     Hash,
-    PartialOrd,
     PartialEq,
     Eq,
+    PartialOrd,
+    Ord,
     FromRepr,
+    EnumIter,
     EnumString,
     Serialize,
     Deserialize,
 )]
 #[strum(ascii_case_insensitive)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[allow(non_camel_case_types)]
 pub enum LogLevel {
     /// The **DBG** debug log level.
     #[strum(serialize = "DBG", serialize = "DEBUG")]
@@ -137,11 +172,11 @@ pub enum LogLevel {
 impl std::fmt::Display for LogLevel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let display = match self {
-            LogLevel::Debug => "DBG",
-            LogLevel::Info => "INF",
-            LogLevel::Warning => "WRN",
-            LogLevel::Error => "ERR",
-            LogLevel::Critical => "CRT",
+            Self::Debug => "DBG",
+            Self::Info => "INF",
+            Self::Warning => "WRN",
+            Self::Error => "ERR",
+            Self::Critical => "CRT",
         };
         write!(f, "{display}")
     }
@@ -150,10 +185,24 @@ impl std::fmt::Display for LogLevel {
 /// The log color for log messages.
 #[repr(C)]
 #[derive(
-    Copy, Clone, Debug, Hash, PartialEq, Eq, FromRepr, EnumString, Display, Serialize, Deserialize,
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    FromRepr,
+    EnumIter,
+    EnumString,
+    Serialize,
+    Deserialize,
 )]
 #[strum(ascii_case_insensitive)]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
+#[allow(non_camel_case_types)]
 pub enum LogColor {
     /// The default/normal log color.
     #[strum(serialize = "")]
@@ -184,6 +233,7 @@ pub enum LogColor {
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, FromRepr, EnumString, Display)]
 #[strum(ascii_case_insensitive)]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
+#[allow(non_camel_case_types)]
 pub enum LogFormat {
     /// Header log format. This ANSI escape code is used for magenta text color,
     /// often used for headers or titles in the log output.
@@ -204,6 +254,7 @@ pub enum LogFormat {
     Underline,
 }
 
+#[cfg(feature = "ffi")]
 #[no_mangle]
 pub extern "C" fn component_state_to_cstr(value: ComponentState) -> *const c_char {
     str_to_cstr(&value.to_string())
@@ -213,6 +264,7 @@ pub extern "C" fn component_state_to_cstr(value: ComponentState) -> *const c_cha
 ///
 /// # Safety
 /// - Assumes `ptr` is a valid C string pointer.
+#[cfg(feature = "ffi")]
 #[no_mangle]
 pub unsafe extern "C" fn component_state_from_cstr(ptr: *const c_char) -> ComponentState {
     let value = cstr_to_string(ptr);
@@ -220,6 +272,7 @@ pub unsafe extern "C" fn component_state_from_cstr(ptr: *const c_char) -> Compon
         .unwrap_or_else(|_| panic!("invalid `ComponentState` enum string value, was '{value}'"))
 }
 
+#[cfg(feature = "ffi")]
 #[no_mangle]
 pub extern "C" fn component_trigger_to_cstr(value: ComponentTrigger) -> *const c_char {
     str_to_cstr(&value.to_string())
@@ -229,6 +282,7 @@ pub extern "C" fn component_trigger_to_cstr(value: ComponentTrigger) -> *const c
 ///
 /// # Safety
 /// - Assumes `ptr` is a valid C string pointer.
+#[cfg(feature = "ffi")]
 #[no_mangle]
 pub unsafe extern "C" fn component_trigger_from_cstr(ptr: *const c_char) -> ComponentTrigger {
     let value = cstr_to_string(ptr);
@@ -236,6 +290,7 @@ pub unsafe extern "C" fn component_trigger_from_cstr(ptr: *const c_char) -> Comp
         .unwrap_or_else(|_| panic!("invalid `ComponentTrigger` enum string value, was '{value}'"))
 }
 
+#[cfg(feature = "ffi")]
 #[no_mangle]
 pub extern "C" fn log_level_to_cstr(value: LogLevel) -> *const c_char {
     str_to_cstr(&value.to_string())
@@ -245,6 +300,7 @@ pub extern "C" fn log_level_to_cstr(value: LogLevel) -> *const c_char {
 ///
 /// # Safety
 /// - Assumes `ptr` is a valid C string pointer.
+#[cfg(feature = "ffi")]
 #[no_mangle]
 pub unsafe extern "C" fn log_level_from_cstr(ptr: *const c_char) -> LogLevel {
     let value = cstr_to_string(ptr);
@@ -252,6 +308,7 @@ pub unsafe extern "C" fn log_level_from_cstr(ptr: *const c_char) -> LogLevel {
         .unwrap_or_else(|_| panic!("invalid `LogLevel` enum string value, was '{value}'"))
 }
 
+#[cfg(feature = "ffi")]
 #[no_mangle]
 pub extern "C" fn log_color_to_cstr(value: LogColor) -> *const c_char {
     str_to_cstr(&value.to_string())
@@ -261,6 +318,7 @@ pub extern "C" fn log_color_to_cstr(value: LogColor) -> *const c_char {
 ///
 /// # Safety
 /// - Assumes `ptr` is a valid C string pointer.
+#[cfg(feature = "ffi")]
 #[no_mangle]
 pub unsafe extern "C" fn log_color_from_cstr(ptr: *const c_char) -> LogColor {
     let value = cstr_to_string(ptr);

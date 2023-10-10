@@ -16,6 +16,8 @@
 from datetime import timedelta
 from decimal import Decimal
 
+import pytest
+
 from nautilus_trader.backtest.exchange import SimulatedExchange
 from nautilus_trader.backtest.execution_client import BacktestExecClient
 from nautilus_trader.backtest.models import FillModel
@@ -27,6 +29,8 @@ from nautilus_trader.common.timer import TimeEventHandler
 from nautilus_trader.config import DataEngineConfig
 from nautilus_trader.config import ExecEngineConfig
 from nautilus_trader.config import RiskEngineConfig
+from nautilus_trader.config import StrategyConfig
+from nautilus_trader.config.common import ImportableExecAlgorithmConfig
 from nautilus_trader.core.datetime import secs_to_nanos
 from nautilus_trader.data.engine import DataEngine
 from nautilus_trader.examples.algorithms.twap import TWAPExecAlgorithm
@@ -169,7 +173,8 @@ class TestExecAlgorithm:
         update = TestEventStubs.margin_account_state(account_id=AccountId("BINANCE-001"))
         self.portfolio.update_account(update)
 
-        self.strategy = Strategy()
+        config = StrategyConfig(manage_gtd_expiry=True)
+        self.strategy = Strategy(config)
         self.strategy.register(
             trader_id=self.trader_id,
             portfolio=self.portfolio,
@@ -184,6 +189,73 @@ class TestExecAlgorithm:
         self.exec_engine.start()
         self.emulator.start()
         self.strategy.start()
+
+    def test_exec_algorithm_reset(self) -> None:
+        # Arrange
+        exec_algorithm = TWAPExecAlgorithm()
+        exec_algorithm.register(
+            trader_id=self.trader_id,
+            portfolio=self.portfolio,
+            msgbus=self.msgbus,
+            cache=self.cache,
+            clock=self.clock,
+            logger=self.logger,
+        )
+        exec_algorithm.start()
+        exec_algorithm.stop()
+
+        # Act, Assert
+        exec_algorithm.reset()
+
+    def test_exec_algorithm_to_importable_config(self) -> None:
+        # Arrange
+        exec_algorithm = TWAPExecAlgorithm()
+
+        # Act
+        config = exec_algorithm.to_importable_config()
+
+        # Assert
+        assert isinstance(config, ImportableExecAlgorithmConfig)
+        assert config.dict() == {
+            "exec_algorithm_path": "nautilus_trader.examples.algorithms.twap:TWAPExecAlgorithm",
+            "config_path": "nautilus_trader.examples.algorithms.twap:TWAPExecAlgorithmConfig",
+            "config": {"exec_algorithm_id": "TWAP"},
+        }
+
+    def test_exec_algorithm_spawn_market_order_with_quantity_too_high(self) -> None:
+        """
+        Test that an exception is raised when more than the primary quantity attempts to
+        be spawned.
+        """
+        # Arrange
+        exec_algorithm = TWAPExecAlgorithm()
+        exec_algorithm.register(
+            trader_id=self.trader_id,
+            portfolio=self.portfolio,
+            msgbus=self.msgbus,
+            cache=self.cache,
+            clock=self.clock,
+            logger=self.logger,
+        )
+        exec_algorithm.start()
+
+        primary_order = self.strategy.order_factory.market(
+            instrument_id=ETHUSDT_PERP_BINANCE.id,
+            order_side=OrderSide.BUY,
+            quantity=ETHUSDT_PERP_BINANCE.make_qty(Decimal("1")),
+            exec_algorithm_id=ExecAlgorithmId("TWAP"),
+            exec_algorithm_params={"horizon_secs": 2, "interval_secs": 1},
+        )
+
+        # Act, Assert
+        with pytest.raises(ValueError):
+            exec_algorithm.spawn_market(
+                primary=primary_order,
+                quantity=ETHUSDT_PERP_BINANCE.make_qty(Decimal("2")),  # <-- Greater than primary
+                time_in_force=TimeInForce.FOK,
+                reduce_only=True,
+                tags="EXIT",
+            )
 
     def test_exec_algorithm_spawn_market_order(self) -> None:
         """
@@ -222,6 +294,8 @@ class TestExecAlgorithm:
 
         # Assert
         assert primary_order.quantity == ETHUSDT_PERP_BINANCE.make_qty(Decimal("0.5"))
+        assert primary_order.is_active_local
+        assert spawned_order.is_active_local
         assert spawned_order.client_order_id.value == primary_order.client_order_id.value + "-E1"
         assert spawned_order.order_type == OrderType.MARKET
         assert spawned_order.quantity == spawned_qty
@@ -268,6 +342,8 @@ class TestExecAlgorithm:
 
         # Assert
         assert primary_order.quantity == ETHUSDT_PERP_BINANCE.make_qty(Decimal("0.5"))
+        assert primary_order.is_active_local
+        assert spawned_order.is_active_local
         assert spawned_order.client_order_id.value == primary_order.client_order_id.value + "-E1"
         assert spawned_order.order_type == OrderType.LIMIT
         assert spawned_order.quantity == spawned_qty
@@ -318,6 +394,8 @@ class TestExecAlgorithm:
 
         # Assert
         assert primary_order.quantity == ETHUSDT_PERP_BINANCE.make_qty(Decimal("0.5"))
+        assert primary_order.is_active_local
+        assert spawned_order.is_active_local
         assert spawned_order.client_order_id.value == primary_order.client_order_id.value + "-E1"
         assert spawned_order.order_type == OrderType.MARKET_TO_LIMIT
         assert spawned_order.quantity == spawned_qty
@@ -444,6 +522,7 @@ class TestExecAlgorithm:
 
         # Assert
         assert primary_order.status == OrderStatus.CANCELED
+        assert not primary_order.is_active_local
 
     def test_exec_algorithm_on_order(self) -> None:
         # Arrange
@@ -543,7 +622,7 @@ class TestExecAlgorithm:
         exec_spawn_id = original_entry_order.client_order_id
 
         # Act
-        self.strategy.submit_order_list(bracket, manage_gtd_expiry=True)
+        self.strategy.submit_order_list(bracket)
 
         # Trigger ENTRY order release
         self.data_engine.process(tick2)
@@ -637,7 +716,7 @@ class TestExecAlgorithm:
         exec_spawn_id = entry_order.client_order_id
 
         # Act
-        self.strategy.submit_order_list(bracket, manage_gtd_expiry=True)
+        self.strategy.submit_order_list(bracket)
 
         # Trigger ENTRY order release
         self.data_engine.process(tick2)
@@ -649,6 +728,8 @@ class TestExecAlgorithm:
         assert transformed_entry_order.status == OrderStatus.RELEASED
         assert sl_order.status == OrderStatus.EMULATED
         assert tp_order.status == OrderStatus.EMULATED
+        assert sl_order.is_active_local
+        assert tp_order.is_active_local
         assert self.exec_engine.command_count == 1
         assert self.risk_engine.command_count == 1
         assert len(spawned_orders) == 2
@@ -750,7 +831,7 @@ class TestExecAlgorithm:
         tp_order = bracket.orders[2]
 
         # Act
-        self.strategy.submit_order_list(bracket, manage_gtd_expiry=True)
+        self.strategy.submit_order_list(bracket)
 
         # Trigger ENTRY order release
         self.data_engine.process(tick2)

@@ -38,6 +38,10 @@ from nautilus_trader.core.rust.model cimport trade_id_new
 from nautilus_trader.core.string cimport pystr_to_cstr
 from nautilus_trader.core.uuid cimport UUID4
 from nautilus_trader.execution.matching_core cimport MatchingCore
+from nautilus_trader.execution.messages cimport BatchCancelOrders
+from nautilus_trader.execution.messages cimport CancelAllOrders
+from nautilus_trader.execution.messages cimport CancelOrder
+from nautilus_trader.execution.messages cimport ModifyOrder
 from nautilus_trader.execution.trailing cimport TrailingStopCalculator
 from nautilus_trader.model.data.book cimport BookOrder
 from nautilus_trader.model.data.tick cimport QuoteTick
@@ -89,9 +93,6 @@ from nautilus_trader.model.orders.trailing_stop_market cimport TrailingStopMarke
 from nautilus_trader.model.position cimport Position
 from nautilus_trader.msgbus.bus cimport MessageBus
 from nautilus_trader.core.rust.model cimport QUANTITY_MAX
-
-cdef tuple ORDER_STATUS_UPSTREAM = (OrderStatus.INITIALIZED, OrderStatus.EMULATED, OrderStatus.RELEASED)
-
 
 cdef class OrderMatchingEngine:
     """
@@ -402,7 +403,7 @@ cdef class OrderMatchingEngine:
         if not self._log.is_bypassed:
             self._log.debug(f"Processing {repr(tick)}...")
 
-        if self.book_type == BookType.L1_TBBO:
+        if self.book_type == BookType.L1_MBP:
             self._book.update_quote_tick(tick)
 
         self.iterate(tick.ts_init)
@@ -424,7 +425,7 @@ cdef class OrderMatchingEngine:
         if not self._log.is_bypassed:
             self._log.debug(f"Processing {repr(tick)}...")
 
-        if self.book_type == BookType.L1_TBBO:
+        if self.book_type == BookType.L1_MBP:
             self._book.update_trade_tick(tick)
 
         self._core.set_last_raw(tick._mem.price.raw)
@@ -451,7 +452,7 @@ cdef class OrderMatchingEngine:
         if not self._log.is_bypassed:
             self._log.debug(f"Processing {repr(bar)}...")
 
-        if self.book_type != BookType.L1_TBBO:
+        if self.book_type != BookType.L1_MBP:
             return  # Can only process an L1 book with bars
 
         cdef PriceType price_type = bar.bar_type.spec.price_type
@@ -624,6 +625,9 @@ cdef class OrderMatchingEngine:
         self._book.update_quote_tick(tick)
         self.iterate(tick.ts_init)
 
+        self._last_bid_bar = None
+        self._last_ask_bar = None
+
 # -- TRADING COMMANDS -----------------------------------------------------------------------------
 
     cpdef void process_order(self, Order order, AccountId account_id):
@@ -720,6 +724,11 @@ cdef class OrderMatchingEngine:
         else:
             if order.is_inflight_c() or order.is_open_c():
                 self.cancel_order(order)
+
+    cpdef void process_batch_cancel(self, BatchCancelOrders command, AccountId account_id):
+        cdef CancelOrder cancel
+        for cancel in command.cancels:
+            self.process_cancel(cancel, account_id)
 
     cpdef void process_cancel_all(self, CancelAllOrders command, AccountId account_id):
         cdef Order order
@@ -1170,6 +1179,12 @@ cdef class OrderMatchingEngine:
                 self._core.set_last_raw(self._target_last)
                 self._has_targets = False
 
+        # Reset any targets after iteration
+        self._target_bid = 0
+        self._target_ask = 0
+        self._target_last = 0
+        self._has_targets = False
+
     cpdef list determine_limit_price_and_volume(self, Order order):
         """
         Return the projected fills for the given *limit* order filling passively
@@ -1206,7 +1221,7 @@ cdef class OrderMatchingEngine:
         if (
             fills
             and triggered_price is not None
-            and self._book.book_type == BookType.L1_TBBO
+            and self._book.book_type == BookType.L1_MBP
             and order.liquidity_side == LiquiditySide.TAKER
         ):
             ########################################################################
@@ -1233,7 +1248,7 @@ cdef class OrderMatchingEngine:
         cdef Price initial_fill_price
         if (
             fills
-            and self._book.book_type == BookType.L1_TBBO
+            and self._book.book_type == BookType.L1_MBP
             and order.liquidity_side == LiquiditySide.MAKER
         ):
             ########################################################################
@@ -1298,7 +1313,7 @@ cdef class OrderMatchingEngine:
 
         cdef Price price
         cdef Price triggered_price
-        if self._book.book_type == BookType.L1_TBBO and fills:
+        if self._book.book_type == BookType.L1_MBP and fills:
             triggered_price = order.get_triggered_price_c()
             if order.order_type == OrderType.MARKET or order.order_type == OrderType.MARKET_TO_LIMIT or order.order_type == OrderType.MARKET_IF_TOUCHED:
                 if order.side == OrderSide.BUY:
@@ -1507,7 +1522,7 @@ cdef class OrderMatchingEngine:
                 self.cancel_order(order)
                 return
 
-            if self.book_type == BookType.L1_TBBO and self._fill_model.is_slipped():
+            if self.book_type == BookType.L1_MBP and self._fill_model.is_slipped():
                 if order.side == OrderSide.BUY:
                     fill_px = fill_px.add(self.instrument.price_increment)
                 elif order.side == OrderSide.SELL:
@@ -1551,7 +1566,7 @@ cdef class OrderMatchingEngine:
 
         if (
             order.is_open_c()
-            and self.book_type == BookType.L1_TBBO
+            and self.book_type == BookType.L1_MBP
             and (
             order.order_type == OrderType.MARKET
             or order.order_type == OrderType.MARKET_IF_TOUCHED
@@ -1675,7 +1690,7 @@ cdef class OrderMatchingEngine:
                 assert child_order is not None, "OTO child order not found"
                 if child_order.is_closed_c():
                     continue
-                if child_order.status_c() in ORDER_STATUS_UPSTREAM:
+                if child_order.is_active_local_c():
                     continue  # Order is not on the exchange yet
                 if child_order.position_id is None and order.position_id is not None:
                     self.cache.add_position_id(
@@ -1699,14 +1714,14 @@ cdef class OrderMatchingEngine:
                 assert oco_order is not None, "OCO order not found"
                 if oco_order.is_closed_c():
                     continue
-                if oco_order.status_c() in ORDER_STATUS_UPSTREAM:
+                if oco_order.is_active_local_c():
                     continue  # Order is not on the exchange yet
                 self.cancel_order(oco_order)
         elif order.contingency_type == ContingencyType.OUO:
             for client_order_id in order.linked_order_ids:
                 ouo_order = self.cache.order(client_order_id)
                 assert ouo_order is not None, "OUO order not found"
-                if ouo_order.status_c() in ORDER_STATUS_UPSTREAM:
+                if ouo_order.is_active_local_c():
                     continue  # Order is not on the exchange yet
                 if order.is_closed_c() and ouo_order.is_open_c():
                     self.cancel_order(ouo_order)
@@ -1816,7 +1831,7 @@ cdef class OrderMatchingEngine:
         self._generate_order_expired(order)
 
     cpdef void cancel_order(self, Order order, bint cancel_contingencies=True):
-        if order.status_c() in ORDER_STATUS_UPSTREAM:
+        if order.is_active_local_c():
             self._log.error(
                 f"Cannot cancel an order with {order.status_string_c()} from the matching engine.",
             )
@@ -1929,7 +1944,7 @@ cdef class OrderMatchingEngine:
         for client_order_id in order.linked_order_ids:
             ouo_order = self.cache.order(client_order_id)
             assert ouo_order is not None, "OUO order not found"
-            if ouo_order.status_c() in ORDER_STATUS_UPSTREAM:
+            if ouo_order.is_active_local_c():
                 continue  # Order is not on the exchange yet
             if ouo_order.order_type == OrderType.MARKET or ouo_order.is_closed_c():
                 continue
@@ -1951,7 +1966,7 @@ cdef class OrderMatchingEngine:
         for client_order_id in order.linked_order_ids:
             contingent_order = self.cache.order(client_order_id)
             assert contingent_order is not None, "Contingency order not found"
-            if contingent_order.status_c() in ORDER_STATUS_UPSTREAM:
+            if contingent_order.is_active_local_c():
                 continue  # Order is not on the exchange yet
             if not contingent_order.is_closed_c():
                 self.cancel_order(contingent_order, cancel_contingencies=False)

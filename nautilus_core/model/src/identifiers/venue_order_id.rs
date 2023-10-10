@@ -14,30 +14,34 @@
 // -------------------------------------------------------------------------------------------------
 
 use std::{
-    ffi::{c_char, CStr},
+    ffi::c_char,
     fmt::{Debug, Display, Formatter},
     hash::Hash,
 };
 
-use nautilus_core::correctness;
-use pyo3::prelude::*;
+use anyhow::Result;
+use nautilus_core::{correctness::check_valid_string, string::cstr_to_str};
 use ustr::Ustr;
 
+/// Represents a valid venue order ID (assigned by a trading venue).
 #[repr(C)]
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[pyclass]
+#[cfg_attr(
+    feature = "python",
+    pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
+)]
 pub struct VenueOrderId {
+    /// The venue assigned order ID value.
     pub value: Ustr,
 }
 
 impl VenueOrderId {
-    #[must_use]
-    pub fn new(s: &str) -> Self {
-        correctness::valid_string(s, "`VenueOrderId` value");
+    pub fn new(s: &str) -> Result<Self> {
+        check_valid_string(s, "`VenueOrderId` value")?;
 
-        Self {
+        Ok(Self {
             value: Ustr::from(s),
-        }
+        })
     }
 }
 
@@ -61,6 +65,12 @@ impl Display for VenueOrderId {
     }
 }
 
+impl From<&str> for VenueOrderId {
+    fn from(input: &str) -> Self {
+        Self::new(input).unwrap()
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // C API
 ////////////////////////////////////////////////////////////////////////////////
@@ -69,15 +79,31 @@ impl Display for VenueOrderId {
 /// # Safety
 ///
 /// - Assumes `ptr` is a valid C string pointer.
+#[cfg(feature = "ffi")]
 #[no_mangle]
 pub unsafe extern "C" fn venue_order_id_new(ptr: *const c_char) -> VenueOrderId {
-    assert!(!ptr.is_null(), "`ptr` was NULL");
-    VenueOrderId::new(CStr::from_ptr(ptr).to_str().expect("CStr::from_ptr failed"))
+    VenueOrderId::from(cstr_to_str(ptr))
 }
 
+#[cfg(feature = "ffi")]
 #[no_mangle]
 pub extern "C" fn venue_order_id_hash(id: &VenueOrderId) -> u64 {
     id.value.precomputed_hash()
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Stubs
+////////////////////////////////////////////////////////////////////////////////
+#[cfg(test)]
+pub mod stubs {
+    use rstest::fixture;
+
+    use crate::identifiers::venue_order_id::VenueOrderId;
+
+    #[fixture]
+    pub fn venue_order_id() -> VenueOrderId {
+        VenueOrderId::from("001")
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -85,11 +111,13 @@ pub extern "C" fn venue_order_id_hash(id: &VenueOrderId) -> u64 {
 ////////////////////////////////////////////////////////////////////////////////
 #[cfg(test)]
 mod tests {
-    use super::VenueOrderId;
+    use rstest::rstest;
 
-    #[test]
+    use super::stubs;
+
+    #[rstest]
     fn test_string_reprs() {
-        let id = VenueOrderId::new("001");
+        let id = stubs::venue_order_id();
         assert_eq!(id.to_string(), "001");
         assert_eq!(format!("{id}"), "001");
     }

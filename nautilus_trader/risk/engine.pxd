@@ -80,8 +80,6 @@ cdef class RiskEngine(Component):
     cpdef void _handle_submit_order(self, SubmitOrder command)
     cpdef void _handle_submit_order_list(self, SubmitOrderList command)
     cpdef void _handle_modify_order(self, ModifyOrder command)
-    cpdef void _handle_cancel_order(self, CancelOrder command)
-    cpdef void _handle_cancel_all_orders(self, CancelAllOrders command)
 
 # -- PRE-TRADE CHECKS -----------------------------------------------------------------------------
 
@@ -96,10 +94,10 @@ cdef class RiskEngine(Component):
 
     cpdef void _deny_command(self, TradingCommand command, str reason)
     cpdef void _deny_new_order(self, TradingCommand command)
+    cpdef void _deny_modify_order(self, ModifyOrder command)
     cpdef void _deny_order(self, Order order, str reason)
     cpdef void _deny_order_list(self, OrderList order_list, str reason)
     cpdef void _reject_modify_order(self, Order order, str reason)
-    cpdef void _reject_cancel_order(self, Order order, str reason)
 
 # -- EGRESS ---------------------------------------------------------------------------------------
 
