@@ -544,12 +544,12 @@ cdef class Position:
         if self.is_inverse:
             return Money(
                 self.quantity.as_f64_c() * self.multiplier.as_f64_c() * (1.0 / last.as_f64_c()),
-                self.settlement_currency,
+                self.base_currency,
             )
         else:
             return Money(
                 self.quantity.as_f64_c() * self.multiplier.as_f64_c() * last.as_f64_c(),
-                self.settlement_currency,
+                self.quote_currency,
             )
 
     cpdef Money calculate_pnl(

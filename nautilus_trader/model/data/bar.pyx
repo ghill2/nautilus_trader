@@ -454,26 +454,6 @@ cdef class BarSpecification:
         """
         return BarSpecification.check_information_aggregated_c(self.aggregation)
 
-    def to_timedelta(self) -> pd.Timedelta or None:
-        if not self.is_time_aggregated():
-            raise RuntimeError("Unable to parse aggregation to timedelta")
-        elif self.aggregation == BarAggregation.MILLISECOND:
-            return pd.Timedelta(milliseconds=self.step)
-        elif self.aggregation == BarAggregation.SECOND:
-            return pd.Timedelta(seconds=self.step)
-        elif self.aggregation == BarAggregation.MINUTE:
-            return pd.Timedelta(minutes=self.step)
-        elif self.aggregation == BarAggregation.HOUR:
-            return pd.Timedelta(hours=self.step)
-        elif self.aggregation == BarAggregation.DAY:
-            return pd.Timedelta(days=self.step)
-        elif self.aggregation == BarAggregation.WEEK:
-            return pd.Timedelta(weeks=self.step)
-        elif self.aggregation == BarAggregation.MONTH:
-            return pd.Timedelta(weeks=self.step * 4)
-        else:
-            raise RuntimeError("Unable to parse aggregation to timedelta")
-
     cpdef BarSpecification with_price_type(self, PriceType price_type):
         return BarSpecification(self.step, self.aggregation, price_type)
 
