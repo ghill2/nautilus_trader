@@ -67,14 +67,21 @@ class BacktestDataConfig(NautilusConfig, frozen=True):
     """
     Represents the data configuration for one specific backtest run.
     """
+
     catalog_path: str
     data_cls: str
+    catalog_fs_protocol: Optional[str] = None
+    catalog_fs_storage_options: Optional[dict] = None
     instrument_id: Optional[str] = None
     start_time: Optional[Union[str, int]] = None
     end_time: Optional[Union[str, int]] = None
+    filter_expr: Optional[str] = None
+    client_id: Optional[str] = None
+    metadata: Optional[dict] = None
     bar_spec: Optional[str] = None
-    use_rust: Optional[bool] = True
-    
+    use_rust: Optional[bool] = False
+    batch_size: Optional[int] = 10_000
+
     @property
     def data_type(self) -> type:
         if isinstance(self.data_cls, str):

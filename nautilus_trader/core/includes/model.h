@@ -1384,6 +1384,8 @@ uint64_t quote_tick_hash(const struct QuoteTick_t *delta);
  */
 const char *quote_tick_to_cstr(const struct QuoteTick_t *tick);
 
+struct QuoteTick_t quote_tick_clone(const struct QuoteTick_t *tick);
+
 struct Ticker ticker_new(struct InstrumentId_t instrument_id, uint64_t ts_event, uint64_t ts_init);
 
 /**

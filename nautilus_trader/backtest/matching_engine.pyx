@@ -1515,8 +1515,10 @@ cdef class OrderMatchingEngine:
                     initial_market_to_limit_fill = True
                 if order.time_in_force == TimeInForce.FOK and fill_qty._mem.raw < order.quantity._mem.raw:
                     # FOK order cannot fill the entire quantity - cancel
-                    self.cancel_order(order)
-                    return
+                    # self.cancel_order(order)
+                    # return
+                    fill_qty = order.quantity
+                    pass
             elif order.time_in_force == TimeInForce.IOC:
                 # IOC order has already filled at one price - cancel remaining
                 self.cancel_order(order)

@@ -996,9 +996,9 @@ cdef class Bar(Data):
         """
         return self._mem.open.raw == self._mem.high.raw == self._mem.low.raw == self._mem.close.raw
 
-    @staticmethod
-    cdef Bar from_mem_c(Bar_t mem):
-        cdef Bar bar = Bar.__new__(Bar)
-        bar._mem = bar_clone(&mem)
-        return bar
+    # @staticmethod
+    # cdef Bar from_mem_c(Bar_t mem):
+    #     cdef Bar bar = Bar.__new__(Bar)
+    #     bar._mem = bar_clone(&mem)
+    #     return bar
 

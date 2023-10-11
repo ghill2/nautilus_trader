@@ -843,6 +843,8 @@ cdef extern from "../includes/model.h":
     # Returns a [`QuoteTick`] as a C string pointer.
     const char *quote_tick_to_cstr(const QuoteTick_t *tick);
 
+    QuoteTick_t quote_tick_clone(const QuoteTick_t *tick);
+
     Ticker ticker_new(InstrumentId_t instrument_id, uint64_t ts_event, uint64_t ts_init);
 
     # Returns a [`Ticker`] as a C string pointer.
