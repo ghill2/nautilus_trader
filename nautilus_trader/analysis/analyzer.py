@@ -492,40 +492,40 @@ class PortfolioAnalyzer:
 
         return output
 
-    def get_stats_data(
-        self,
-        engine: BacktestEngine,
-        account: Account,
-        positions: list[Position],
-    ) -> dict[str, Any]:
-        output = {}
+    # def get_stats_data(
+    #     self,
+    #     engine: BacktestEngine,
+    #     account: Account,
+    #     positions: list[Position],
+    # ) -> dict[str, Any]:
+    #     output = {}
 
-        for name, stat in self._statistics.items():
-            value = stat.calculate_from_data(engine, account, positions)
-            if value is None:
-                continue  # Not implemented
-            if not isinstance(value, (int, float, str, bool)):
-                value = str(value)
-            output[name] = value
+    #     for name, stat in self._statistics.items():
+    #         value = stat.calculate_from_data(engine, account, positions)
+    #         if value is None:
+    #             continue  # Not implemented
+    #         if not isinstance(value, (int, float, str, bool)):
+    #             value = str(value)
+    #         output[name] = value
 
-        return output
+    #     return output
 
-    def get_stats_data_formatted(
-        self,
-        engine: BacktestEngine,
-        account: Account,
-        positions: list[Position],
-    ) -> list[str]:
-        max_length: int = self._get_max_length_name()
-        stats = self.get_stats_data(engine, account, positions)
+    # def get_stats_data_formatted(
+    #     self,
+    #     engine: BacktestEngine,
+    #     account: Account,
+    #     positions: list[Position],
+    # ) -> list[str]:
+    #     max_length: int = self._get_max_length_name()
+    #     stats = self.get_stats_data(engine, account, positions)
 
-        output = []
-        for k, v in stats.items():
-            padding = max_length - len(k) + 1
-            if isinstance(v, (int, float, Decimal)):
-                v_formatted = f"{v:_}"
-            else:
-                v_formatted = str(v)
-            output.append(f"{k}: {' ' * padding}{v_formatted}")
+    #     output = []
+    #     for k, v in stats.items():
+    #         padding = max_length - len(k) + 1
+    #         if isinstance(v, (int, float, Decimal)):
+    #             v_formatted = f"{v:_}"
+    #         else:
+    #             v_formatted = str(v)
+    #         output.append(f"{k}: {' ' * padding}{v_formatted}")
 
-        return output
+    #     return output

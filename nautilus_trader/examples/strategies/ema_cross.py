@@ -1,5 +1,5 @@
-4  # -------------------------------------------------------------------------------------------------
-#  Copyright (C) 2015-2022 Nautech Systems Pty Ltd. All rights reserved.
+# -------------------------------------------------------------------------------------------------
+#  Copyright (C) 2015-2023 Nautech Systems Pty Ltd. All rights reserved.
 #  https://nautechsystems.io
 #
 #  Licensed under the GNU Lesser General Public License Version 3.0 (the "License");
@@ -19,7 +19,6 @@ from nautilus_trader.common.enums import LogColor
 from nautilus_trader.config import StrategyConfig
 from nautilus_trader.core.correctness import PyCondition
 from nautilus_trader.core.data import Data
-from nautilus_trader.core.datetime import unix_nanos_to_dt
 from nautilus_trader.core.message import Event
 from nautilus_trader.indicators.average.ema import ExponentialMovingAverage
 from nautilus_trader.model.data import Bar
@@ -29,7 +28,6 @@ from nautilus_trader.model.data import QuoteTick
 from nautilus_trader.model.data import Ticker
 from nautilus_trader.model.data import TradeTick
 from nautilus_trader.model.enums import OrderSide
-from nautilus_trader.model.enums import PriceType
 from nautilus_trader.model.identifiers import InstrumentId
 from nautilus_trader.model.instruments import Instrument
 from nautilus_trader.model.orderbook import OrderBook
@@ -67,7 +65,7 @@ class EMACrossConfig(StrategyConfig, frozen=True):
         how the `ExecutionEngine` handles position IDs (see docs).
 
     """
-    params: dict
+
     instrument_id: str
     bar_type: str
     trade_size: Decimal
@@ -75,8 +73,6 @@ class EMACrossConfig(StrategyConfig, frozen=True):
     slow_ema_period: int = 20
     close_positions_on_stop: bool = True
 
-class ExponentialMovingAverageFast(ExponentialMovingAverage): pass
-class ExponentialMovingAverageSlow(ExponentialMovingAverage): pass
 
 class EMACross(Strategy):
     """
@@ -111,42 +107,135 @@ class EMACross(Strategy):
         self.bar_type = BarType.from_str(config.bar_type)
         self.trade_size = Decimal(config.trade_size)
 
-        self.bar_types = {
-            PriceType.BID: self.bar_type.with_price_type(PriceType.BID),
-            PriceType.ASK: self.bar_type.with_price_type(PriceType.ASK),
-        }
+        # Create the indicators for the strategy
+        self.fast_ema = ExponentialMovingAverage(config.fast_ema_period)
+        self.slow_ema = ExponentialMovingAverage(config.slow_ema_period)
 
-        self.fast_ema = ExponentialMovingAverageFast(config.fast_ema_period)
-        self.slow_ema = ExponentialMovingAverageSlow(config.slow_ema_period)
-
-        self.instrument: Instrument = None
-        self.i = 0
         self.close_positions_on_stop = config.close_positions_on_stop
         self.instrument: Instrument = None
 
-    def on_start(self):
-        """Actions to be performed on strategy start."""
+    def on_start(self) -> None:
+        """
+        Actions to be performed on strategy start.
+        """
         self.instrument = self.cache.instrument(self.instrument_id)
         if self.instrument is None:
             self.log.error(f"Could not find instrument for {self.instrument_id}")
             self.stop()
             return
 
+        # Register the indicators for updating
         self.register_indicator_for_bars(self.bar_type, self.fast_ema)
         self.register_indicator_for_bars(self.bar_type, self.slow_ema)
+
+        # Get historical data
+        self.request_bars(self.bar_type)
+        # self.request_quote_ticks(self.instrument_id)
+        # self.request_trade_ticks(self.instrument_id)
+
+        # Subscribe to live data
         self.subscribe_bars(self.bar_type)
         self.subscribe_quote_ticks(self.instrument_id)
+        # self.subscribe_trade_ticks(self.instrument_id)
+        # self.subscribe_ticker(self.instrument_id)  # For debugging
+        # self.subscribe_order_book_deltas(self.instrument_id, depth=20)  # For debugging
+        # self.subscribe_order_book_snapshots(self.instrument_id, depth=20)  # For debugging
 
-    def on_bar(self, bar: Bar):
-        self.i += 1
-        self.log.warning("Strategy processed")
+    def on_instrument(self, instrument: Instrument) -> None:
+        """
+        Actions to be performed when the strategy is running and receives an instrument.
 
-        self.log.info(str(self.fast_ema) + repr(bar), LogColor.YELLOW)
+        Parameters
+        ----------
+        instrument : Instrument
+            The instrument received.
+
+        """
+        # For debugging (must add a subscription)
+        # self.log.info(repr(instrument), LogColor.CYAN)
+
+    def on_order_book_deltas(self, deltas: OrderBookDeltas) -> None:
+        """
+        Actions to be performed when the strategy is running and receives order book
+        deltas.
+
+        Parameters
+        ----------
+        deltas : OrderBookDeltas
+            The order book deltas received.
+
+        """
+        # For debugging (must add a subscription)
+        # self.log.info(repr(deltas), LogColor.CYAN)
+
+    def on_order_book(self, order_book: OrderBook) -> None:
+        """
+        Actions to be performed when the strategy is running and receives an order book.
+
+        Parameters
+        ----------
+        order_book : OrderBook
+            The order book received.
+
+        """
+        # For debugging (must add a subscription)
+        # self.log.info(repr(order_book), LogColor.CYAN)
+
+    def on_ticker(self, ticker: Ticker) -> None:
+        """
+        Actions to be performed when the strategy is running and receives a ticker.
+
+        Parameters
+        ----------
+        ticker : Ticker
+            The ticker received.
+
+        """
+        # For debugging (must add a subscription)
+        # self.log.info(repr(ticker), LogColor.CYAN)
+
+    def on_quote_tick(self, tick: QuoteTick) -> None:
+        """
+        Actions to be performed when the strategy is running and receives a quote tick.
+
+        Parameters
+        ----------
+        tick : QuoteTick
+            The tick received.
+
+        """
+        # For debugging (must add a subscription)
+        # self.log.info(repr(tick), LogColor.CYAN)
+
+    def on_trade_tick(self, tick: TradeTick) -> None:
+        """
+        Actions to be performed when the strategy is running and receives a trade tick.
+
+        Parameters
+        ----------
+        tick : TradeTick
+            The tick received.
+
+        """
+        # For debugging (must add a subscription)
+        # self.log.info(repr(tick), LogColor.CYAN)
+
+    def on_bar(self, bar: Bar) -> None:
+        """
+        Actions to be performed when the strategy is running and receives a bar.
+
+        Parameters
+        ----------
+        bar : Bar
+            The bar received.
+
+        """
+        self.log.info(repr(bar), LogColor.CYAN)
 
         # Check if indicators ready
         if not self.indicators_initialized():
             self.log.info(
-                f"Waiting for indicators to warm up " f"[{self.cache.bar_count(self.bar_type)}]...",
+                f"Waiting for indicators to warm up [{self.cache.bar_count(self.bar_type)}]...",
                 color=LogColor.BLUE,
             )
             return  # Wait for indicators to warm up...
@@ -162,7 +251,6 @@ class EMACross(Strategy):
             elif self.portfolio.is_net_short(self.instrument_id):
                 self.close_all_positions(self.instrument_id)
                 self.buy()
-                
         # SELL LOGIC
         elif self.fast_ema.value < self.slow_ema.value:
             if self.portfolio.is_flat(self.instrument_id):
@@ -179,7 +267,9 @@ class EMACross(Strategy):
             instrument_id=self.instrument_id,
             order_side=OrderSide.BUY,
             quantity=self.instrument.make_qty(self.trade_size),
+            # time_in_force=TimeInForce.FOK,
         )
+
         self.submit_order(order)
 
     def sell(self) -> None:
@@ -190,7 +280,9 @@ class EMACross(Strategy):
             instrument_id=self.instrument_id,
             order_side=OrderSide.SELL,
             quantity=self.instrument.make_qty(self.trade_size),
+            # time_in_force=TimeInForce.FOK,
         )
+
         self.submit_order(order)
 
     def on_data(self, data: Data) -> None:

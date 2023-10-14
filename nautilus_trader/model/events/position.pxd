@@ -74,7 +74,7 @@ cdef class PositionEvent(Event):
     """The average closing price.\n\n:returns: `double`"""
     cdef readonly double realized_return
     """The realized return for the position.\n\n:returns: `double`"""
-    cdef public Money realized_pnl
+    cdef readonly Money realized_pnl
     """The realized PnL for the position (including commissions).\n\n:returns: `Money`"""
     cdef readonly Money unrealized_pnl
     """The unrealized PnL for the position (including commissions).\n\n:returns: `Money`"""
