@@ -79,7 +79,6 @@ class BacktestDataConfig(NautilusConfig, frozen=True):
     client_id: Optional[str] = None
     metadata: Optional[dict] = None
     bar_spec: Optional[str] = None
-    use_rust: Optional[bool] = False
     batch_size: Optional[int] = 10_000
 
     @property
@@ -106,7 +105,6 @@ class BacktestDataConfig(NautilusConfig, frozen=True):
             "end": self.end_time,
             "filter_expr": parse_filters_expr(filter_expr),
             "metadata": self.metadata,
-            "use_rust": self.use_rust,
         }
 
     @property
