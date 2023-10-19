@@ -337,7 +337,7 @@ impl Currency {
             code: Ustr::from("PLN"),
             precision: 2,
             iso4217: 985,
-            name: Ustr::from("Polish złoty"),
+            name: Ustr::from("Polish zloty"),
             currency_type: CurrencyType::Fiat,
         })
     }
