@@ -71,7 +71,7 @@ class InteractiveBrokersDataClient(LiveMarketDataClient):
         ----------
         loop : asyncio.AbstractEventLoop
             The event loop for the client.
-        client : InteractiveBrokersClient
+            client : InteractiveBrokersClient
             The nautilus InteractiveBrokersClient using ibapi.
         msgbus : MessageBus
             The message bus for the client.

@@ -18,7 +18,7 @@ import re
 import time
 from decimal import Decimal
 from typing import Union
-
+import pandas as pd
 import msgspec
 
 # fmt: off
@@ -79,7 +79,8 @@ re_opt = re.compile(
 )
 re_ind = re.compile(r"^(?P<symbol>\w{1,3})$")
 re_fut = re.compile(r"^(?P<symbol>\w{1,3})(?P<month>[FGHJKMNQUVXZ])(?P<year>\d{2})$")
-re_fut_original = re.compile(r"^(?P<symbol>\w{1,3})(?P<month>[FGHJKMNQUVXZ])(?P<year>\d)$")
+re_fut_original = re.compile(r"^(?P<symbol>\w{1,3})(?P<month>[FGHJKMNQUVXZ])(?P<year>\d{1,2})$")
+# re_fut_original2 = re.compile(r"^(?P<symbol>\w{1,3})(?P<month>[FGHJKMNQUVXZ])(?P<year>\d{2})$")
 re_fut2 = re.compile(
     r"^(?P<symbol>\w{1,4})(?P<month>(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC))(?P<year>\d{2})$",
 )
@@ -166,7 +167,7 @@ def parse_futures_contract(
 ) -> FuturesContract:
     price_precision: int = _tick_size_to_precision(details.minTick)
     timestamp = time.time_ns()
-    instrument_id = ib_contract_to_instrument_id(details.contract)
+    instrument_id = ib_contract_details_to_instrument_id(details)
     return FuturesContract(
         instrument_id=instrument_id,
         raw_symbol=Symbol(details.contract.localSymbol),
@@ -177,10 +178,11 @@ def parse_futures_contract(
         multiplier=Quantity.from_str(details.contract.multiplier),
         lot_size=Quantity.from_int(1),
         underlying=details.underSymbol,
-        expiry_date=datetime.datetime.strptime(
-            details.contract.lastTradeDateOrContractMonth,
-            "%Y%m%d",
-        ).date(),
+        expiry_date=pd.Timestamp(details.contract.lastTradeDateOrContractMonth).to_pydatetime(),
+        # expiry_date=datetime.datetime.strptime(
+        #     details.contract.lastTradeDateOrContractMonth,
+        #     "%Y%m%d",
+        # ).date(),
         ts_event=timestamp,
         ts_init=timestamp,
         info=contract_details_to_dict(details),
@@ -295,11 +297,20 @@ def decade_digit(last_digit: str, contract: IBContract):
     else:
         return int(repr(datetime.datetime.now().year)[-2])
 
-
+def ib_contract_details_to_instrument_id(details: IBContractDetails) -> InstrumentId:
+    letter_month_idx = int(details.contractMonth[4:6]) - 1
+    letter_months = list(futures_month_to_code.values())
+    letter_month = letter_months[letter_month_idx]
+    print(details.contractMonth)
+    year = int(details.contractMonth[:4])
+    symbol = details.contract.symbol
+    venue = details.contract.exchange
+    return InstrumentId.from_str(f"{symbol}{letter_month}{year}.{venue}")
+    
 def ib_contract_to_instrument_id(contract: IBContract) -> InstrumentId:
     PyCondition.type(contract, IBContract, "IBContract")
-
     security_type = contract.secType
+    
     if security_type == "STK":
         symbol = contract.localSymbol.replace(" ", "-")
         venue = contract.primaryExchange if contract.exchange == "SMART" else contract.exchange
@@ -309,16 +320,9 @@ def ib_contract_to_instrument_id(contract: IBContract) -> InstrumentId:
     elif security_type == "CONTFUT":
         symbol = contract.localSymbol.replace(" ", "") or contract.symbol.replace(" ", "")
         venue = contract.exchange
-    elif security_type == "FUT" and (m := re_fut_original.match(contract.localSymbol)):
-        symbol = f"{m['symbol']}{m['month']}{decade_digit(m['year'], contract)}{m['year']}"
-        venue = contract.exchange
-    elif security_type == "FUT" and (m := re_fut2_original.match(contract.localSymbol)):
-        symbol = f"{m['symbol']}{futures_month_to_code[m['month']]}{m['year']}"
-        venue = contract.exchange
     elif security_type == "FOP" and (m := re_fop_original.match(contract.localSymbol)):
         symbol = f"{m['symbol']}{m['month']}{decade_digit(m['year'], contract)}{m['year']}{m['right']}{m['strike']}"
         venue = contract.exchange
-
     elif security_type in ["CASH", "CRYPTO"]:
         symbol = (
             f"{contract.localSymbol}".replace(".", "/") or f"{contract.symbol}/{contract.currency}"

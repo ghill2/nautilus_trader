@@ -30,13 +30,10 @@ class ProductClass(enum.Enum):
     STOCKS = "STK"
     OPTIONS = "OPTGRP"
     WARRANTS = "WNT"
+    FUTURES = "FUTGRP"
 
 
 class Exchange(enum.Enum):
-    """
-    Interactive Brokers Exchange.
-    """
-
     AEB = "aeb"
     ALPHA = "alpha"
     AMEX = "amex"
@@ -119,6 +116,41 @@ class Exchange(enum.Enum):
     VIRTX = "virtx"
     VSE = "vse"
     WSE = "wse"
+    
+class FutureExchange:
+    CFE = "cfe"  # fail
+    CME = "cme"  # success
+    CBOT = "cbot"  # success
+    COMEX = "comex"  # fail
+    NYMEX = "nymex"  # fail
+    NYBOT = "nybot"
+    ICEUS = "iceus"
+    NYSELIFFE = "nyseliffe"
+    CDE = "cde"
+    MEXDER = "mexder"
+    BELFOX = "belfox"
+    MATIF = "matif"
+    MONEP = "monep"
+    SMFE = "smfe"
+    # Europe
+    EUREX = "eurex"
+    IDEM = "idem"
+    FTA = "fta"
+    ENDEX = "endex"
+    MEFFRV = "meffrv"
+    OMS = "oms"
+    SOFFEX = "soffex"
+    IPE = "ipe"
+    ICEEU = "iceeu"
+    ICEEUSOFT = "iceeusoft"
+    LMEOTC = "lmeotc"
+    # ASIA
+    SNFE = "snfe"
+    HKFE = "hkfe"
+    # NSE
+    # SGX
+    KSE = "kse"
+    OSE = "ose.jpn"
 
 
 class Product(NamedTuple):
