@@ -1421,7 +1421,12 @@ cdef class Actor(Component):
 
         self._send_data_cmd(command)
 
-    cpdef void subscribe_bars(self, BarType bar_type, ClientId client_id = None):
+    cpdef void subscribe_bars(
+        self,
+        BarType bar_type,
+        ClientId client_id = None,
+        bint await_partial = False,
+    ):
         """
         Subscribe to streaming `Bar` data for the given bar type.
 
@@ -1432,6 +1437,9 @@ cdef class Actor(Component):
         client_id : ClientId, optional
             The specific client ID for the command.
             If ``None`` then will be inferred from the venue in the instrument ID.
+        await_partial : bool, default False
+            If the bar aggregator should await the arrival of a historical partial bar prior
+            to activaely aggregating new bars.
 
         """
         Condition.not_none(bar_type, "bar_type")
@@ -1442,10 +1450,15 @@ cdef class Actor(Component):
             priority=self.priority
         )
 
+        cdef dict metadata = {
+            "bar_type": bar_type,
+            "await_partial": await_partial,
+        }
+
         cdef Subscribe command = Subscribe(
             client_id=client_id,
             venue=bar_type.instrument_id.venue,
-            data_type=DataType(Bar, metadata={"bar_type": bar_type}),
+            data_type=DataType(Bar, metadata=metadata),
             command_id=UUID4(),
             ts_init=self._clock.timestamp_ns(),
         )
