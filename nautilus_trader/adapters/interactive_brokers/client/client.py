@@ -1085,6 +1085,30 @@ class InteractiveBrokersClient(Component, EWrapper):
             self.is_ib_ready.set()
 
     # -- Historical Data ---------------------------------------------------------------------------------
+
+    async def req_head_timestamp(self, contract: IBContract, what_to_show: str, use_rth: str):
+        name = "ReqHeadTimestamp"
+        if not (request := self.requests.get(name=name)):
+            req_id = self._next_req_id()
+            request = self.requests.add(
+                req_id=req_id,
+                name=name,
+                handle=functools.partial(
+                    self._client.reqHeadTimeStamp,
+                    reqId=req_id,
+                    contract=contract,
+                    whatToShow=what_to_show,
+                    useRTH=use_rth,
+                    formatDate=2,
+                ),
+                cancel=functools.partial(self._client.cancelHeadTimeStamp, reqId=req_id),
+            )
+            self._log.debug(f"reqHeadTimeStamp: {request.req_id=}, {contract=}")
+            request.handle()
+            return await self._await_request(request, 20)
+        else:
+            self._log.info(f"Request already exist for {request}")
+
     async def get_historical_bars(
         self,
         bar_type: BarType,
