@@ -660,10 +660,15 @@ class InteractiveBrokersClient(Component, EWrapper):
                     self._incoming_msg_queue.task_done()
                 except BadMessage:
                     self._log.info("BadMessage")
+                except TypeError as e:
+                    print(type(e))
+                    print(e)
+                    exit()
                 self._log.debug(
                     f"conn:{self._client.isConnected()} "
                     f"queue.sz:{self._client.msg_queue.qsize()}",
                 )
+                
         except asyncio.CancelledError:
             if not self._incoming_msg_queue.empty():
                 self._log.warning(
@@ -672,6 +677,7 @@ class InteractiveBrokersClient(Component, EWrapper):
                 )
             else:
                 self._log.debug("Msg queue processing stopped.")
+        
         finally:
             self._client.disconnect()
 
@@ -1108,6 +1114,9 @@ class InteractiveBrokersClient(Component, EWrapper):
             return await self._await_request(request, 20)
         else:
             self._log.info(f"Request already exist for {request}")
+    
+    def headTimestamp(self, reqId: int, headTimestamp: str):
+        print(reqId, headTimestamp)
 
     async def get_historical_bars(
         self,
