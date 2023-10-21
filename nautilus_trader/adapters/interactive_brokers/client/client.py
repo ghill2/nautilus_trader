@@ -1116,10 +1116,17 @@ class InteractiveBrokersClient(Component, EWrapper):
             self._log.info(f"Request already exist for {request}")
 
     def headTimestamp(self, req_id: int, head_timestamp: str):
-        print(head_timestamp)
+        print("HEAD TIMESTAMP: ", head_timestamp)
+        # self.logAnswer(current_fn_name(), vars())
+        # request = self.requests.get(req_id=req_id)
+        # print(request)
+        # request.future.set_result(request.result)
+        # print("REQUEST DONE:", request.done())
+        # self._end_request(req_id)
         self.logAnswer(current_fn_name(), vars())
-        request = self.requests.get(req_id=req_id)
-        request.future.set_result(request.result)
+        if not (request := self.requests.get(req_id=req_id)):
+            return
+        request.result.append(self.parseIBDatetime(head_timestamp))
         self._end_request(req_id)
 
             
@@ -1627,6 +1634,7 @@ class InteractiveBrokersClient(Component, EWrapper):
 
         if not request.future.done():
             if success:
+                print("REQUEST FINISHING")
                 request.future.set_result(request.result)
             else:
                 request.cancel()
