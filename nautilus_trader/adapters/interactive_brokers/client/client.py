@@ -660,10 +660,10 @@ class InteractiveBrokersClient(Component, EWrapper):
                     self._incoming_msg_queue.task_done()
                 except BadMessage:
                     self._log.info("BadMessage")
-                except TypeError as e:
-                    print(type(e))
-                    print(e)
-                    exit()
+                # except TypeError as e:
+                #     print(type(e))
+                #     print(e)
+                #     exit()
                 self._log.debug(
                     f"conn:{self._client.isConnected()} "
                     f"queue.sz:{self._client.msg_queue.qsize()}",

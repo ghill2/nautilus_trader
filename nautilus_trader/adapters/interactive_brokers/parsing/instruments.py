@@ -301,7 +301,6 @@ def ib_contract_details_to_instrument_id(details: IBContractDetails) -> Instrume
     letter_month_idx = int(details.contractMonth[4:6]) - 1
     letter_months = list(futures_month_to_code.values())
     letter_month = letter_months[letter_month_idx]
-    print(details.contractMonth)
     year = details.contractMonth[2:4]
     symbol = details.contract.symbol
     venue = details.contract.exchange
