@@ -1122,6 +1122,49 @@ class InteractiveBrokersClient(Component, EWrapper):
         request.future.set_result(request.result)
         self._end_request(req_id)
 
+            
+    async def get_historical_schedule(self, contract: IBContract):
+        name="names"
+        end = pd.Timestamp.utcnow() # - pd.Timedelta(days=400)
+        
+        if not (request := self.requests.get(name=name)):
+            req_id = self._next_req_id()
+            request = self.requests.add(
+                req_id=req_id,
+                name=name,
+                handle=functools.partial(
+                    self._client.reqHistoricalData,
+                    # tickerId="testing",
+                    reqId=req_id,
+                    contract=contract,
+                    endDateTime=end.strftime("%Y%m%d %H:%M:%S %Z"),
+                    durationStr="100 Y",
+                    barSizeSetting="1 day",
+                    whatToShow="SCHEDULE",
+                    useRTH=1,
+                    formatDate=1,
+                    keepUpToDate=False,
+                    chartOptions=[],
+                ),
+                cancel=functools.partial(self._client.cancelHistoricalData, reqId=req_id),
+            )
+            self._log.debug(f"reqHistoricalData: {request.req_id=}, {contract=}")
+            request.handle()
+            return await self._await_request(request, 20)
+        else:
+            self._log.info(f"Request already exist for {request}")
+    
+    def historicalSchedule(self, reqId: int, startDateTime: str, endDateTime: str, timeZone: str, sessions):
+        # super().historicalSchedule(reqId, startDateTime, endDateTime, timeZone, sessions)
+        print("HistoricalSchedule. ReqId:", reqId, "Start:", startDateTime, "End:", endDateTime, "TimeZone:", timeZone)
+        
+        data = [
+            (session.startDateTime, session.endDateTime, session.refDate)
+            for session in sessions
+        ]
+        df = pd.DataFrame(data, columns=['startDateTime', 'endDateTime', 'refDate'])
+        df["timeZone"] = timeZone
+        
     async def get_historical_bars(
         self,
         bar_type: BarType,
