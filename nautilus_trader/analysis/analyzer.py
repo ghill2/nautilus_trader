@@ -13,8 +13,6 @@
 #  limitations under the License.
 # -------------------------------------------------------------------------------------------------
 
-from __future__ import annotations
-
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -373,7 +371,7 @@ class PortfolioAnalyzer:
             value = stat.calculate_from_realized_pnls(realized_pnls)
             if value is None:
                 continue  # Not implemented
-            if not isinstance(value, (int, float, str, bool)):
+            if not isinstance(value, int | float | str | bool):
                 value = str(value)
             output[name] = value
 
@@ -393,7 +391,7 @@ class PortfolioAnalyzer:
             value = stat.calculate_from_returns(self._returns)
             if value is None:
                 continue  # Not implemented
-            if not isinstance(value, (int, float, str, bool)):
+            if not isinstance(value, int | float | str | bool):
                 value = str(value)
             output[name] = value
 
@@ -414,7 +412,7 @@ class PortfolioAnalyzer:
             value = stat.calculate_from_positions(self._positions)
             if value is None:
                 continue  # Not implemented
-            if not isinstance(value, (int, float, str, bool)):
+            if not isinstance(value, int | float | str | bool):
                 value = str(value)
             output[name] = value
 
@@ -487,7 +485,7 @@ class PortfolioAnalyzer:
         output = []
         for k, v in stats.items():
             padding = max_length - len(k) + 1
-            v_formatted = f"{v:_}" if isinstance(v, (int, float, Decimal)) else str(v)
+            v_formatted = f"{v:_}" if isinstance(v, int | float | Decimal) else str(v)
             output.append(f"{k}: {' ' * padding}{v_formatted}")
 
         return output

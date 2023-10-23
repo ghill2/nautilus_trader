@@ -17,8 +17,6 @@ import datetime
 import re
 import time
 from decimal import Decimal
-from typing import Union
-import pandas as pd
 import msgspec
 
 # fmt: off
@@ -103,7 +101,7 @@ def _extract_isin(details: IBContractDetails):
     raise ValueError("No ISIN found")
 
 
-def _tick_size_to_precision(tick_size: Union[float, Decimal]) -> int:
+def _tick_size_to_precision(tick_size: float | Decimal) -> int:
     tick_size_str = f"{tick_size:.10f}"
     return len(tick_size_str.partition(".")[2].rstrip("0"))
 
