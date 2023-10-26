@@ -137,7 +137,7 @@ class PortfolioStatistic:
         engine: BacktestEngine,
         account: Account,
         positions: list[Position],
-    ) -> Optional[Any]:
+    ) -> Any | None:
         pass  # Override in implementation
 
     def _check_valid_returns(self, returns: pd.Series) -> bool:

@@ -131,7 +131,7 @@ class StatisticFactory:
 
 class WarmupEngineConfig(NautilusConfig):
     catalog_path: str
-    end_date: Optional[Union[str, int]]
+    end_date: str | int | None
 
 
 class CacheConfig(NautilusConfig, frozen=True):
@@ -396,6 +396,7 @@ class ActorConfig(NautilusConfig, kw_only=True, frozen=True):
     """
 
     component_id: str | None = None
+    priority: int = 0
 
 
 class ImportableActorConfig(NautilusConfig, frozen=True):
