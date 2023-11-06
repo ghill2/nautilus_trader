@@ -92,6 +92,34 @@ if ibapi_version_specified != ibapi_version_installed:
         f"Expected `{ibapi_package}` version {ibapi_version_specified}, but found {ibapi_version_installed}",
     )
 
+import pkgutil
+import ibapi
+
+def noop(*args, **kwargs):
+    """
+    Do nothing.
+    """
+    return
+
+def silence_ibapi_logging(levels=["DEBUG", "INFO"]):
+    """
+    Silences the excessive ibapi logging to the root logger.
+    """
+    levels = levels or ["DEBUG", "INFO"]
+
+    for level in levels:
+        if level not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"):
+            raise ValueError("unknown log level: {0}".format(level))
+
+    for _, module_name, _ in pkgutil.iter_modules(ibapi.__path__):
+        module = __import__("ibapi.{0}".format(module_name), fromlist="ibapi")
+        if not hasattr(module, "logging"):
+            continue
+
+        for level in levels:
+            setattr(module.logging, level.lower(), noop)
+
+
 
 class InteractiveBrokersClient(Component, EWrapper):
     """
@@ -168,7 +196,17 @@ class InteractiveBrokersClient(Component, EWrapper):
         # Overrides for EClient
         self._client.sendMsg = self.sendMsg
         self._client.logRequest = self.logRequest
-
+        
+        # self._client.setServerLogLevel(4)
+        # silence_ibapi_logging()
+        
+        # Get all loggers saved in the global `logging` module
+        import logging
+        loggers = logging.Logger.manager.loggerDict
+        for name in loggers:
+            if "ibapi" in name:
+                logging.getLogger(name).setLevel(logging.CRITICAL)
+        
     def sendMsg(self, msg):  # : Override the logging for ibapi EClient.sendMsg
         full_msg = comm.make_msg(msg)
         self._log.debug(f"SENDING {current_fn_name(1)} {full_msg}")

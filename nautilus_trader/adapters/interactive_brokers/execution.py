@@ -196,8 +196,8 @@ class InteractiveBrokersExecutionClient(LiveExecutionClient):
         self._client.subscribe_event(f"execDetails-{account}", self._on_exec_details)
 
         # Load account balance
-        self._client.subscribe_account_summary()
-        await self._account_summary_loaded.wait()
+        # self._client.subscribe_account_summary()
+        # await self._account_summary_loaded.wait()
 
         self._set_connected(True)
 

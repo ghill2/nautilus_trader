@@ -289,3 +289,41 @@ class InteractiveBrokersInstrumentProvider(InstrumentProvider):
             instrument_id = self.contract_id_to_instrument_id.get(contract_id)
         instrument = self.find(instrument_id)
         return instrument
+    
+    def __getstate__(self):
+        # Define the state to be pickled
+        state = (
+            self._instruments,
+            self._currencies,
+            self.contract_details,
+            self.contract_id_to_instrument_id,
+            self._load_all_on_start,
+            self._filters,
+            self._venue,
+            self._load_ids_on_start,
+        )
+        return state
+
+    def __setstate__(self, state):
+        from nautilus_trader.common.enums import LogLevel
+        from nautilus_trader.test_kit.stubs.component import TestComponentStubs
+        from nautilus_trader.common.logging import Logger
+        from nautilus_trader.common.logging import LoggerAdapter
+        
+        self._instruments = state[0]
+        self._currencies = state[1]
+        self.contract_details = state[2]
+        self.contract_id_to_instrument_id = state[3]
+        self._loaded = False
+        self._loading = False
+        self._load_all_on_start = state[4]
+        self._filters = state[5]
+        self._venue = state[6]
+        self._load_ids_on_start = state[7]
+        clock = TestComponentStubs.clock()
+        logger = Logger(
+            clock=clock,
+            level_stdout=LogLevel.DEBUG,
+            bypass=False,
+        )
+        self._log = LoggerAdapter(type(self).__name__, logger)
