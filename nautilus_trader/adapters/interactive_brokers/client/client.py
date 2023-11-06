@@ -1672,7 +1672,6 @@ class InteractiveBrokersClient(Component, EWrapper):
 
         if not request.future.done():
             if success:
-                print("REQUEST FINISHING")
                 request.future.set_result(request.result)
             else:
                 request.cancel()

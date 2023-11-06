@@ -37,10 +37,35 @@ from nautilus_trader.model.instruments import Instrument
 from nautilus_trader.model.instruments import OptionsContract
 from nautilus_trader.model.objects import Price
 from nautilus_trader.model.objects import Quantity
-
+import pytz
 
 # fmt: on
-
+from typing import Union
+import datetime as dt
+from zoneinfo import ZoneInfo
+def parseIBDatetime(s: str) -> Union[dt.date, dt.datetime]:
+    """Parse string in IB date or datetime format to datetime."""
+    if len(s) == 8:
+        # YYYYmmdd
+        y = int(s[0:4])
+        m = int(s[4:6])
+        d = int(s[6:8])
+        t = dt.date(y, m, d)
+    elif s.isdigit():
+        t = dt.datetime.fromtimestamp(int(s), dt.timezone.utc)
+    elif s.count(' ') >= 2 and '  ' not in s:
+        # 20221125 10:00:00 Europe/Amsterdam
+        s0, s1, s2 = s.split(' ', 2)
+        t = dt.datetime.strptime(s0 + s1, '%Y%m%d%H:%M:%S')
+        t = t.replace(tzinfo=ZoneInfo(s2))
+    else:
+        # YYYYmmdd  HH:MM:SS
+        # or
+        # YYYY-mm-dd HH:MM:SS.0
+        ss = s.replace(' ', '').replace('-', '')[:16]
+        t = dt.datetime.strptime(ss, '%Y%m%d%H:%M:%S')
+    return t
+    
 futures_month_to_code: dict[str, str] = {
     "JAN": "F",
     "FEB": "G",
@@ -176,7 +201,8 @@ def parse_futures_contract(
         multiplier=Quantity.from_str(details.contract.multiplier),
         lot_size=Quantity.from_int(1),
         underlying=details.underSymbol,
-        expiry_date=pd.Timestamp(details.contract.lastTradeDateOrContractMonth).to_pydatetime(),
+        expiry_date=parseIBDatetime(details.contract.lastTradeDateOrContractMonth),
+        # expiry_date=pd.Timestamp(details.contract.lastTradeDateOrContractMonth).to_pydatetime(),
         # expiry_date=datetime.datetime.strptime(
         #     details.contract.lastTradeDateOrContractMonth,
         #     "%Y%m%d",
