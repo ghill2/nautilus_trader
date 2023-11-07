@@ -482,6 +482,19 @@ Even though it often makes sense to define a strategy which will trade a single
 instrument. The number of instruments a single strategy can work with is only limited by machine resources.
 ```
 
+### Managed GTD expiry
+
+It's possible for the strategy to manage expiry for orders with a time in force of GTD (_Good 'till Date_).
+This may be desirable if the exchange/broker does not support this time in force option, or for any
+reason you prefer the strategy to manage this.
+
+To use this option, pass `manage_gtd_expiry=True` to your `StrategyConfig`. When an order is submitted with
+a time in force of GTD, the strategy will automatically start an internal time alert.
+Once the internal GTD time alert is reached, the order will be canceled (if not already *closed*).
+
+Some venues (such as Binance Futures) support the GTD time in force, so to avoid conflicts when using
+`managed_gtd_expiry` you should set `use_gtd=False` for your execution client config.
+
 ### Multiple strategies
 
 If you intend running multiple instances of the same strategy, with different

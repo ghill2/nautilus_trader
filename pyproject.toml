@@ -74,6 +74,7 @@ betfair_parser = {version = "==0.7.1", optional = true}  # Pinned for stability
 
 [tool.poetry.extras]
 betfair = ["betfair_parser"]
+databento = ["databento"]
 docker = ["docker"]
 ib = ["nautilus_ibapi", "async-timeout"]
 redis = ["hiredis", "redis"]

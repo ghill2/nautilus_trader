@@ -396,7 +396,6 @@ class ActorConfig(NautilusConfig, kw_only=True, frozen=True):
     """
 
     component_id: str | None = None
-    priority: int = 0
 
 
 class ImportableActorConfig(NautilusConfig, frozen=True):
@@ -467,6 +466,9 @@ class StrategyConfig(NautilusConfig, kw_only=True, frozen=True):
     external_order_claims : list[str], optional
         The external order claim instrument IDs.
         External orders for matching instrument IDs will be associated with (claimed by) the strategy.
+    manage_contingent_orders : bool, default False
+        If OUO and OCO **open** contingent orders should be managed automatically by the strategy.
+        Any emulated orders which are active local will be managed by the `OrderEmulator` instead.
     manage_gtd_expiry : bool, default False
         If all order GTD time in force expirations should be managed by the strategy.
         If True then will ensure open orders have their GTD timers re-activated on start.
@@ -477,6 +479,7 @@ class StrategyConfig(NautilusConfig, kw_only=True, frozen=True):
     order_id_tag: str | None = None
     oms_type: str | None = None
     external_order_claims: list[str] | None = None
+    manage_contingent_orders: bool = False
     manage_gtd_expiry: bool = False
 
     
