@@ -286,7 +286,6 @@ cdef class Strategy(Actor):
             clock=clock,
             msgbus=msgbus,
             cache=cache,
-            component_name=type(self).__name__,
             active_local=False,
             submit_order_handler=None,
             cancel_order_handler=self.cancel_order,

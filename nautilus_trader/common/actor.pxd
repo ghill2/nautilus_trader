@@ -21,7 +21,7 @@ from libc.stdint cimport uint64_t
 from nautilus_trader.cache.base cimport CacheFacade
 from nautilus_trader.common.component cimport Clock
 from nautilus_trader.common.component cimport Component
-from nautilus_trader.common.component cimport Logger
+from nautilus_trader.common.component import Logger
 from nautilus_trader.common.component cimport MessageBus
 from nautilus_trader.core.data cimport Data
 from nautilus_trader.core.message cimport Event
@@ -66,7 +66,7 @@ cdef class Actor(Component):
     """The actors configuration.\n\n:returns: `NautilusConfig`"""
     cdef readonly Clock clock
     """The actors clock.\n\n:returns: `Clock`"""
-    cdef readonly Logger log
+    cdef public object log
     """The actors logger.\n\n:returns: `Logger`"""
     cdef readonly MessageBus msgbus
     """The message bus for the actor (if registered).\n\n:returns: `MessageBus` or ``None``"""

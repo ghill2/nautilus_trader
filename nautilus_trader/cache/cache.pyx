@@ -30,7 +30,7 @@ from nautilus_trader.accounting.accounts.base cimport Account
 from nautilus_trader.accounting.calculators cimport ExchangeRateCalculator
 from nautilus_trader.cache.facade cimport CacheDatabaseFacade
 from nautilus_trader.common.component cimport LogColor
-from nautilus_trader.common.component cimport Logger
+from nautilus_trader.common.component import Logger
 from nautilus_trader.core.correctness cimport Condition
 from nautilus_trader.core.rust.model cimport ContingencyType
 from nautilus_trader.core.rust.model cimport OmsType

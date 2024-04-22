@@ -34,7 +34,7 @@ from nautilus_trader.accounting.factory cimport AccountFactory
 from nautilus_trader.accounting.manager cimport AccountsManager
 from nautilus_trader.cache.base cimport CacheFacade
 from nautilus_trader.common.component cimport LogColor
-from nautilus_trader.common.component cimport Logger
+from nautilus_trader.common.component import Logger
 from nautilus_trader.common.component cimport MessageBus
 from nautilus_trader.core.correctness cimport Condition
 from nautilus_trader.core.rust.model cimport AccountType

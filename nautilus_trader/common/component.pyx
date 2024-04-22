@@ -994,15 +994,21 @@ RES = "[RES]"
 
 
 cdef void set_logging_clock_realtime_mode():
-    logging_clock_set_realtime_mode()
+    # logging_clock_set_realtime_mode()
+    from pyfutures.logger import LoggerAdapter
+    LoggerAdapter._mode = "realtime"
+
 
 
 cdef void set_logging_clock_static_mode():
-    logging_clock_set_static_mode()
+    # logging_clock_set_static_mode()
+    from pyfutures.logger import LoggerAdapter
+    LoggerAdapter._mode = "static"
 
 
 cdef void set_logging_clock_static_time(uint64_t time_ns):
-    logging_clock_set_static_time(time_ns)
+    from pyfutures.logger import LoggerAdapter
+    LoggerAdapter.set_timestamp_ns(time_ns)
 
 
 cpdef LogColor log_color_from_str(str value):
@@ -1110,7 +1116,7 @@ cpdef bint is_logging_initialized():
     return <bint>logging_is_initialized()
 
 
-cdef class Logger:
+cdef class LoggerRemoved:
     """
     Provides a logger adapter into the logging system.
 
@@ -1271,6 +1277,10 @@ cdef class Logger:
 
         self.error(f"{message}\n{ex_string}\n{stack_trace_lines}")
 
+
+def Logger(name):
+    from pyfutures.logger import get_nautilus_logger
+    return get_nautilus_logger(name=name)
 
 cpdef void log_header(
     TraderId trader_id,

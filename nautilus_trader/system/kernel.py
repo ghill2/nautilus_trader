@@ -189,7 +189,7 @@ class NautilusKernel:
                     "when not safe to bypass logging in a LIVE context",
                 )
 
-        self._log: Logger = Logger(name=name)
+        self._log: Logger = Logger(name="Kernel")
 
         log_header(
             trader_id=self._trader_id,

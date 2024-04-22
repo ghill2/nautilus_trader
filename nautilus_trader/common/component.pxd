@@ -156,7 +156,7 @@ cpdef void init_logging(
 cpdef bint is_logging_initialized()
 
 
-cdef class Logger:
+cdef class LoggerRemoved:
     cdef str _name
     cdef const char* _name_ptr
 
@@ -197,7 +197,7 @@ cdef class ComponentFSMFactory:
 
 cdef class Component:
     cdef readonly Clock _clock
-    cdef readonly Logger _log
+    cdef public object _log
     cdef readonly MessageBus _msgbus
     cdef FiniteStateMachine _fsm
     cdef dict _config
@@ -246,7 +246,8 @@ cdef class Component:
 cdef class MessageBus:
     cdef MessageBus_API _mem
     cdef Clock _clock
-    cdef Logger _log
+    cdef public object _log
+    cdef object _database
     cdef dict[Subscription, list[str]] _subscriptions
     cdef dict[str, Subscription[:]] _patterns
     cdef dict[str, object] _endpoints
@@ -306,7 +307,7 @@ cdef class Subscription:
 
 cdef class Throttler:
     cdef Clock _clock
-    cdef Logger _log
+    cdef public object _log
     cdef uint64_t _interval_ns
     cdef object _buffer
     cdef str _timer_name
