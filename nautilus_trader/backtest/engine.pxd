@@ -18,7 +18,7 @@ from libc.stdint cimport uint64_t
 
 from nautilus_trader.backtest.exchange cimport SimulatedExchange
 from nautilus_trader.common.component cimport Clock
-from nautilus_trader.common.component cimport Logger
+from nautilus_trader.common.component import Logger
 from nautilus_trader.core.data cimport Data
 from nautilus_trader.core.rust.backtest cimport TimeEventAccumulatorAPI
 from nautilus_trader.core.rust.core cimport CVec
@@ -29,7 +29,7 @@ from nautilus_trader.data.engine cimport DataEngine
 cdef class BacktestEngine:
     cdef object _config
     cdef Clock _clock
-    cdef Logger _log
+    cdef public object _log
     cdef TimeEventAccumulatorAPI _accumulator
 
     cdef object _kernel

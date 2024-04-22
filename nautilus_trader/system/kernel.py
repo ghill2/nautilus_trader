@@ -219,7 +219,7 @@ class NautilusKernel:
                     "when not safe to bypass logging in a LIVE context",
                 )
 
-        self._log: Logger = Logger(name=name)
+        self._log: Logger = Logger(name="Kernel")
         self._log.info("Building system kernel")
 
         # Setup loop (if sandbox live)

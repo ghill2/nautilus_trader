@@ -119,7 +119,6 @@ cdef class OrderEmulator(Actor):
             clock=clock,
             msgbus=msgbus,
             cache=cache,
-            component_name=type(self).__name__,
             active_local=True,
             submit_order_handler=self._handle_submit_order,
             cancel_order_handler=self._cancel_order,
