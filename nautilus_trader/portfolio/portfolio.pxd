@@ -17,7 +17,7 @@ from nautilus_trader.accounting.accounts.base cimport Account
 from nautilus_trader.accounting.manager cimport AccountsManager
 from nautilus_trader.cache.cache cimport Cache
 from nautilus_trader.common.component cimport Clock
-from nautilus_trader.common.component cimport Logger
+from nautilus_trader.common.component import Logger
 from nautilus_trader.common.component cimport MessageBus
 from nautilus_trader.core.rust.model cimport OrderSide
 from nautilus_trader.model.data cimport QuoteTick
@@ -35,7 +35,7 @@ from nautilus_trader.portfolio.base cimport PortfolioFacade
 
 cdef class Portfolio(PortfolioFacade):
     cdef Clock _clock
-    cdef Logger _log
+    cdef public object _log
     cdef MessageBus _msgbus
     cdef Cache _cache
     cdef AccountsManager _accounts

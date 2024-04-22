@@ -23,7 +23,7 @@ from nautilus_trader.common.component cimport RECV
 from nautilus_trader.common.component cimport SENT
 from nautilus_trader.common.component cimport Clock
 from nautilus_trader.common.component cimport LogColor
-from nautilus_trader.common.component cimport Logger
+from nautilus_trader.common.component import Logger
 from nautilus_trader.common.component cimport MessageBus
 from nautilus_trader.common.component cimport is_logging_initialized
 from nautilus_trader.core.correctness cimport Condition
@@ -95,20 +95,18 @@ cdef class OrderManager:
         Clock clock not None,
         MessageBus msgbus,
         Cache cache not None,
-        str component_name not None,
         bint active_local,
         submit_order_handler: Callable[[SubmitOrder], None] = None,
         cancel_order_handler: Callable[[Order], None] = None,
         modify_order_handler: Callable[[Order, Quantity], None] = None,
         bint debug = False,
     ):
-        Condition.valid_string(component_name, "component_name")
         Condition.callable_or_none(submit_order_handler, "submit_order_handler")
         Condition.callable_or_none(cancel_order_handler, "cancel_order_handler")
         Condition.callable_or_none(modify_order_handler, "modify_order_handler")
 
         self._clock = clock
-        self._log = Logger(name=component_name)
+        self._log = Logger(name=type(self).__name__)
         self._msgbus = msgbus
         self._cache = cache
 

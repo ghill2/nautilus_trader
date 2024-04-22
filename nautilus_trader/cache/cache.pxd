@@ -22,8 +22,8 @@ from nautilus_trader.accounting.calculators cimport ExchangeRateCalculator
 from nautilus_trader.cache.base cimport CacheFacade
 from nautilus_trader.cache.facade cimport CacheDatabaseFacade
 from nautilus_trader.common.actor cimport Actor
-from nautilus_trader.common.component cimport Logger
 from nautilus_trader.core.rust.model cimport AggregationSource
+from nautilus_trader.common.component import Logger
 from nautilus_trader.core.rust.model cimport OmsType
 from nautilus_trader.core.rust.model cimport OrderSide
 from nautilus_trader.core.rust.model cimport PositionSide
@@ -55,7 +55,7 @@ from nautilus_trader.trading.strategy cimport Strategy
 
 
 cdef class Cache(CacheFacade):
-    cdef Logger _log
+    cdef public object _log
     cdef CacheDatabaseFacade _database
     cdef ExchangeRateCalculator _xrate_calculator
 

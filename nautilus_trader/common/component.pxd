@@ -126,6 +126,8 @@ cdef str REQ
 cdef str RES
 
 
+
+
 cdef void set_logging_clock_realtime_mode()
 cdef void set_logging_clock_static_mode()
 cdef void set_logging_clock_static_time(uint64_t time_ns)
@@ -162,7 +164,7 @@ cpdef bint is_logging_initialized()
 cpdef void set_logging_pyo3(bint value)
 
 
-cdef class Logger:
+cdef class LoggerRemoved:
     cdef str _name
     cdef const char* _name_ptr
 
@@ -199,7 +201,7 @@ cdef class ComponentFSMFactory:
 
 cdef class Component:
     cdef readonly Clock _clock
-    cdef readonly Logger _log
+    cdef public object _log
     cdef readonly MessageBus _msgbus
     cdef FiniteStateMachine _fsm
     cdef dict _config
@@ -247,7 +249,7 @@ cdef class Component:
 
 cdef class MessageBus:
     cdef Clock _clock
-    cdef Logger _log
+    cdef public object _log
     cdef object _database
     cdef dict[Subscription, list[str]] _subscriptions
     cdef dict[str, Subscription[:]] _patterns
@@ -310,7 +312,7 @@ cdef class Subscription:
 
 cdef class Throttler:
     cdef Clock _clock
-    cdef Logger _log
+    cdef public object _log
     cdef uint64_t _interval_ns
     cdef object _buffer
     cdef str _timer_name
