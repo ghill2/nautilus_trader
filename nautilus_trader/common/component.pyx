@@ -983,19 +983,19 @@ RES = "[RES]"
 
 cdef void set_logging_clock_realtime_mode():
     # logging_clock_set_realtime_mode()
-    from pyfutures.logger import LoggerAdapter
+    from pytower.logger import LoggerAdapter
     LoggerAdapter._mode = "realtime"
 
 
 
 cdef void set_logging_clock_static_mode():
     # logging_clock_set_static_mode()
-    from pyfutures.logger import LoggerAdapter
+    from pytower.logger import LoggerAdapter
     LoggerAdapter._mode = "static"
 
 
 cdef void set_logging_clock_static_time(uint64_t time_ns):
-    from pyfutures.logger import LoggerAdapter
+    from pytower.logger import LoggerAdapter
     LoggerAdapter.set_timestamp_ns(time_ns)
 
 
@@ -1337,7 +1337,7 @@ cdef class LoggerRemoved:
 
 
 def Logger(name):
-    from pyfutures.logger import get_nautilus_logger
+    from pytower.logger import get_nautilus_logger
     return get_nautilus_logger(name=name)
 
 cpdef void log_header(
