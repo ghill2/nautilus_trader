@@ -32,6 +32,7 @@ use super::{
     KEY_PRICE_PRECISION, KEY_SIZE_PRECISION,
 };
 use crate::arrow::{ArrowSchemaProvider, Data, DecodeFromRecordBatch, EncodeToRecordBatch};
+use nautilus_core::nanos::UnixNanos;
 
 impl ArrowSchemaProvider for QuoteTick {
     fn get_schema(metadata: Option<HashMap<String, String>>) -> Schema {
@@ -142,11 +143,44 @@ impl DecodeFromRecordBatch for QuoteTick {
                     Quantity::from_raw(bid_size_values.value(i), size_precision).unwrap();
                 let ask_size =
                     Quantity::from_raw(ask_size_values.value(i), size_precision).unwrap();
-                let ts_event = ts_event_values.value(i);
-                let ts_init = ts_init_values.value(i);
+                let ts_event: UnixNanos = ts_event_values.value(i).into();
+                let ts_init = ts_init_values.value(i).into();
+                
+                let mut instrument_id_ = instrument_id;
+                if instrument_id.symbol.as_str().chars().count() != 6{
+                    let letter_months: [&str; 12] = ["F", "G", "H", "J", "K", "M", "N", "Q", "U", "V", "X", "Z"];
+
+                    let mut index: usize = ts_event
+                        .as_u64()
+                        .to_string()
+                        [4..6]
+                        .parse()
+                        .expect("Not a valid number");
+
+                    index -= 1;
+
+                    let letter = letter_months[index];
+                    let year = &ts_event.as_u64().to_string()[0..4];
+
+                    let month = format!(
+                        "{year}{letter}",
+                        year = year,
+                        letter = letter
+                    );
+
+                    let instrument_id_str = format!(
+                        "{symbol}={month}.{venue}",
+                        symbol = instrument_id.symbol.as_str(),
+                        month = month.as_str(),
+                        venue = instrument_id.venue.as_str()
+                    );
+
+                    instrument_id_ = InstrumentId::from(instrument_id_str.as_str());
+                }
+                
 
                 Ok(Self {
-                    instrument_id,
+                    instrument_id: instrument_id_,
                     bid_price,
                     ask_price,
                     bid_size,

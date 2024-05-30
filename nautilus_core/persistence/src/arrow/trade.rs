@@ -133,7 +133,7 @@ impl DecodeFromRecordBatch for TradeTick {
         let trade_id_values = extract_column::<StringArray>(cols, "trade_id", 3, DataType::Utf8)?;
         let ts_event_values = extract_column::<UInt64Array>(cols, "ts_event", 4, DataType::UInt64)?;
         let ts_init_values = extract_column::<UInt64Array>(cols, "ts_init", 5, DataType::UInt64)?;
-
+        
         let result: Result<Vec<Self>, EncodingError> = (0..record_batch.num_rows())
             .map(|i| {
                 let price = Price::from_raw(price_values.value(i), price_precision).unwrap();
@@ -146,12 +146,22 @@ impl DecodeFromRecordBatch for TradeTick {
                             format!("Invalid enum value, was {aggressor_side_value}"),
                         )
                     })?;
-                let trade_id = TradeId::from(trade_id_values.value(i));
-                let ts_event = ts_event_values.value(i);
-                let ts_init = ts_init_values.value(i);
 
+                let instrument_id_str = format!(
+                    "{symbol}={month}.{venue}",
+                    symbol = instrument_id.symbol.as_str(),
+                    month = trade_id_values.value(i),
+                    venue = instrument_id.venue.as_str()
+                );
+
+                let instrument_id_ = InstrumentId::from(instrument_id_str.as_str());
+                let trade_id = TradeId::from(trade_id_values.value(i));
+
+                let ts_event = ts_event_values.value(i).into();
+                let ts_init = ts_init_values.value(i).into();
+                
                 Ok(Self {
-                    instrument_id,
+                    instrument_id: instrument_id_,
                     price,
                     size,
                     aggressor_side,
