@@ -151,7 +151,7 @@ impl DecodeFromRecordBatch for QuoteTick {
                 let ts_event: UnixNanos = ts_event_values.value(i).into();
                 let ts_init = ts_init_values.value(i).into();
                 
-                let instrument_id_ = instrument_id;
+                let mut instrument_id_ = instrument_id;
                 if !instrument_id.symbol.as_str().ends_with("IDEALPRO=CASH") {
                     
 
@@ -181,7 +181,7 @@ impl DecodeFromRecordBatch for QuoteTick {
                         sec_type = parts[3]
                     );
 
-                    let instrument_id_ = InstrumentId::from(instrument_id_str.as_str());
+                    instrument_id_ = InstrumentId::from(instrument_id_str.as_str());
                 }
                 
 
