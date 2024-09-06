@@ -132,23 +132,28 @@ impl DecodeFromRecordBatch for QuoteTick {
         let ask_size_values = extract_column::<UInt64Array>(cols, "ask_size", 3, DataType::UInt64)?;
         let ts_event_values = extract_column::<UInt64Array>(cols, "ts_event", 4, DataType::UInt64)?;
         let ts_init_values = extract_column::<UInt64Array>(cols, "ts_init", 5, DataType::UInt64)?;
+        
+        let parts: Vec<&str> = instrument_id
+            .symbol
+            .as_str()
+            .split('=')
+            .collect();
+        
+        let letter_months: [&str; 12] = ["F", "G", "H", "J", "K", "M", "N", "Q", "U", "V", "X", "Z"];
 
         let result: Result<Vec<Self>, EncodingError> = (0..record_batch.num_rows())
             .map(|i| {
-                let bid_price =
-                    Price::from_raw(bid_price_values.value(i), price_precision).unwrap();
-                let ask_price =
-                    Price::from_raw(ask_price_values.value(i), price_precision).unwrap();
-                let bid_size =
-                    Quantity::from_raw(bid_size_values.value(i), size_precision).unwrap();
-                let ask_size =
-                    Quantity::from_raw(ask_size_values.value(i), size_precision).unwrap();
+                let bid_price = Price::from_raw(bid_price_values.value(i), price_precision);
+                let ask_price = Price::from_raw(ask_price_values.value(i), price_precision);
+                let bid_size = Quantity::from_raw(bid_size_values.value(i), size_precision);
+                let ask_size = Quantity::from_raw(ask_size_values.value(i), size_precision);
+                    
                 let ts_event: UnixNanos = ts_event_values.value(i).into();
                 let ts_init = ts_init_values.value(i).into();
                 
-                let mut instrument_id_ = instrument_id;
-                if instrument_id.symbol.as_str().chars().count() != 6{
-                    let letter_months: [&str; 12] = ["F", "G", "H", "J", "K", "M", "N", "Q", "U", "V", "X", "Z"];
+                let instrument_id_ = instrument_id;
+                if !instrument_id.symbol.as_str().ends_with("IDEALPRO=CASH") {
+                    
 
                     let mut index: usize = ts_event
                         .as_u64()
@@ -169,13 +174,14 @@ impl DecodeFromRecordBatch for QuoteTick {
                     );
 
                     let instrument_id_str = format!(
-                        "{symbol}={month}.{venue}",
-                        symbol = instrument_id.symbol.as_str(),
-                        month = month.as_str(),
-                        venue = instrument_id.venue.as_str()
+                        "{trading_class}={symbol}={exchange}={month}={sec_type}.SIM",
+                        trading_class = parts[0],
+                        symbol = parts[1],
+                        exchange = parts[2],
+                        sec_type = parts[3]
                     );
 
-                    instrument_id_ = InstrumentId::from(instrument_id_str.as_str());
+                    let instrument_id_ = InstrumentId::from(instrument_id_str.as_str());
                 }
                 
 

@@ -23,8 +23,10 @@ use datafusion::arrow::{
 };
 use nautilus_model::{
     data::bar::{Bar, BarType},
+    identifiers::InstrumentId,
     types::{price::Price, quantity::Quantity},
 };
+use nautilus_core::nanos::UnixNanos;
 
 use super::{
     extract_column, DecodeDataFromRecordBatch, EncodingError, KEY_BAR_TYPE, KEY_PRICE_PRECISION,
@@ -134,7 +136,17 @@ impl DecodeFromRecordBatch for Bar {
         let volume_values = extract_column::<UInt64Array>(cols, "volume", 4, DataType::UInt64)?;
         let ts_event_values = extract_column::<UInt64Array>(cols, "ts_event", 5, DataType::UInt64)?;
         let ts_init_values = extract_column::<UInt64Array>(cols, "ts_init", 6, DataType::UInt64)?;
-
+        
+        let parts: Vec<&str> =
+            bar_type
+            .instrument_id
+            .symbol
+            .as_str()
+            .split('=')
+            .collect();
+        let letter_months: [&str; 12] = ["F", "G", "H", "J", "K", "M", "N", "Q", "U", "V", "X", "Z"];
+        
+        
         let result: Result<Vec<Self>, EncodingError> = (0..record_batch.num_rows())
             .map(|i| {
                 let open = Price::from_raw(open_values.value(i), price_precision);
@@ -142,11 +154,45 @@ impl DecodeFromRecordBatch for Bar {
                 let low = Price::from_raw(low_values.value(i), price_precision);
                 let close = Price::from_raw(close_values.value(i), price_precision);
                 let volume = Quantity::from_raw(volume_values.value(i), size_precision);
-                let ts_event = ts_event_values.value(i).into();
+                let ts_event: UnixNanos = ts_event_values.value(i).into();
                 let ts_init = ts_init_values.value(i).into();
+                
+                let mut index: usize = ts_event
+                    .as_u64()
+                    .to_string()
+                    [4..6]
+                    .parse()
+                    .expect("Not a valid number");
+
+                index -= 1;
+
+                let letter = letter_months[index];
+                let year = &ts_event.as_u64().to_string()[0..4];
+
+                let month = format!(
+                    "{year}{letter}",
+                    year = year,
+                    letter = letter
+                );
+
+                let instrument_id_str = format!(
+                    "{trading_class}={symbol}={exchange}={month}={sec_type}.SIM",
+                    trading_class = parts[0],
+                    symbol = parts[1],
+                    exchange = parts[2],
+                    sec_type = parts[3]
+                );
+
+                 
+                let instrument_id_ = InstrumentId::from(instrument_id_str.as_str());
+                let bar_type_ = BarType::new(
+                    instrument_id_,
+                    bar_type.spec,
+                    bar_type.aggregation_source
+                );
 
                 Ok(Self {
-                    bar_type,
+                    bar_type: bar_type_,
                     open,
                     high,
                     low,
