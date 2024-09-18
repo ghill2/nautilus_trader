@@ -287,7 +287,7 @@ cdef class OrderBook(Data):
 
         orderbook_update(&self._mem, order._mem, flags, sequence, ts_event)
 
-    cpdef void delete(self, BookOrder order, uint64_t ts_event, uint8_t flags=0, uint64_t sequence=0):
+    cpdef void remove(self, BookOrder order, uint64_t ts_event, uint8_t flags=0, uint64_t sequence=0):
         """
         Cancel the given order in the book.
 
