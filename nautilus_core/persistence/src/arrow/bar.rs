@@ -136,10 +136,10 @@ impl DecodeFromRecordBatch for Bar {
         let volume_values = extract_column::<UInt64Array>(cols, "volume", 4, DataType::UInt64)?;
         let ts_event_values = extract_column::<UInt64Array>(cols, "ts_event", 5, DataType::UInt64)?;
         let ts_init_values = extract_column::<UInt64Array>(cols, "ts_init", 6, DataType::UInt64)?;
+        let instrument_id = bar_type.instrument_id();
         
         let parts: Vec<&str> =
-            bar_type
-            .instrument_id
+            instrument_id
             .symbol
             .as_str()
             .split('=')
@@ -187,8 +187,8 @@ impl DecodeFromRecordBatch for Bar {
                 let instrument_id_ = InstrumentId::from(instrument_id_str.as_str());
                 let bar_type_ = BarType::new(
                     instrument_id_,
-                    bar_type.spec,
-                    bar_type.aggregation_source
+                    bar_type.spec(),
+                    bar_type.aggregation_source()
                 );
 
                 Ok(Self {
