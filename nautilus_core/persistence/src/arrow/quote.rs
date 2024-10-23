@@ -152,8 +152,9 @@ impl DecodeFromRecordBatch for QuoteTick {
                 let ts_init = ts_init_values.value(i).into();
                 
                 let mut instrument_id_ = instrument_id;
-                if !instrument_id.symbol.as_str().ends_with("IDEALPRO=CASH") {
-                    
+                let symbol = instrument_id.symbol.as_str();
+                let is_currency_pair = symbol.ends_with("CASH") || symbol.ends_with("IND");
+                if !is_currency_pair {
 
                     let mut index: usize = ts_event
                         .as_u64()
@@ -161,8 +162,12 @@ impl DecodeFromRecordBatch for QuoteTick {
                         [4..6]
                         .parse()
                         .expect("Not a valid number");
-
+                    
                     index -= 1;
+                    if index >= letter_months.len() {
+                        panic!("index < letter_months: index is {:?} {:?}", index, instrument_id)
+                    }
+                    assert!(index < letter_months.len());
 
                     let letter = letter_months[index];
                     let year = &ts_event.as_u64().to_string()[0..4];
