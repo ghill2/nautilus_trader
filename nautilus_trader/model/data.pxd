@@ -202,6 +202,8 @@ cdef class Bar(Data):
 
     cpdef bint is_single_price(self)
 
+    cdef inline object to_capsule_c(self)
+
 
 cdef class BookOrder:
     cdef BookOrder_t _mem
@@ -408,6 +410,8 @@ cdef class QuoteTick(Data):
     cpdef Price extract_price(self, PriceType price_type)
     cpdef Quantity extract_size(self, PriceType price_type)
 
+    cdef inline object to_capsule_c(self)
+
 
 cdef class TradeTick(Data):
     cdef TradeTick_t _mem
@@ -460,3 +464,4 @@ cdef class TradeTick(Data):
 
     @staticmethod
     cdef TradeTick from_mem_c(TradeTick_t mem)
+    

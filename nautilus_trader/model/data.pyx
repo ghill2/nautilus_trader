@@ -1472,6 +1472,11 @@ cdef class Bar(Data):
         """
         return self._mem.open.raw == self._mem.high.raw == self._mem.low.raw == self._mem.close.raw
 
+    def to_capsule(self):
+        return self.to_capsule_c()
+
+    cdef inline object to_capsule_c(self):
+        return PyCapsule_New(&self._mem, NULL, NULL)
 
 cdef class DataType:
     """
@@ -4202,6 +4207,11 @@ cdef class QuoteTick(Data):
         else:
             raise ValueError(f"Cannot extract with PriceType {price_type_to_str(price_type)}")
 
+    def to_capsule(self):
+        return self.to_capsule_c()
+
+    cdef inline object to_capsule_c(self):
+        return PyCapsule_New(&self._mem, NULL, NULL)
 
 cdef class TradeTick(Data):
     """
