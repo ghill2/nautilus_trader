@@ -55,11 +55,11 @@ fn nautilus_pyo3(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     sys_modules.set_item(format!("{module_name}.{n}"), m.getattr(n)?)?;
     re_export_module_attributes(m, n)?;
 
-    let n = "cryptography";
-    let submodule = pyo3::wrap_pymodule!(nautilus_cryptography::python::cryptography);
-    m.add_wrapped(submodule)?;
-    sys_modules.set_item(format!("{module_name}.{n}"), m.getattr(n)?)?;
-    re_export_module_attributes(m, n)?;
+    // let n = "cryptography";
+    // let submodule = pyo3::wrap_pymodule!(nautilus_cryptography::python::cryptography);
+    // m.add_wrapped(submodule)?;
+    // sys_modules.set_item(format!("{module_name}.{n}"), m.getattr(n)?)?;
+    // re_export_module_attributes(m, n)?;
 
     let n = "execution";
     let submodule = pyo3::wrap_pymodule!(nautilus_execution::python::execution);
@@ -79,17 +79,17 @@ fn nautilus_pyo3(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     sys_modules.set_item(format!("{module_name}.{n}"), m.getattr(n)?)?;
     re_export_module_attributes(m, n)?;
 
-    let n = "infrastructure";
-    let submodule = pyo3::wrap_pymodule!(nautilus_infrastructure::python::infrastructure);
-    m.add_wrapped(submodule)?;
-    sys_modules.set_item(format!("{module_name}.{n}"), m.getattr(n)?)?;
-    re_export_module_attributes(m, n)?;
+    // let n = "infrastructure";
+    // let submodule = pyo3::wrap_pymodule!(nautilus_infrastructure::python::infrastructure);
+    // m.add_wrapped(submodule)?;
+    // sys_modules.set_item(format!("{module_name}.{n}"), m.getattr(n)?)?;
+    // re_export_module_attributes(m, n)?;
 
-    let n = "network";
-    let submodule = pyo3::wrap_pymodule!(nautilus_network::python::network);
-    m.add_wrapped(submodule)?;
-    sys_modules.set_item(format!("{module_name}.{n}"), m.getattr(n)?)?;
-    re_export_module_attributes(m, n)?;
+    // let n = "network";
+    // let submodule = pyo3::wrap_pymodule!(nautilus_network::python::network);
+    // m.add_wrapped(submodule)?;
+    // sys_modules.set_item(format!("{module_name}.{n}"), m.getattr(n)?)?;
+    // re_export_module_attributes(m, n)?;
 
     let n = "persistence";
     let submodule = pyo3::wrap_pymodule!(nautilus_persistence::python::persistence);

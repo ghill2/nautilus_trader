@@ -19,11 +19,11 @@ from Cython.Compiler.Version import version as cython_compiler_version
 from setuptools import Distribution
 from setuptools import Extension
 
-
 # Platform constants
 IS_LINUX = platform.system() == "Linux"
 IS_MACOS = platform.system() == "Darwin"
-IS_WINDOWS = platform.system() == "Windows"
+IS_WINDOWS = sysconfig.get_platform().startswith("win")
+IS_MSYS = os.name == "nt" and sysconfig.get_platform().startswith("mingw")
 IS_ARM64 = platform.machine() == "arm64"
 
 
@@ -37,6 +37,7 @@ PROFILE_MODE = bool(os.getenv("PROFILE_MODE", ""))
 ANNOTATION_MODE = bool(os.getenv("ANNOTATION_MODE", ""))
 # If PARALLEL build is enabled, uses all CPUs for compile stage of build
 PARALLEL_BUILD = os.getenv("PARALLEL_BUILD", "true").lower() == "true"
+
 # If COPY_TO_SOURCE is enabled, copy built *.so files back into the source tree
 COPY_TO_SOURCE = os.getenv("COPY_TO_SOURCE", "true").lower() == "true"
 # If PyO3 only then don't build C extensions to reduce compilation time
@@ -45,12 +46,6 @@ PYO3_ONLY = os.getenv("PYO3_ONLY", "").lower() != ""
 # Precision mode configuration
 # https://nautilustrader.io/docs/nightly/getting_started/installation#precision-mode
 HIGH_PRECISION = os.getenv("HIGH_PRECISION", "true").lower() == "true"
-if IS_WINDOWS and HIGH_PRECISION:
-    print(
-        "Warning: high-precision mode not supported on Windows (128-bit integers unavailable)\n"
-        "Forcing low-precision (64-bit) mode",
-    )
-    HIGH_PRECISION = False
 
 if PROFILE_MODE:
     # For subsequent debugging, the C source needs to be in the same tree as
@@ -81,17 +76,24 @@ if IS_WINDOWS:
     # Linker error 1181
     # https://docs.microsoft.com/en-US/cpp/error-messages/tool-errors/linker-tools-error-lnk1181?view=msvc-170&viewFallbackFrom=vs-2019
     RUST_LIB_PFX = ""
+    RUST_COPY_PFX = ""
     RUST_STATIC_LIB_EXT = "lib"
     RUST_DYLIB_EXT = "dll"
 elif IS_MACOS:
     RUST_LIB_PFX = "lib"
+    RUST_COPY_PFX = "lib"
     RUST_STATIC_LIB_EXT = "a"
     RUST_DYLIB_EXT = "dylib"
-else:  # Linux
+elif IS_LINUX:
     RUST_LIB_PFX = "lib"
+    RUST_COPY_PFX = "lib"
     RUST_STATIC_LIB_EXT = "a"
     RUST_DYLIB_EXT = "so"
-
+elif IS_MSYS:
+    RUST_LIB_PFX = "lib"
+    RUST_COPY_PFX = ""
+    RUST_STATIC_LIB_EXT = "a"
+    RUST_DYLIB_EXT = "dll"
 TARGET_DIR = Path.cwd() / "nautilus_core" / "target" / BUILD_MODE
 
 # Directories with headers to include
@@ -219,6 +221,31 @@ def _build_extensions() -> list[Extension]:
             "UserEnv.Lib",
             "WS2_32.Lib",
         ]
+    elif IS_MSYS:
+        extra_link_args += [
+            "C:/msys64/ucrt64/lib/libadvapi32.a", # AdvAPI32.Lib
+            "C:/msys64/ucrt64/lib/libbcrypt.a", # bcrypt.lib
+            "C:/msys64/ucrt64/lib/libcrypt32.a", # Crypt32.lib
+            "C:/msys64/ucrt64/lib/libiphlpapi.a", # Iphlpapi.lib
+            "C:/msys64/ucrt64/lib/libkernel32.a", # Kernel32.lib
+            "C:/msys64/ucrt64/lib/libncrypt.a", # ncrypt.lib
+            "C:/msys64/ucrt64/lib/libnetapi32.a", # Netapi32.lib
+            "C:/msys64/ucrt64/lib/libntdll.a", # ntdll.lib
+            "C:/msys64/ucrt64/lib/libole32.a", # Ole32.lib
+            "C:/msys64/ucrt64/lib/liboleaut32.a", # OleAut32.lib
+            "C:/msys64/ucrt64/lib/libpdh.a", # Pdh.lib
+            "C:/msys64/ucrt64/lib/libpowrprof.a", # PowrProf.lib
+            "C:/msys64/ucrt64/lib/libpropsys.a", # Propsys.lib
+            "C:/msys64/ucrt64/lib/libpsapi.a", # Psapi.lib
+            "C:/msys64/ucrt64/lib/libruntimeobject.a", # runtimeobject.lib
+            "C:/msys64/ucrt64/lib/libschannel.a", # schannel.lib
+            "C:/msys64/ucrt64/lib/libsecur32.a", # secur32.lib
+            "C:/msys64/ucrt64/lib/libshell32.a", # Shell32.lib
+            "C:/msys64/ucrt64/lib/libuser32.a", # User32.Lib
+            "C:/msys64/ucrt64/lib/libuserenv.a", # UserEnv.Lib
+            "C:/msys64/ucrt64/lib/libws2_32.a", # WS2_32.Lib
+            f"C:/msys64/ucrt64/lib/libpython3.{sys.version_info.minor}.dll.a"
+        ]
 
     print("Creating C extension modules...")
     print(f"define_macros={define_macros}")
@@ -243,6 +270,7 @@ def _build_distribution(extensions: list[Extension]) -> Distribution:
     if IS_WINDOWS:
         nthreads = min(nthreads, 60)
     print(f"nthreads={nthreads}")
+    nthreads = min(nthreads, 60)
 
     distribution = Distribution(
         {
@@ -279,10 +307,9 @@ def _copy_build_dir_to_project(cmd: build_ext) -> None:
 def _copy_rust_dylibs_to_project() -> None:
     # https://pyo3.rs/latest/building-and-distribution#manual-builds
     ext_suffix = sysconfig.get_config_var("EXT_SUFFIX")
-    src = Path(TARGET_DIR) / f"{RUST_LIB_PFX}nautilus_pyo3.{RUST_DYLIB_EXT}"
+    src = Path(TARGET_DIR) / f"{RUST_COPY_PFX}nautilus_pyo3.{RUST_DYLIB_EXT}"
     dst = Path("nautilus_trader/core") / f"nautilus_pyo3{ext_suffix}"
     shutil.copyfile(src=src, dst=dst)
-
     print(f"Copied {src} to {dst}")
 
 
@@ -384,7 +411,7 @@ if __name__ == "__main__":
     print(f"Nautilus Builder {nautilus_trader_version}")
     print("=====================================================================\033[0m")
     print(f"System: {platform.system()} {platform.machine()}")
-    print(f"Clang:  {_get_clang_version()}")
+    # print(f"Clang:  {_get_clang_version()}")
     print(f"Rust:   {_get_rustc_version()}")
     print(f"Python: {platform.python_version()} ({sys.executable})")
     print(f"Cython: {cython_compiler_version}")
