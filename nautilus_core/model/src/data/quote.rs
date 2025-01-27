@@ -41,7 +41,7 @@ use crate::{
 /// Represents a single quote tick in a market.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Builder)]
-#[serde(tag = "type")]
+// #[serde(tag = "type")]
 #[cfg_attr(
     feature = "python",
     pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")

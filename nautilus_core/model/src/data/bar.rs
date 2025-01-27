@@ -555,7 +555,7 @@ impl<'de> Deserialize<'de> for BarType {
 /// Represents an aggregated bar.
 #[repr(C)]
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(tag = "type")]
+// #[serde(tag = "type")]
 #[cfg_attr(
     feature = "python",
     pyo3::pyclass(module = "nautilus_trader.core.nautilus_pyo3.model")
